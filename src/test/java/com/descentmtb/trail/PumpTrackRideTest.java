@@ -53,7 +53,7 @@ class PumpTrackRideTest {
     }
 
     record Result(double laps, double seconds, boolean bailed, String bailReason, double minSpeed, double avgSpeed,
-                  double maxOffTrack, double maxLeanDeg, double maxLatG, double airFraction, double cornerSpeed,
+                  double maxOffTrack, double maxLeanDeg, double maxLatG, double p95LatG, double airFraction, double cornerSpeed,
                   String csv) {}
 
     static final double BASE = 64;
@@ -94,6 +94,7 @@ class PumpTrackRideTest {
         double unwrapped = th0, last = th0;
         double minV = 1e9, sumV = 0, maxOff = 0, maxLean = 0, maxG = 0;
         int air = 0, n = (int) (seconds / DT), cornerTicks = 0;
+        java.util.List<Double> latGs = new java.util.ArrayList<>();
         double cornerV = 0;
         for (int i = 0; i < n && !sim.bailed; i++) {
             // --- nearest point on the centre line (coarse + refine) ---
@@ -133,6 +134,7 @@ class PumpTrackRideTest {
             maxOff = Math.max(maxOff, off);
             maxLean = Math.max(maxLean, Math.abs(Math.toDegrees(sim.lean)));
             maxG = Math.max(maxG, latG);
+            latGs.add(latG);
             minV = Math.min(minV, sim.speed());
             sumV += sim.speed();
             if (sim.airborne) air++;
@@ -142,11 +144,11 @@ class PumpTrackRideTest {
                     sim.airborne ? 1 : 0, th));
         }
         double laps = Math.abs(unwrapped - th0) / (2 * Math.PI);
-        Result r = new Result(laps, n * DT, sim.bailed, sim.bailReason, minV, sumV / Math.max(1, n), maxOff, maxLean, maxG,
+        Result r = new Result(laps, n * DT, sim.bailed, sim.bailReason, minV, sumV / Math.max(1, n), maxOff, maxLean, maxG, percentile(latGs, .95),
                 air / (double) Math.max(1, n), cornerTicks == 0 ? 0 : cornerV / cornerTicks, csv.toString());
         System.out.printf(Locale.ROOT,
-                "[pump] %-22s laps %.2f in %.0fs | speed min %.1f avg %.1f corners %.1f m/s | off-line max %.2f m | lean max %.0f° | lat %.2f g | air %.0f%% | bail=%s %s%n",
-                name, r.laps, seconds, r.minSpeed, r.avgSpeed, r.cornerSpeed, r.maxOffTrack, r.maxLeanDeg, r.maxLatG,
+                "[pump] %-22s laps %.2f in %.0fs | speed min %.1f avg %.1f corners %.1f m/s | off-line max %.2f m | lean max %.0f° | lat %.2f g (95%%: %.2f) | air %.0f%% | bail=%s %s%n",
+                name, r.laps, seconds, r.minSpeed, r.avgSpeed, r.cornerSpeed, r.maxOffTrack, r.maxLeanDeg, r.maxLatG, r.p95LatG,
                 r.airFraction * 100, r.bailed, r.bailReason);
         try {
             Path dir2 = Path.of("build", "telemetry");
@@ -185,6 +187,12 @@ class PumpTrackRideTest {
         System.out.printf(Locale.ROOT, "[pump] legacy: slow bail=%s fast bail=%s%n", r.bailed, f.bailed);
     }
 
+    static double percentile(java.util.List<Double> values, double q) {
+        if (values.isEmpty()) return 0;
+        var sorted = values.stream().sorted().toList();
+        return sorted.get((int) Math.min(sorted.size() - 1, Math.floor(q * sorted.size())));
+    }
+
     // a "larger" pumptrack: the full 64 x 44 m selection the server allows, 5 m wide
     static final Point A = new Point(0, BASE, 0), C = new Point(64, BASE, 44);
 
@@ -199,6 +207,8 @@ class PumpTrackRideTest {
             assertTrue(r.laps > 3.0, "should lap several times, did " + r.laps);
             assertTrue(r.maxOffTrack < o.half() + 1.5, "left the track by " + r.maxOffTrack);
             assertTrue(r.minSpeed > 2.0, "stalled in a corner: " + r.minSpeed);
+            assertTrue(r.p95LatG < 1.3, "banks should hold the bike without violent side loads, 95% = " + r.p95LatG + " g");
+            assertTrue(r.maxOffTrack < 1.2, "line holds within the berms: " + r.maxOffTrack);
         }
     }
 

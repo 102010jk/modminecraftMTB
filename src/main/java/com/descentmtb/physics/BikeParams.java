@@ -32,7 +32,7 @@ public final class BikeParams {
 
     // ---------------- tyres ----------------
     /** Kinetic / static friction ratio once a tyre slides (drift feel). */
-    public double slideFriction = 0.82;
+    public double slideFriction = 0.93;
     /** Fraction of the lateral slip velocity removed per substep while gripping. */
     public double lateralStiffness = 0.65;
     public double tyreGrip = 1, tyreRolling = 1;
@@ -57,7 +57,9 @@ public final class BikeParams {
     /** Steering angle limit at walking pace (rad). */
     public double maxSteerAngle = 0.60;
     /** Full stick asks for this many g of cornering (× surface grip); >1 lets you slide. */
-    public double steerGripDemand = 1.12;
+    public double steerGripDemand = 0.88;
+    /** Rear brake + full lock multiplies the cornering demand by this (a controlled drift). */
+    public double driftDemandBoost = 1.25;
     public double steerResponse = 0.09;       // s, stick → bar smoothing
     public double minSteerAngle = 0.03;
 

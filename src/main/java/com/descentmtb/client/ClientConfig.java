@@ -20,6 +20,7 @@ public final class ClientConfig {
     public static final ModConfigSpec.DoubleValue BRAKE_STRENGTH, MANUAL_ANGLE, AIR_CONTROL, AIR_RECOVERY;
     public static final ModConfigSpec.DoubleValue FLIP_RATE, SPIN_RATE, PRESSURE_EFFECT;
     public static final ModConfigSpec.BooleanValue WALL_RIDES, TRICK_BANNER;
+    public static final ModConfigSpec.DoubleValue STEERING_GRIP, KEYBOARD_STEER_RAMP;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -46,6 +47,8 @@ public final class ClientConfig {
         FLIP_RATE = number(b, "flipRate", "Flip speed multiplier.", 1, .5, 1.6);
         SPIN_RATE = number(b, "spinRate", "Spin speed multiplier.", 1, .5, 1.6);
         PRESSURE_EFFECT = number(b, "pressureEffect", "How strongly tyre pressure affects rolling resistance and grip.", 1, 0, 2);
+        STEERING_GRIP = number(b, "steeringGrip", "How much of the tyre grip full steering asks for (0.88 = planted, above 1 the bike drifts by itself).", 0.88, 0.6, 1.2);
+        KEYBOARD_STEER_RAMP = number(b, "keyboardSteerRamp", "Seconds a keyboard steering key takes to reach full lock (0 = instantly).", 0.22, 0, 0.5);
         WALL_RIDES = b.translation("descentmtb.config.wallRides").define("wallRides", true);
         TRICK_BANNER = b.translation("descentmtb.config.trickBanner").define("trickBanner", true);
         b.pop();
@@ -79,6 +82,7 @@ public final class ClientConfig {
         p.airAlignAssist = AIR_RECOVERY.get();
         p.flipRate = defaults.flipRate * FLIP_RATE.get(); p.spinRate = defaults.spinRate * SPIN_RATE.get();
         p.wallRides = WALL_RIDES.get();
+        p.steerGripDemand = STEERING_GRIP.get();
         com.descentmtb.physics.BikeTuning.apply(p, defaults, bike.frontPsi(), bike.rearPsi(), bike.forkPsi(), PRESSURE_EFFECT.get());
     }
 

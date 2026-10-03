@@ -164,5 +164,7 @@
   "key.descentmtb.trail_cancel": "Builder: cancel preview",
   "key.descentmtb.trail_rotate": "Builder: rotate preview",
   "descentmtb.wand.hud.points": "[%s] modes • right-click: place points • Shift: clear points",
-  "descentmtb.wand.hud.preview": "[%s] confirm • [%s] cancel • [%s] rotate • arrows, PgUp/PgDn: move"
+  "descentmtb.wand.hud.preview": "[%s] confirm • [%s] cancel • [%s] rotate • arrows, PgUp/PgDn: move",
+  "descentmtb.config.steeringGrip": "Grip used by full steering",
+  "descentmtb.config.keyboardSteerRamp": "Keyboard steering ramp (s)"
 }

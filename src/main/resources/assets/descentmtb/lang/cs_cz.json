@@ -164,5 +164,7 @@
   "key.descentmtb.trail_cancel": "Stavitel: zrušit náhled",
   "key.descentmtb.trail_rotate": "Stavitel: otočit náhled",
   "descentmtb.wand.hud.points": "[%s] režimy • pravý klik: vytyč body • Shift: zrušit body",
-  "descentmtb.wand.hud.preview": "[%s] potvrdit • [%s] zrušit • [%s] otočit • šipky, PgUp/PgDn: posun"
+  "descentmtb.wand.hud.preview": "[%s] potvrdit • [%s] zrušit • [%s] otočit • šipky, PgUp/PgDn: posun",
+  "descentmtb.config.steeringGrip": "Podíl gripu při plném rejdu",
+  "descentmtb.config.keyboardSteerRamp": "Náběh řízení na klávesnici (s)"
 }

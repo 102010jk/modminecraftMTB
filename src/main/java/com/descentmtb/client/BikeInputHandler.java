@@ -71,6 +71,7 @@ public final class BikeInputHandler {
             kSteer = arrowX;
             kLean = arrowY;
         }
+        kSteer = rampKeyboardSteer(kSteer);
         float kPedal = down(win, ModKeyMappings.ACCELERATE) ? 1 : 0;
         float kBrake = down(win, ModKeyMappings.BRAKE) ? 1 : 0;
         float kBody = (down(win, ModKeyMappings.STRETCH) ? 1 : 0) - (down(win, ModKeyMappings.BEND) ? 1 : 0);
@@ -120,6 +121,24 @@ public final class BikeInputHandler {
         prevCamera = camera;
         prevResetCamera = resetCamera;
         return f;
+    }
+
+    private static float keyboardSteer;
+
+    /**
+     * A key is either 0 or full lock. Easing it in over {@code keyboardSteerRamp} seconds (a bit slower at
+     * speed, quicker on release) is what makes keyboard steering feel like a stick instead of a switch.
+     */
+    private static float rampKeyboardSteer(float target) {
+        double ramp = ClientConfig.KEYBOARD_STEER_RAMP.get();
+        if (ramp < .001) {
+            return keyboardSteer = target;
+        }
+        var bike = BikeClientController.riding();
+        double speed = bike != null && bike.sim() != null ? bike.sim().speed() : 0;
+        double rate = .05 / ramp * (speed > 8 ? .75 : 1) * (target == 0 ? 1.6 : 1);
+        keyboardSteer += (float) Math.max(-rate, Math.min(rate, target - keyboardSteer));
+        return keyboardSteer;
     }
 
     private static boolean down(long win, KeyMapping k) {

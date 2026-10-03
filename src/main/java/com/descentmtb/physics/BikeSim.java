@@ -173,8 +173,18 @@ public final class BikeSim {
         // ---------- steering: angle limit shrinks with speed (grip-limited carve) ----------
         double avgGrip = 0.5 * (front.grip + rear.grip);
         double demand = p.steerGripDemand * g * Math.max(avgGrip, 0.1);
+        // rear brake + full lock asks for more than the tyres give: a deliberate, controlled slide
+        if (c.brake > 0.5 && Math.abs(c.steer) > 0.8) {
+            demand *= p.driftDemandBoost;
+        }
         double v2 = Math.max(vFwd * vFwd, 0.25);
         double maxSteer = clamp(Math.atan(2 * p.halfWheelbase * demand / v2), p.minSteerAngle, p.maxSteerAngle);
+        // Already cornering at the limit (yaw rate x speed): ease the lock instead of tightening further.
+        // Without this a slowing bike winds the bars in (the limit grows as v falls) and spins out.
+        double cornering = Math.abs(omega.dot(V3.Y)) * Math.abs(vFwd) / Math.max(demand, 1e-6);
+        if (cornering > .85) {
+            maxSteer *= clamp((1.2 - cornering) / .35, .25, 1);
+        }
         double steerTarget = c.steer * maxSteer;
         steerAngle += (steerTarget - steerAngle) * (1 - Math.exp(-h / p.steerResponse));
 
@@ -244,8 +254,8 @@ public final class BikeSim {
             solveWheel(rear, brakeF * (1 - p.brakeFrontShare), h);
             if (!riderless) solveRider(h, grounded);
         }
-        front.sliding = front.contact && front.latSaturated;
-        rear.sliding = rear.contact && rear.latSaturated;
+        front.updateSliding();
+        rear.updateSliding();
         bodyContacts(h);
 
         // ---------- roll lock ----------
@@ -965,6 +975,17 @@ public final class BikeSim {
             accN = accL = accS = 0;
             latSaturated = false;
         }
+
+        /**
+         * A tyre only counts as sliding after it has been at its limit for a few substeps in a row (a single
+         * saturated substep is just a bump), and it recovers as soon as it is not saturated any more.
+         */
+        void updateSliding() {
+            satSteps = contact && latSaturated ? Math.min(satSteps + 1, 8) : Math.max(0, satSteps - 2);
+            sliding = contact && satSteps >= 3;
+        }
+
+        private int satSteps;
     }
 
     public record Event(Type type, double value, String info) {
