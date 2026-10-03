@@ -14,6 +14,21 @@ repositories {
     mavenCentral()
 }
 
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Headless physics "feel spec" tests (no Minecraft needed): .\gradlew.bat test
+test {
+    useJUnitPlatform()
+    testLogging {
+        showStandardStreams = true
+        events 'passed', 'failed'
+        exceptionFormat = 'full'
+    }
+}
+
 neoForge {
     version = "21.1.190"
 
