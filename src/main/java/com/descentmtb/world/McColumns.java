@@ -24,6 +24,11 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  */
 public final class McColumns implements BlockTerrain.Columns {
     private Level level;
+    private SableTerrain terrain;
+    public Terrain terrain() {
+        if (terrain == null) terrain = new SableTerrain(new BlockTerrain(this), this, level);
+        return terrain;
+    }
     private final Long2DoubleOpenHashMap cache = new Long2DoubleOpenHashMap();
     private final BlockPos.MutableBlockPos mpos = new BlockPos.MutableBlockPos();
 
@@ -32,12 +37,14 @@ public final class McColumns implements BlockTerrain.Columns {
     }
 
     public void setLevel(Level level) {
+        if (this.level != level) terrain = null;
         this.level = level;
         cache.clear();
     }
 
     public void newTick() {
         cache.clear();
+        if (terrain != null) terrain.newTick();
     }
 
     @Override
@@ -51,7 +58,7 @@ public final class McColumns implements BlockTerrain.Columns {
         for (int y = yStart; y >= yEnd; y--) {
             VoxelShape shape = shapeAt(x, y, z);
             boolean solid = !shape.isEmpty();
-            if (solid && aboveFree && RampBlock.isRamp(level.getBlockState(mpos.set(x, y, z)))) {
+            if (solid && aboveFree && (RampBlock.isRamp(level.getBlockState(mpos.set(x, y, z))) || level.getBlockState(mpos).getBlock() instanceof com.descentmtb.trail.TrailObstacleBlock)) {
                 break; // ramps are exact surfaces; NaN keeps them out of the neighbours' blur
             }
             if (solid && aboveFree) {
@@ -76,13 +83,22 @@ public final class McColumns implements BlockTerrain.Columns {
             if (!level.isLoaded(mpos)) return false;
             BlockState s = level.getBlockState(mpos);
             if (s.getCollisionShape(level, mpos).isEmpty()) continue;
+            if (s.getBlock() instanceof com.descentmtb.trail.TrailObstacleBlock obstacle) {
+                double fx=x-bx,fz=z-bz,h=y+obstacle.height(s,fx,fz);
+                if(h>yTop+.001)return false;
+                out[0]=h;
+                out[1]=(obstacle.height(s,fx+.001,fz)-obstacle.height(s,fx-.001,fz))/.002;
+                out[2]=(obstacle.height(s,fx,fz+.001)-obstacle.height(s,fx,fz-.001))/.002;
+                return true;
+            }
             if (!RampBlock.isRamp(s)) return false;          // ordinary block: use the smoother
             double fx = x - bx, fz = z - bz;
-            double h = y + RampBlock.heightAt(s, fx, fz);
+            if(level.getBlockEntity(mpos) instanceof com.descentmtb.trail.TrailSurfaceEntity shaped && !shaped.hasSurface(fx,fz)) continue;
+            double h = y + com.descentmtb.trail.TrailSurfaces.height(s, level, mpos, fx, fz);
             if (h > yTop + 1e-3) return false;
             out[0] = h;
-            out[1] = RampBlock.slopeX(s, fx, fz);
-            out[2] = RampBlock.slopeZ(s, fx, fz);
+            out[1] = com.descentmtb.trail.TrailSurfaces.slopeX(s, level, mpos, fx, fz);
+            out[2] = com.descentmtb.trail.TrailSurfaces.slopeZ(s, level, mpos, fx, fz);
             return true;
         }
         return false;
@@ -92,7 +108,12 @@ public final class McColumns implements BlockTerrain.Columns {
     public Terrain.Surface surface(int x, int z, double topY) {
         mpos.set(x, (int) Math.floor(topY - 0.01), z);
         BlockState s = level.getBlockState(mpos);
-        if (RampBlock.isRamp(s)) return Terrain.Surface.TRAIL;
+        if(s.is(com.descentmtb.registry.ModBlocks.AIRBAG.get()))return Terrain.Surface.AIRBAG;
+        if (RampBlock.isRamp(s)) {
+            if(level.getBlockEntity(mpos) instanceof com.descentmtb.ramp.RampBlockEntity be && be.getMaterial().is(BlockTags.PLANKS))return Terrain.Surface.WOOD;
+            return Terrain.Surface.TRAIL;
+        }
+        if(s.is(com.descentmtb.registry.ModBlocks.TRAIL_ROOTS.get()))return Terrain.Surface.WOOD;
         // snow layer on top of something
         if (s.is(Blocks.SNOW) || s.is(Blocks.SNOW_BLOCK) || s.is(Blocks.POWDER_SNOW)) return Terrain.Surface.SNOW;
         if (s.is(BlockTags.ICE) || s.getBlock().getFriction() > 0.9f) return Terrain.Surface.ICE;
@@ -113,6 +134,13 @@ public final class McColumns implements BlockTerrain.Columns {
         VoxelShape shape = shapeAt(bx, by, bz);
         if (shape.isEmpty()) return false;
         double lx = x - bx, ly = y - by, lz = z - bz;
+        BlockState state = level.getBlockState(mpos);
+        // Bike probes use the same continuous surface as the tyres. Vanilla's
+        // stair-shaped collision approximation is only for walking players.
+        if(state.getBlock() instanceof com.descentmtb.trail.TrailObstacleBlock obstacle) return ly<obstacle.height(state,lx,lz);
+        if (RampBlock.isRamp(state)) {
+            return com.descentmtb.trail.TrailSurfaces.solid(state, level, mpos, lx, ly, lz);
+        }
         for (AABB box : shape.toAabbs()) {
             if (lx >= box.minX && lx <= box.maxX && ly >= box.minY && ly <= box.maxY && lz >= box.minZ && lz <= box.maxZ) {
                 return true;
@@ -123,6 +151,28 @@ public final class McColumns implements BlockTerrain.Columns {
 
     private boolean hasCollision(int x, int y, int z) {
         return !shapeAt(x, y, z).isEmpty();
+    }
+
+    @Override
+    public double collisionTop(double x, double z, double top, double bottom) {
+        int bx = (int) Math.floor(x), bz = (int) Math.floor(z);
+        double fx = x - bx, fz = z - bz;
+        for (int y = (int) Math.floor(top); y >= Math.floor(bottom); y--) {
+            VoxelShape shape = shapeAt(bx, y, bz);
+            BlockState state = level.getBlockState(mpos);
+            if (RampBlock.isRamp(state)) {
+                if(level.getBlockEntity(mpos) instanceof com.descentmtb.trail.TrailSurfaceEntity shaped && !shaped.hasSurface(fx,fz)) continue;
+                double h = y + com.descentmtb.trail.TrailSurfaces.height(state, level, mpos, fx, fz);
+                if (h <= top + 1e-4 && h >= bottom) return h;
+                continue;
+            }
+            for (AABB box : shape.toAabbs()) {
+                double h = y + box.maxY;
+                if (fx >= box.minX && fx <= box.maxX && fz >= box.minZ && fz <= box.maxZ
+                        && h <= top + 1e-4 && h >= bottom) return h;
+            }
+        }
+        return Double.NaN;
     }
 
     private VoxelShape shapeAt(int x, int y, int z) {

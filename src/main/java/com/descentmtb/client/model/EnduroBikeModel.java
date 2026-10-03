@@ -87,6 +87,7 @@ public class EnduroBikeModel extends Model {
     private final ModelPart root;
     private final ModelPart swingarm, shockBody, shockShaft, shockSpring;
     private final ModelPart steer, forkLower, frontWheel, rearWheel;
+    private final ModelPart leverLeft, leverRight;
     private final ModelPart cranks, pedalLeft, pedalRight, chainTop, chainBottom;
 
     public EnduroBikeModel(ModelPart root) {
@@ -98,6 +99,8 @@ public class EnduroBikeModel extends Model {
         this.shockSpring = this.shockBody.getChild("shock_spring");
         this.shockShaft = this.swingarm.getChild("shock_shaft");
         this.steer = frame.getChild("steer_axis").getChild("steer");
+        this.leverLeft = steer.getChild("fork_upper").getChild("lever_l");
+        this.leverRight = steer.getChild("fork_upper").getChild("lever_r");
         this.forkLower = this.steer.getChild("fork_lower");
         this.frontWheel = this.forkLower.getChild("front_wheel");
         this.rearWheel = this.swingarm.getChild("rear_wheel");
@@ -158,6 +161,11 @@ public class EnduroBikeModel extends Model {
         aimChain(this.chainBottom, BB_Y + CHAINRING_R, BB_Z, ay + COG_R, az);
     }
 
+    public void setupBrake(float pressure) {
+        leverLeft.loadPose(leverLeft.getInitialPose()); leverRight.loadPose(leverRight.getInitialPose());
+        leverLeft.yRot -= pressure * .28f; leverRight.yRot += pressure * .28f;
+    }
+
     private static void aimChain(ModelPart chain, float y0, float z0, float y1, float z1) {
         float dy = y1 - y0, dz = z1 - z0;
         chain.y = (y0 + y1) * 0.5f;
@@ -215,6 +223,8 @@ public class EnduroBikeModel extends Model {
         PartDefinition steer_axis = bone(frame, "steer_axis", 0.0f, -15.5319f, -4.5454f, -26.5f, 0.0f, 0.0f);
         PartDefinition steer = bone(steer_axis, "steer", 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
         PartDefinition fork_upper = bone(steer, "fork_upper", 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+        fork_upper.addOrReplaceChild("mini_pump", CubeListBuilder.create().texOffs(70, 16)
+                .addBox(1.9f, 2.2f, 0.1f, 0.35f, 4.3f, 0.35f), PartPose.ZERO);
         cube(fork_upper, "crown", "black", 0, 30, 0.0f, 1.375f, 0.05f, 3.75f, 0.85f, 1.7f, 0.0f, 0.0f, 0.0f);
         cube(fork_upper, "steerer", "silver", 116, 24, 0.0f, -0.45f, 0.0f, 0.62f, 2.9f, 0.62f, 0.0f, 0.0f, 0.0f);
         cube(fork_upper, "top_cap", "black", 78, 46, 0.0f, -1.05f, 0.0f, 1.45f, 0.4f, 1.45f, 0.0f, 0.0f, 0.0f);

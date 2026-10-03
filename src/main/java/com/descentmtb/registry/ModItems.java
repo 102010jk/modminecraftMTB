@@ -2,6 +2,7 @@ package com.descentmtb.registry;
 
 import com.descentmtb.DescentMtb;
 import com.descentmtb.item.MountainBikeItem;
+import com.descentmtb.entity.BikeType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
@@ -19,6 +20,10 @@ public final class ModItems {
 
     public static final DeferredItem<MountainBikeItem> MOUNTAIN_BIKE =
             ITEMS.registerItem("mountain_bike", MountainBikeItem::new, new Item.Properties().stacksTo(1));
+    public static final DeferredItem<MountainBikeItem> HARDTAIL_BIKE =
+            ITEMS.registerItem("hardtail_bike", p -> new MountainBikeItem(p, BikeType.HARDTAIL), new Item.Properties().stacksTo(1));
+    public static final DeferredItem<com.descentmtb.item.BikePumpItem> BIKE_PUMP =
+            ITEMS.registerItem("bike_pump", com.descentmtb.item.BikePumpItem::new, new Item.Properties().stacksTo(1));
 
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TAB =
             TABS.register("main", () -> CreativeModeTab.builder()
@@ -26,6 +31,8 @@ public final class ModItems {
                     .icon(() -> new ItemStack(MOUNTAIN_BIKE.get()))
                     .displayItems((params, output) -> {
                         output.accept(MOUNTAIN_BIKE.get());
+                        output.accept(HARDTAIL_BIKE.get());
+                        output.accept(BIKE_PUMP.get());
                         ModBlocks.TAB_ITEMS.forEach(s -> output.accept(s.get()));
                     })
                     .build());

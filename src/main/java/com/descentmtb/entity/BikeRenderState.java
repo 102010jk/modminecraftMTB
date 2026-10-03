@@ -4,6 +4,7 @@ import com.descentmtb.network.BikeStatePayload;
 import com.descentmtb.physics.BikeParams;
 import com.descentmtb.physics.BikeSim;
 import com.descentmtb.physics.V3;
+import com.descentmtb.trick.Trick;
 
 /**
  * Everything needed to draw a bike (and place its rider) for one tick. The
@@ -16,7 +17,12 @@ public final class BikeRenderState {
     public double yaw, pitch, lean, steer;
     public double compF, compR, spinF, spinR, crank;
     public double riderUp, riderFwd;
+    public double brake;
     public boolean airborne, bailed;
+    public BikeType bikeType = BikeType.ENDURO;
+    public Trick trick = Trick.NONE;
+    public double trickAmount, trickProgress;
+    public int trickSide = 1;
 
     public void copyFrom(BikeRenderState o) {
         com = o.com;
@@ -33,8 +39,14 @@ public final class BikeRenderState {
         crank = o.crank;
         riderUp = o.riderUp;
         riderFwd = o.riderFwd;
+        brake = o.brake;
         airborne = o.airborne;
         bailed = o.bailed;
+        bikeType = o.bikeType;
+        trick = o.trick;
+        trickAmount = o.trickAmount;
+        trickProgress = o.trickProgress;
+        trickSide = o.trickSide;
     }
 
     void fromSim(BikeSim s, BikeRenderState prev) {
@@ -52,12 +64,23 @@ public final class BikeRenderState {
         crank = s.crankAngle;
         riderUp = s.riderUp;
         riderFwd = s.riderFwd;
+        brake = s.brake;
         airborne = s.airborne;
         bailed = s.bailed;
+        bikeType = s.bikeType;
+        trick = s.tricks.trick;
+        trickAmount = s.tricks.amount;
+        trickProgress = s.tricks.progress;
+        trickSide = s.tricks.side;
     }
 
     void fromSynced(MountainBikeEntity e, BikeRenderState prev) {
-        BikeParams p = MountainBikeEntity.PARAMS;
+        BikeParams p = e.params();
+        bikeType = e.bikeType();
+        trick = Trick.byId(e.dTrick());
+        trickAmount = e.dTrickAmount();
+        trickProgress = e.dTrickProgress();
+        trickSide = e.dTrickSide();
         V3 newCom = new V3(e.getX(), e.getY() + MountainBikeEntity.COM_HEIGHT, e.getZ());
         double newYaw = Math.toRadians(e.getYRot());
         if (prev != null) newYaw = unwrapNear(newYaw, prev.yaw);
@@ -85,6 +108,7 @@ public final class BikeRenderState {
         crank = e.dCrank();
         riderUp = e.dRiderUp();
         riderFwd = e.dRiderFwd();
+        brake = e.dBrake();
         airborne = air;
         bailed = e.dBailed();
 
@@ -102,7 +126,7 @@ public final class BikeRenderState {
         V3 fH = new V3(-sy, 0, cy);
         V3 fwd = fH.mul(cp).addScaled(V3.Y, sp);
         V3 up = fH.mul(-sp).addScaled(V3.Y, cp);
-        return com.addScaled(up, -0.15).addScaled(fwd, -0.19);
+        return com.addScaled(up, bikeType.feetUp).addScaled(fwd, bikeType.feetFwd);
     }
 
     public V3 upAxis() {

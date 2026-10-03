@@ -12,6 +12,8 @@ public class SpeedHud implements LayeredDraw.Layer {
     @Override
     public void render(GuiGraphics g, DeltaTracker delta) {
         Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.options.hideGui) return;
+        TrickToast.render(g);
         MountainBikeEntity bike = BikeClientController.riding();
         if (mc.player == null || mc.options.hideGui || bike == null || bike.sim() == null) return;
         BikeSim sim = bike.sim();

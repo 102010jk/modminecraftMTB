@@ -9,5 +9,6 @@ public final class RampClient {
 
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers e) {
         e.registerBlockEntityRenderer(ModBlocks.RAMP_BE.get(), RampRenderer::new);
+        e.registerBlockEntityRenderer(ModBlocks.TRAIL_BE.get(), RampRenderer::new);
     }
 }

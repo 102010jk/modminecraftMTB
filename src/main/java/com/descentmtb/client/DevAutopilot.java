@@ -3,98 +3,165 @@ package com.descentmtb.client;
 import com.descentmtb.DescentMtb;
 import com.descentmtb.entity.MountainBikeEntity;
 import com.descentmtb.physics.Controls;
+import com.descentmtb.physics.V3;
+import com.descentmtb.trick.Trick;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import java.util.Locale;
 
-/**
- * Development-only test pilot ({@code -Ddescentmtb.autopilot=true}, see the
- * {@code runClientAuto} Gradle run): mounts a bike in the test world, rides a
- * short script and saves screenshots of each camera to {@code run/screenshots},
- * then quits. Lets the developer check visuals without taking over the screen.
- * Inert in normal play.
- */
+/** Development-only end-to-end ride: both bikes, jump, tricks, crash, get up and remount. */
 public final class DevAutopilot {
     public static final boolean ENABLED = Boolean.getBoolean("descentmtb.autopilot");
+    private static final boolean KEEP_OPEN = Boolean.getBoolean("descentmtb.autopilot.keepOpen");
+    private static final int CRASH_PHASE = 8;
+    private static boolean finished, sawManual, sawWall;
+    private static int tick, phase, rideTick = -1, mountAt = -1, afterBail = -1, sableWait = -1;
+    private static BlockPos o;
+    private static boolean flew, shotAir, shotTrick, sawRagdoll, remountSent;
+    private static MountainBikeEntity crashedBike;
 
-    private static int tick;
-    private static int rideTick = -1;
+    static boolean active() { return ENABLED && !finished && tick >= 60 && rideTick >= 0 && afterBail < 0; }
 
-    static boolean active() {
-        return ENABLED && rideTick >= 0;
+    static void prepareBike(MountainBikeEntity bike) {
+        if (!ENABLED || o == null || tick < 60 || afterBail >= 0) return;
+        bike.respawnAt(o.getX() + .5, o.getY(), o.getZ() + (phase == CRASH_PHASE ? 50.5 : 2.5), 0);
+        if (phase == 3) {
+            V3 lift = new V3(0, 2.5, 0);
+            bike.sim().pos = bike.sim().pos.add(lift);
+            bike.sim().riderPos = bike.sim().riderPos.add(lift);
+        }
+        bike.sim().vel = bike.sim().riderVel = new V3(0, 0, phase == CRASH_PHASE ? 12 : phase == 0 ? 9.2 : phase==7?18:11);
+        rideTick = 0;
+        BikeCamera.debugSide = phase==7?-1:1;
     }
 
-    /** Called every client tick. */
     static void clientTick() {
-        if (!ENABLED) return;
+        if (!ENABLED || finished) return;
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer p = mc.player;
         if (p == null || mc.level == null) return;
         tick++;
-        if (tick == 40) {
-            p.connection.sendCommand("time set 6000");
-            p.connection.sendCommand("weather clear");
-            if (!(p.getVehicle() instanceof MountainBikeEntity)) {
-                p.connection.sendCommand("summon descentmtb:mountain_bike ~2 ~1 ~ {Rotation:[" + p.getYRot() + "f,0f]}");
+        if (tick == 20) cmd(p, "ride @s dismount");
+        if (tick == 30) {
+            // Test platform above the terrain; only tagged pilot bikes are removed.
+            o = new BlockPos(p.blockPosition().getX(), 200, p.blockPosition().getZ());
+            int x = o.getX(), y = o.getY(), z = o.getZ();
+            cmd(p, "kill @e[type=descentmtb:mountain_bike,tag=mtb_autopilot]");
+            cmd(p, "time set 6000"); cmd(p, "weather clear");
+            cmd(p, String.format(Locale.ROOT, "tp @s %.1f %d %.1f 0 0", x + .5, y, z + .5));
+            cmd(p, String.format("fill %d %d %d %d %d %d minecraft:grass_block", x - 4, y - 1, z - 2, x + 4, y - 1, z + 70));
+            cmd(p, String.format("fill %d %d %d %d %d %d minecraft:air", x - 4, y, z - 2, x + 4, y + 14, z + 70));
+            cmd(p, String.format("fill %d %d %d %d %d %d descentmtb:ramp[facing=south,start=0,end=6,profile=concave]", x - 1, y, z + 24, x + 1, y, z + 24));
+            cmd(p, String.format("fill %d %d %d %d %d %d descentmtb:ramp[facing=south,start=6,end=16,profile=linear]", x - 1, y, z + 25, x + 1, y, z + 25));
+            cmd(p, String.format("fill %d %d %d %d %d %d minecraft:stone", x - 4, y, z + 62, x + 4, y + 3, z + 62));
+
+        }
+        if (tick == 35) cmd(p,"mtbdevtrail");
+        if (tick == 45) spawn(p);
+        if(tick==60&&!com.descentmtb.trail.DevTrailTests.PASSED){if(com.descentmtb.trail.DevTrailTests.FAILED)fail(mc,"world construction tests failed");else tick=59;return;}
+        if (tick == 60 || tick == mountAt) {
+            mountAt = -1;
+            cmd(p, "ride @s mount @e[type=descentmtb:mountain_bike,tag=mtb_autopilot,limit=1,sort=nearest]");
+        }
+        if (tick < 60 || mountAt >= 0) return;
+        if (p.getVehicle() instanceof MountainBikeEntity bike) {
+            if (remountSent) {
+                if(sableWait<0){cmd(p,"mtbdevsable");sableWait=0;}
+                sableWait++;
+                if(com.descentmtb.world.DevSableTests.FAILED){fail(mc,"Sable integration test failed");return;}
+                if(!com.descentmtb.world.DevSableTests.PASSED){if(sableWait>180)fail(mc,"Sable integration test timed out");return;}
+                DescentMtb.LOG.info("[autopilot] PASS: enduro jump, hardtail tailwhip/barspin, gentle drop, manual/no-hander, natural whip/table, wallride, ragdoll, standing and remount");
+                finished = true;
+                BikeCamera.debugSide = 0;
+                mc.options.hideGui = false;
+                BikeClientController.toast("Testy prošly — můžeš jezdit");
+                shot(mc, "remounted");
+                if (!KEEP_OPEN) mc.stop();
+                return;
+            }
+            if (rideTick >= 0) script(mc, bike, ++rideTick);
+        } else if (rideTick > 0 && afterBail < 0) {
+            if (phase != CRASH_PHASE) { fail(mc, "unexpected bail in jump/trick phase " + phase); return; }
+            afterBail = 0;
+        }
+        if (afterBail >= 0) {
+            afterBail++;
+            sawRagdoll |= RagdollClient.localActive();
+            if (afterBail == 4) shot(mc, "ragdoll_air");
+            if (afterBail == 25) shot(mc, "ragdoll_down");
+            if (afterBail == 70) shot(mc, "ragdoll_up");
+            if (afterBail >= 125 && !remountSent) {
+                if (!sawRagdoll || RagdollClient.localLocked() || crashedBike == null) {
+                    fail(mc, "ragdoll did not recover: seen=" + sawRagdoll + " locked=" + RagdollClient.localLocked() + " bike=" + (crashedBike != null)); return;
+                }
+                shot(mc, "after_walk_view");
+                cmd(p, String.format(Locale.ROOT, "tp @s %.3f %.3f %.3f", crashedBike.getX(), crashedBike.getY() + 1, crashedBike.getZ()));
+                cmd(p, "ride @s mount @e[type=descentmtb:mountain_bike,tag=mtb_autopilot,limit=1,sort=nearest]");
+                remountSent = true;
             }
         }
-        if (tick == 70 && !(p.getVehicle() instanceof MountainBikeEntity)) {
-            p.connection.sendCommand("ride @s mount @e[type=descentmtb:mountain_bike,limit=1,sort=nearest]");
-        }
-        if (p.getVehicle() instanceof MountainBikeEntity) {
-            if (rideTick < 0) rideTick = 0;
-            rideTick++;
-            script(mc, rideTick);
-        }
+        if (tick > 1800) fail(mc, "timed out in phase " + phase);
     }
 
-    /** Scripted controls (replaces the gamepad / keyboard while active). */
     static BikeInputHandler.Frame frame() {
-        int t = rideTick;
-        float pedal = t < 140 ? 0.8f : 0.3f;
-        float steer = (float) Math.sin(t * 0.03) * 0.25f;
-        float body = 0;
-        if (t >= 200 && t < 208) body = -1;          // bend ...
-        if (t >= 208 && t < 214) body = 1;           // ... and pop
-        if (t >= 300 && t < 340) body = -1;          // crouched screenshot
-        return new BikeInputHandler.Frame(new Controls(steer, 0, pedal, 0, body, 0, false, 0, 0),
-                false, false, false, false);
+        MountainBikeEntity bike = BikeClientController.riding();
+        double z = bike != null ? bike.getZ() - o.getZ() : 0;
+        float body = phase == 3 ? 0 : z > 19.5 && z < 24.6 ? -1 : z >= 24.6 && z < 27 ? 1 : 0;
+        boolean trick = (phase == 1 || phase == 2 || phase == 4) && bike != null && bike.sim() != null && bike.sim().airborne && z > 25.8;
+        double air=bike!=null&&bike.sim()!=null&&bike.sim().airborne?bike.sim().airTime:0;
+        float airSteer=phase==5&&z>26.5&&air>.15?(air<.42?.65f:air<.72?-.65f:0):0;
+        float tweak=phase==6&&air>.08&&air<.65?1:phase==7&&air>0&&z>26.5&&z<42?1:0;
+        float lean = phase == 4 && z > 6 && z < 17 ? -1 : 0;
+        return new BikeInputHandler.Frame(new Controls(airSteer, lean, 1, 0, body, tweak,
+                trick, trick && phase != 4 ? 1 : 0, trick ? phase == 1 ? -1 : phase == 4 ? 1 : 0 : 0), false, false, false, false);
     }
 
-    private static void script(Minecraft mc, int t) {
-        switch (t) {
-            case 50 -> mc.options.hideGui = true;
-            case 60 -> shot(mc, "fp_standing");
-            case 70 -> { BikeCamera.debugSide = 1; }
-            case 80 -> shot(mc, "side_right");
-            case 85 -> { BikeCamera.debugSide = 2; }
-            case 95 -> shot(mc, "front");
-            case 100 -> { BikeCamera.debugSide = -1; }
-            case 110 -> { shot(mc, "side_left"); BikeCamera.debugSide = 0; }
-            case 302 -> BikeCamera.debugSide = 1;
-            case 315 -> { shot(mc, "side_crouch"); BikeCamera.debugSide = 0; }
-            case 120 -> shot(mc, "fp_riding");
-            case 205 -> shot(mc, "fp_bend");
-            case 230 -> {
-                BikeCamera.cycle();                // -> third person
-            }
-            case 250 -> shot(mc, "tp_chase");
-            case 270 -> BikeCamera.cycle();        // -> far
-            case 290 -> shot(mc, "tp_far");
-            case 295 -> BikeCamera.cycle();        // -> helmet again
-            case 330 -> shot(mc, "fp_crouch");
-            case 360 -> {
-                DescentMtb.LOG.info("[autopilot] done");
-                mc.stop();
-            }
-            default -> {}
+    private static void script(Minecraft mc, MountainBikeEntity bike, int t) {
+        if (t == 5) {mc.options.hideGui = phase < 5;mc.gui.getChat().clearMessages(false);}
+        if (t == 20) shot(mc, phase == 0 ? "enduro_side" : phase == CRASH_PHASE ? "crash_run_in" : phase == 1 || phase == 2 ? "hardtail_side" : "gentle_drop");
+        double z = bike.getZ() - o.getZ();
+        if (bike.sim() == null) return;
+        if (bike.sim().airborne && (z > 25 || phase == 3)) {
+            flew = true;
+            if (!shotAir && phase == 0 && z > 26.6) { shot(mc, "ramp_air_side"); shotAir = true; }
         }
+        if (phase == 4 && !sawManual && z > 10 && z < 17 && !bike.sim().front.contact && bike.sim().rear.contact) {
+            shot(mc, "manual"); sawManual = true;
+        }
+        if (bike.sim().tricks.trick != Trick.NONE && (bike.sim().tricks.progress > .3 || bike.sim().tricks.amount > .8) && !shotTrick) {
+            shot(mc, phase == 1 ? "hardtail_tailwhip" : phase == 2 ? "hardtail_barspin" : "no_hander"); shotTrick = true;
+        }
+        if(phase==5&&bike.sim().maxWhip>.55&&bike.sim().airTime>.4&&!shotTrick){shot(mc,"natural_whip");shotTrick=true;}
+        if(phase==6&&bike.sim().maxTable>.85&&bike.sim().airTime>.4&&!shotTrick){shot(mc,"natural_table");shotTrick=true;}
+        if(phase==7&&bike.sim().wallRide){sawWall=true;if(Math.abs(bike.sim().lean)>1.1&&!shotTrick){shot(mc,"wallride");shotTrick=true;}}
+        if (phase < CRASH_PHASE && z > (phase==7?45:38) && !bike.sim().airborne) {
+            if ((phase==7&&!sawWall)||((phase==5||phase==6)&&!shotTrick)||!flew || ((phase == 1 || phase == 2 || phase == 4) && !shotTrick) || (phase == 4 && !sawManual)) {
+                fail(mc, "missing jump/trick/manual in phase " + phase + " flew="+flew+" trick="+shotTrick+" wall="+sawWall); return;
+            }
+            DescentMtb.LOG.info("[autopilot] phase {} passed: jump landed, trick={}", phase, shotTrick);
+            phase++;
+            if(phase==7)cmd(mc.player,String.format("fill %d %d %d %d %d %d minecraft:stone",o.getX()-1,o.getY(),o.getZ()+27,o.getX()-1,o.getY()+4,o.getZ()+43));
+            if(phase==8)cmd(mc.player,String.format("fill %d %d %d %d %d %d minecraft:air",o.getX()-1,o.getY(),o.getZ()+27,o.getX()-1,o.getY()+4,o.getZ()+43));
+            rideTick = -1; flew = shotAir = shotTrick = false;
+            cmd(mc.player, "ride @s dismount");
+            cmd(mc.player, "kill @e[type=descentmtb:mountain_bike,tag=mtb_autopilot]");
+            spawn(mc.player); mountAt = tick + 10;
+        }
+        if (phase == CRASH_PHASE) crashedBike = bike;
     }
 
+    private static void spawn(LocalPlayer p) {
+        cmd(p, String.format(Locale.ROOT,
+                "summon descentmtb:mountain_bike %.1f %d %.1f {Rotation:[0f,0f],BikeType:%d,Tags:[\"mtb_autopilot\"]}",
+                o.getX() + .5, o.getY(), o.getZ() + (phase == CRASH_PHASE ? 50.5 : 2.5), phase == 1 || phase == 2 ? 1 : 0));
+    }
+    private static void cmd(LocalPlayer p, String c) { p.connection.sendCommand(c); }
+    private static void fail(Minecraft mc, String why) { DescentMtb.LOG.error("[autopilot] FAIL: {}", why); mc.stop(); }
     private static void shot(Minecraft mc, String name) {
         Screenshot.grab(mc.gameDirectory, "mtb_" + name + ".png", mc.getMainRenderTarget(),
                 msg -> DescentMtb.LOG.info("[autopilot] {}", msg.getString()));
     }
-
     private DevAutopilot() {}
 }

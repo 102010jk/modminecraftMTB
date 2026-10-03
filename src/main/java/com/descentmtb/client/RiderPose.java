@@ -2,9 +2,13 @@ package com.descentmtb.client;
 
 import com.descentmtb.entity.BikeRenderState;
 import com.descentmtb.entity.MountainBikeEntity;
+import com.descentmtb.entity.BikeType;
+import com.descentmtb.trick.Trick;
+import com.descentmtb.trick.TrickAnimation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.world.entity.LivingEntity;
 
 /**
@@ -19,20 +23,7 @@ import net.minecraft.world.entity.LivingEntity;
  */
 public final class RiderPose {
     private static final float PX = 16f / 0.9375f;
-    /** Grips relative to the feet (pedal axis): forward / up / half-width, metres. */
-    private static final float GRIP_FWD = 0.46f, GRIP_UP = 0.74f, GRIP_HALF = 0.33f;
     private static final float CRANK_PX = 0.17f * PX;
-
-    /** Descenders enduro tweaks (LB + right stick). */
-    public enum Trick { NONE, NO_HANDER, TABLETOP, NAC_NAC, CAN_CAN, SUPERMAN }
-
-    public static Trick trickFor(float x, float y) {
-        if (Math.abs(x) < 0.35f && Math.abs(y) < 0.35f) return Trick.NONE;
-        boolean side = Math.abs(x) >= 0.35f;
-        if (y > 0.35f) return side ? Trick.TABLETOP : Trick.NO_HANDER;
-        if (y < -0.35f) return side ? Trick.CAN_CAN : Trick.SUPERMAN;
-        return Trick.NAC_NAC;
-    }
 
     /** Body stance in model px: how far the shoulders drop, how far forward they sit, torso pitch. */
     public record Stance(float bend, float shoulderFwd, float theta) {
@@ -56,7 +47,11 @@ public final class RiderPose {
         float riderFwd = (float) BikeRenderState.lerp(pt, a.riderFwd, b.riderFwd);
         float crank = (float) BikeRenderState.lerp(pt, a.crank, b.crank);
         float steer = (float) BikeRenderState.lerp(pt, a.steer, b.steer);
-        Trick trick = (bike == BikeClientController.riding()) ? BikeClientController.trick() : Trick.NONE;
+        float brake = (float) BikeRenderState.lerp(pt, a.brake, b.brake);
+        float progress = (float) BikeRenderState.lerp(pt, a.trickProgress, b.trickProgress);
+        Trick trick = b.trick;
+        float amount = (float) TrickAnimation.ease(BikeRenderState.lerp(pt, a.trickAmount, b.trickAmount));
+        BikeType type = bike.bikeType();
         boolean bailed = b.bailed;
 
         // ---------------- torso ----------------
@@ -64,7 +59,7 @@ public final class RiderPose {
         float bend = st.bend();
         float sz = -st.shoulderFwd();                 // shoulders ahead of the pedals (-Z = forward)
         float theta = st.theta();
-        if (trick == Trick.SUPERMAN) theta = 1.35f;
+        if (trick == Trick.SUPERMAN || trick == Trick.SUPERMAN_SEATGRAB) theta += (1.35f - theta) * amount;
         if (bailed) theta = 0.2f;
 
         m.body.xRot = theta;
@@ -86,32 +81,50 @@ public final class RiderPose {
 
         // ---------------- arms to the grips ----------------
         float shoulderY = bend + 2f;
-        float gz = -GRIP_FWD * PX, gy = 24f - GRIP_UP * PX, gx = GRIP_HALF * PX;
-        float swing = (float) Math.sin(steer) * GRIP_HALF * PX;   // bars turning moves the grips
+        float gz = -type.gripFwd * PX, gy = 24f - type.gripUp * PX, gx = type.gripHalf * PX;
+        float swing = (float) Math.sin(steer) * type.gripHalf * PX;
         armTo(m.rightArm, -5f, shoulderY, sz, -gx, gy, gz - swing);
         armTo(m.leftArm, 5f, shoulderY, sz, gx, gy, gz + swing);
 
         // ---------------- tricks ----------------
+        ModelPart[] limbs = {m.rightArm, m.leftArm, m.rightLeg, m.leftLeg};
+        PartPose[] normal = new PartPose[limbs.length];
+        float[] scale = new float[limbs.length];
+        for (int i = 0; i < limbs.length; i++) { normal[i] = limbs[i].storePose(); scale[i] = limbs[i].yScale; }
         if (trick == Trick.NO_HANDER || trick == Trick.TABLETOP || bailed) {
             m.rightArm.yScale = 1f;
             m.leftArm.yScale = 1f;
         }
-        if (trick == Trick.SUPERMAN || trick == Trick.NAC_NAC || trick == Trick.CAN_CAN) {
+        if (trick == Trick.SUPERMAN || trick == Trick.SUPERMAN_SEATGRAB || trick == Trick.NAC_NAC || trick == Trick.CAN_CAN || trick == Trick.TAILWHIP) {
             m.leftLeg.yScale = 1f;
-            if (trick == Trick.SUPERMAN) m.rightLeg.yScale = 1f;
+            if (trick == Trick.SUPERMAN || trick == Trick.SUPERMAN_SEATGRAB || trick == Trick.TAILWHIP) m.rightLeg.yScale = 1f;
         }
         switch (trick) {
-            case NO_HANDER, TABLETOP -> {
+            case NO_HANDER -> {
                 m.rightArm.xRot = -2.6f;
                 m.rightArm.zRot = 0.6f;
                 m.leftArm.xRot = -2.6f;
                 m.leftArm.zRot = -0.6f;
             }
-            case SUPERMAN -> {
+            case TUCK_NO_HANDER -> {
+                m.rightArm.xRot = m.leftArm.xRot = -1.8f;
+                m.rightArm.zRot = 1.4f; m.leftArm.zRot = -1.4f;
+                m.rightArm.yScale = m.leftArm.yScale = 1f;
+            }
+            case TABLETOP -> {
+                m.rightLeg.xRot = -0.65f;
+                m.leftLeg.xRot = -0.35f;
+                m.rightLeg.zRot = 0.35f * b.trickSide;
+                m.leftLeg.zRot = 0.35f * b.trickSide;
+            }
+            case SUPERMAN, SUPERMAN_SEATGRAB -> {
                 m.rightLeg.xRot = 1.25f;
                 m.leftLeg.xRot = 1.25f;
                 m.rightLeg.z = hipZ + 2f;
                 m.leftLeg.z = hipZ + 2f;
+                if (trick == Trick.SUPERMAN_SEATGRAB) {
+                    m.leftArm.xRot = 0.8f; m.leftArm.yScale = 1f;
+                }
             }
             case NAC_NAC -> {
                 m.leftLeg.xRot = 0.4f;
@@ -121,8 +134,33 @@ public final class RiderPose {
                 m.leftLeg.xRot = -0.9f;
                 m.leftLeg.zRot = 0.5f;
             }
+            case BARSPIN -> {
+                // Hands follow the catch/release in a full timed bar rotation.
+                m.rightArm.xRot = -1.3f - .45f * (float) Math.sin(progress * Math.PI * 2);
+                m.leftArm.xRot = -1.1f + .45f * (float) Math.sin(progress * Math.PI * 2);
+                m.rightArm.zRot = 0.65f * b.trickSide;
+                m.leftArm.zRot = -0.85f * b.trickSide;
+                m.rightArm.yScale = m.leftArm.yScale = 0.8f;
+            }
+            case TAILWHIP -> {
+                m.rightArm.xRot -= .2f * (float) Math.sin(progress * Math.PI);
+                m.leftArm.xRot += .15f * (float) Math.sin(progress * Math.PI);
+                m.rightLeg.xRot = m.leftLeg.xRot = -0.9f;
+                m.rightLeg.zRot = 0.65f * b.trickSide;
+                m.leftLeg.zRot = -0.65f * b.trickSide;
+                m.rightLeg.y = m.leftLeg.y = hipY - 2f;
+            }
             default -> {}
         }
+        for (int i = 0; i < limbs.length; i++) {
+            ModelPart part = limbs[i]; PartPose n = normal[i];
+            part.x = mix(n.x, part.x, amount); part.y = mix(n.y, part.y, amount); part.z = mix(n.z, part.z, amount);
+            part.xRot = mix(n.xRot, part.xRot, amount); part.yRot = mix(n.yRot, part.yRot, amount); part.zRot = mix(n.zRot, part.zRot, amount);
+            part.yScale = mix(scale[i], part.yScale, amount);
+        }
+        // Keep braking visible even without an active trick.
+        m.rightArm.xRot -= brake * .09f; m.leftArm.xRot -= brake * .09f;
+        m.rightArm.zRot += brake * .04f; m.leftArm.zRot -= brake * .04f;
         if (bailed) {
             m.rightArm.xRot = -1.6f;
             m.leftArm.xRot = -1.4f;
@@ -131,10 +169,7 @@ public final class RiderPose {
         }
 
         // first-person helmet cam: we render our own body, but not the head we are looking out of
-        if (entity == Minecraft.getInstance().player && BikeCamera.helmet()) {
-            m.head.visible = false;
-            m.hat.visible = false;
-        }
+        m.head.visible = m.hat.visible = !(entity == Minecraft.getInstance().player && BikeCamera.helmet());
 
         m.hat.copyFrom(m.head);
         m.jacket.copyFrom(m.body);
@@ -179,10 +214,13 @@ public final class RiderPose {
 
     /** Undo our limb scaling for anyone not on a bike (the player model is shared). */
     public static void reset(PlayerModel<?> m) {
+        m.head.visible = m.hat.visible = true;
         if (m.rightLeg.yScale == 1f && m.leftLeg.yScale == 1f && m.rightArm.yScale == 1f && m.leftArm.yScale == 1f) return;
         m.rightLeg.yScale = m.leftLeg.yScale = m.rightArm.yScale = m.leftArm.yScale = 1f;
         m.rightPants.yScale = m.leftPants.yScale = m.rightSleeve.yScale = m.leftSleeve.yScale = 1f;
     }
+
+    private static float mix(float a, float b, float t) { return a + (b - a) * t; }
 
     private static float clamp(float v, float lo, float hi) {
         return v < lo ? lo : (v > hi ? hi : v);

@@ -1,0 +1,9 @@
+{
+  "selector": "descentmtb:airbag",
+  "properties": {
+    "sable:mass": 0.05,
+    "sable:volume": 1,
+    "sable:friction": 0.65,
+    "sable:restitution": 0
+  }
+}

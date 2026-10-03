@@ -75,6 +75,10 @@ public final class BikeCamera {
         fovBoost = 0;
     }
 
+    static CameraType originalCameraType() {
+        return savedType != null ? savedType : Minecraft.getInstance().options.getCameraType();
+    }
+
     /** Always third-person underneath: it is what makes vanilla draw our own body (the
      *  helmet cam hides just the head); position and angles come from this class. */
     private static CameraType wanted() {
@@ -87,7 +91,7 @@ public final class BikeCamera {
     }
 
     public static boolean helmet() {
-        return BikeClientController.riding() != null && mode == Mode.HELMET;
+        return BikeClientController.riding() != null && mode == Mode.HELMET && debugSide == 0;
     }
 
     public static double fovBoost() {

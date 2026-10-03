@@ -20,8 +20,9 @@ public class RampBlockEntity extends BlockEntity {
     private boolean consumed;
 
     public RampBlockEntity(BlockPos pos, BlockState state) {
-        super(ModBlocks.RAMP_BE.get(), pos, state);
+        this(ModBlocks.RAMP_BE.get(), pos, state);
     }
+    protected RampBlockEntity(net.minecraft.world.level.block.entity.BlockEntityType<?> type, BlockPos pos, BlockState state) { super(type, pos, state); }
 
     public BlockState getMaterial() { return material; }
 

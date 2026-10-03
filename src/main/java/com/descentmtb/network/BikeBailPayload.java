@@ -45,13 +45,19 @@ public record BikeBailPayload(int entityId, double x, double y, double z, float 
         if (!(ctx.player() instanceof ServerPlayer player)) return;
         Entity e = player.level().getEntity(m.entityId);
         if (!(e instanceof MountainBikeEntity bike) || player.getVehicle() != bike) return;
-        if (!Double.isFinite(m.x) || player.distanceToSqr(m.x, m.y, m.z) > 16 * 16) return;
+        if (!Double.isFinite(m.x) || !Double.isFinite(m.y) || !Double.isFinite(m.z)
+                || player.distanceToSqr(m.x, m.y, m.z) > 16 * 16) return;
         Vec3 v = new Vec3(clamp(m.vx), clamp(m.vy), clamp(m.vz));   // m/s
 
+        // Capture the final bike pose/momentum before detaching its rider.
+        // The state packet is sent before this bail packet by the client.
         player.stopRiding();
         // rider's centre of mass is ~0.9 m above the feet
-        player.teleportTo(m.x, m.y - 0.9, m.z);
-        player.setDeltaMovement(v.scale(0.05).add(0, 0.12, 0));      // m/s → blocks/tick, little hop
+        Vec3 feet = com.descentmtb.world.SafeDismount.find(player.level(), player, new Vec3(m.x, m.y - .9, m.z));
+        player.teleportTo(feet.x, feet.y, feet.z);
+        player.getAbilities().flying = false;
+        player.onUpdateAbilities();
+        player.setDeltaMovement(v.scale(0.05));                   // retain the throw, no artificial upward kick
         player.hurtMarked = true;
         player.resetFallDistance();
         RagdollPayload rag = new RagdollPayload(player.getId(), (float) v.x, (float) v.y, (float) v.z);

@@ -1,0 +1,9 @@
+{
+  "selector": "descentmtb:ramp",
+  "properties": {
+    "sable:mass": 1.1,
+    "sable:volume": 0.5,
+    "sable:friction": 1.05,
+    "sable:restitution": 0
+  }
+}

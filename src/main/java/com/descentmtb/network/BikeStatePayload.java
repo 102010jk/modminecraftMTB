@@ -19,10 +19,10 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 public record BikeStatePayload(int entityId, double x, double y, double z, float yaw, float pitch,
                                float lean, float steer, float compF, float compR,
                                float riderUp, float riderFwd, float crank, byte flags,
-                               float vx, float vy, float vz)
+                               float vx, float vy, float vz, int trickId, float trickAmount, float trickProgress, int trickSide, float brake)
         implements CustomPacketPayload {
 
-    public static final byte AIRBORNE = 1, BAILED = 2, TELEPORT = 4;
+    public static final byte AIRBORNE = 1, BAILED = 2, TELEPORT = 4, WALL_RIDE = 8;
 
     public static final Type<BikeStatePayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "bike_state"));
@@ -48,13 +48,18 @@ public record BikeStatePayload(int entityId, double x, double y, double z, float
         b.writeFloat(vx);
         b.writeFloat(vy);
         b.writeFloat(vz);
+        b.writeVarInt(trickId);
+        b.writeFloat(trickAmount);
+        b.writeFloat(trickProgress);
+        b.writeByte(trickSide);
+        b.writeFloat(brake);
     }
 
     private static BikeStatePayload read(FriendlyByteBuf b) {
         return new BikeStatePayload(b.readVarInt(), b.readDouble(), b.readDouble(), b.readDouble(),
                 b.readFloat(), b.readFloat(), b.readFloat(), b.readFloat(), b.readFloat(), b.readFloat(),
                 b.readFloat(), b.readFloat(), b.readFloat(), b.readByte(),
-                b.readFloat(), b.readFloat(), b.readFloat());
+                b.readFloat(), b.readFloat(), b.readFloat(), b.readVarInt(), b.readFloat(), b.readFloat(), b.readByte(), b.readFloat());
     }
 
     @Override
@@ -67,6 +72,14 @@ public record BikeStatePayload(int entityId, double x, double y, double z, float
         Entity e = player.level().getEntity(msg.entityId);
         if (!(e instanceof MountainBikeEntity bike) || player.getVehicle() != bike) return;
         if (!Double.isFinite(msg.x) || !Double.isFinite(msg.y) || !Double.isFinite(msg.z)) return;
+        if (!Float.isFinite(msg.yaw) || !Float.isFinite(msg.pitch) || !Float.isFinite(msg.lean)
+                || !Float.isFinite(msg.steer) || !Float.isFinite(msg.compF) || !Float.isFinite(msg.compR)
+                || !Float.isFinite(msg.riderUp) || !Float.isFinite(msg.riderFwd) || !Float.isFinite(msg.crank)
+                || !Float.isFinite(msg.vx) || !Float.isFinite(msg.vy) || !Float.isFinite(msg.vz)
+                || !Float.isFinite(msg.trickAmount) || !Float.isFinite(msg.trickProgress) || !Float.isFinite(msg.brake)) return;
+        if (msg.trickId < 0 || msg.trickId >= com.descentmtb.trick.Trick.values().length
+                || msg.trickAmount < 0 || msg.trickAmount > 1 || msg.trickProgress < 0 || msg.trickProgress > 1
+                || Math.abs(msg.trickSide) != 1 || msg.brake < 0 || msg.brake > 1) return;
         double d2 = bike.distanceToSqr(msg.x, msg.y - MountainBikeEntity.COM_HEIGHT, msg.z);
         double limit = (msg.flags & TELEPORT) != 0 ? 96 : 12;   // 12 blocks a tick = 860 km/h
         if (d2 > limit * limit) {

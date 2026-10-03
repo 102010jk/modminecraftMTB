@@ -11,12 +11,12 @@ public enum BikeType {
     /** 29" enduro / DH, 170/160 mm: fast and planted. */
     ENDURO("enduro",
             new float[]{-0.15f, -0.19f},             // feet (pedal axis) from the frame COM: up, forward (m)
-            new float[]{0.46f, 0.74f, 0.33f},        // grips from the feet: forward, up, half-width (m)
+            new float[]{0.4618f, 0.7638f, 0.3312f},  // grips from the feet: forward, up, half-width (m)
             new Trick[]{Trick.NO_HANDER, Trick.TABLETOP, Trick.NAC_NAC, Trick.CAN_CAN, Trick.SUPERMAN}),
     /** 26" dirt-jump hardtail, 100 mm fork: light, poppy, spins and whips. */
     HARDTAIL("hardtail",
             new float[]{-0.17f, -0.14f},
-            new float[]{0.42f, 0.78f, 0.38f},
+            new float[]{0.4141f, 0.6897f, 0.3144f},
             new Trick[]{Trick.TUCK_NO_HANDER, Trick.TABLETOP, Trick.BARSPIN, Trick.TAILWHIP, Trick.SUPERMAN_SEATGRAB});
 
     public final String id;

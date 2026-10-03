@@ -35,11 +35,13 @@ public final class BikeParams {
     public double slideFriction = 0.82;
     /** Fraction of the lateral slip velocity removed per substep while gripping. */
     public double lateralStiffness = 0.65;
+    public double tyreGrip = 1, tyreRolling = 1;
+    public boolean wallRides = true;
 
     // ---------------- drivetrain / brakes ----------------
-    public double pedalPower = 300;           // W
-    public double pedalMaxForce = 350;        // N at the contact patch
-    public double pedalSpinOut = 12.5;        // m/s, pedalling fades out above this
+    public double pedalPower = 1050;          // short sprint; 20–30 km/h without a long run-up
+    public double pedalMaxForce = 900;        // N at the contact patch
+    public double pedalSpinOut = 7.2;         // m/s, normal pedalling settles near 30 km/h
     public double brakeForce = 950;           // N total at full LT
     public double brakeFrontShare = 0.6;
     public double gearRatio = 2.6;            // wheel revs per crank rev
@@ -71,14 +73,14 @@ public final class BikeParams {
     /** Pitch-up torque helper while leaning back on the rear wheel (manual), N m. */
     /** Manual helper torque at full lean-back (N m); 0 = pure physics (config: manualAssist). */
     public double manualAssist = 650;
-    public double manualTargetPitch = 0.30;
+    public double manualTargetPitch = 0.52;   // comfortable ~30° balance point
 
     // ---------------- air ----------------
     public double flipRate = 6.4;             // rad/s at full stick and full pop (backflip ≈ 1.15 s)
     public double spinRate = 6.6;             // rad/s at full pop (360 ≈ 1.1 s)
     public double airControlResponse = 0.18;  // s
     /** Rotation authority with no pop at all (a lazy roll-off can only twitch). */
-    public double airBudgetBase = 0.12;
+    public double airBudgetBase = 0.32;
     /** Rotation authority ramps in over this long after take-off. */
     public double airRampTime = 0.18;
     /** 0..1: how strongly the bike noses toward its flight path with no input (feel F8). */

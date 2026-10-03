@@ -37,6 +37,10 @@ public final class BlockTerrain implements Terrain {
         /** True if (x, y, z) is inside a block's collision shape. */
         boolean solid(double x, double y, double z);
 
+        default double collisionTop(double x, double z, double top, double bottom) {
+            return top((int) Math.floor(x), (int) Math.floor(z), top, bottom);
+        }
+
         /**
          * Exact analytic surface for shaped blocks (ramps): if the first solid block in
          * column (x, z) below {@code yTop} is one, write {height, dH/dx, dH/dz} into
@@ -122,5 +126,17 @@ public final class BlockTerrain implements Terrain {
     @Override
     public boolean solidAt(double x, double y, double z) {
         return cols.solid(x, y, z);
+    }
+
+    @Override
+    public boolean floor(double x, double z, double top, double bottom, GroundHit out) {
+        if (cols.exactSurface(x, z, top, bottom, exact)) {
+            out.set(exact[0], new V3(-exact[1], 1, -exact[2]).normalize(), Surface.TRAIL);
+            return true;
+        }
+        double y = cols.collisionTop(x, z, top, bottom);
+        if (Double.isNaN(y)) return false;
+        out.set(y, V3.Y, cols.surface((int) Math.floor(x), (int) Math.floor(z), y));
+        return true;
     }
 }

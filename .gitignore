@@ -4,3 +4,5 @@ run/
 *.log
 .idea/
 out/
+
+__pycache__/

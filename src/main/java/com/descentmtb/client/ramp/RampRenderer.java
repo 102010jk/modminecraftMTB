@@ -28,7 +28,7 @@ import net.neoforged.neoforge.client.model.data.ModelData;
  * the facing axis (exact heights at the strip edges so curves look curved), two side walls, back wall, front
  * wall and the bottom. Sprites/tint come from the material's baked model.
  */
-public class RampRenderer implements BlockEntityRenderer<RampBlockEntity> {
+public class RampRenderer<T extends RampBlockEntity> implements BlockEntityRenderer<T> {
     private static final int SLICES = 8;
     private static final Direction[] DIRS = {Direction.UP, Direction.DOWN, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
     private static final RandomSource RANDOM = RandomSource.create(42L);
@@ -46,7 +46,7 @@ public class RampRenderer implements BlockEntityRenderer<RampBlockEntity> {
     public RampRenderer(BlockEntityRendererProvider.Context ctx) {}
 
     @Override
-    public void render(RampBlockEntity be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
+    public void render(T be, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
         BlockState st = be.getBlockState();
         if (!RampBlock.isRamp(st)) return;
         Level level = be.getLevel();
@@ -54,6 +54,9 @@ public class RampRenderer implements BlockEntityRenderer<RampBlockEntity> {
         BlockState mat = be.getMaterial();
 
         resolveFaces(mat, level, pos);
+        if (be instanceof com.descentmtb.trail.TrailSurfaceEntity shaped) {
+            renderShaped(shaped, pose, buffers, level == null ? light : LevelRenderer.getLightColor(level,pos.above())); return;
+        }
 
         if (level != null) {
             int above = LevelRenderer.getLightColor(level, pos.above());
@@ -126,6 +129,43 @@ public class RampRenderer implements BlockEntityRenderer<RampBlockEntity> {
         q[6] = 1; q[7] = 0; q[8] = 1;
         q[9] = 0; q[10] = 0; q[11] = 1;
         emit(vc, last, light, Direction.DOWN, 0f, -1f, 0f);
+    }
+
+    private void renderShaped(com.descentmtb.trail.TrailSurfaceEntity be, PoseStack pose, MultiBufferSource buffers, int light) {
+        VertexConsumer vc = buffers.getBuffer(RenderType.cutout());
+        for (int ix=0; ix<8; ix++) for (int iz=0; iz<8; iz++) {
+            double x=ix/8.0, z=iz/8.0, d=.125;
+            double[] h={be.height(x,z),be.height(x+d,z),be.height(x+d,z+d),be.height(x,z+d)};
+            if (java.util.Arrays.stream(h).max().orElse(0)<.001 || (be.deck()&&java.util.Arrays.stream(h).min().orElse(0)>=1&&be.bottom(x,z)>=1&&be.bottom(x+d,z+d)>=1)) continue;
+            double[][] corners={{x,z},{x+d,z},{x+d,z+d},{x,z+d}};
+            for(int i=0;i<4;i++){q[i*3]=(float)corners[i][0];q[i*3+1]=(float)h[i];q[i*3+2]=(float)corners[i][1];}
+            float nx=(float)-be.slopeX(x+d/2,z+d/2), nz=(float)-be.slopeZ(x+d/2,z+d/2);
+            float inv=(float)(1/Math.sqrt(nx*nx+1+nz*nz));
+            emit(vc,pose.last(),light,Direction.UP,nx*inv,inv,nz*inv);
+            for(int side=0;side<4;side++) {
+                if ((side==0&&iz!=0)||(side==1&&ix!=7)||(side==2&&iz!=7)||(side==3&&ix!=0)) continue;
+                int next=(side+1)%4;
+                double low0=be.bottom(corners[side][0],corners[side][1]),low1=be.bottom(corners[next][0],corners[next][1]);
+                double[][] v={{corners[side][0],h[side],corners[side][1]},{corners[next][0],h[next],corners[next][1]},
+                        {corners[next][0],low1,corners[next][1]},{corners[side][0],low0,corners[side][1]}};
+                for(int i=0;i<4;i++)for(int j=0;j<3;j++)q[i*3+j]=(float)v[i][j];
+                Direction face=new Direction[]{Direction.NORTH,Direction.EAST,Direction.SOUTH,Direction.WEST}[side];
+                emit(vc,pose.last(),light,face,face.getStepX(),0,face.getStepZ());
+            }
+            if(be.deck()) {
+                for(int i=0;i<4;i++){q[i*3]=(float)corners[i][0];q[i*3+1]=(float)be.bottom(corners[i][0],corners[i][1]);q[i*3+2]=(float)corners[i][1];}
+                emit(vc,pose.last(),light,Direction.DOWN,0,-1,0);
+            }
+        }
+        if(be.beam()) {
+            float low=(float)be.bottom(.5,.5);
+            for(Direction face:new Direction[]{Direction.NORTH,Direction.EAST,Direction.SOUTH,Direction.WEST}){
+                float ax=face==Direction.WEST?.375f:.625f,az=face==Direction.NORTH?.375f:.625f;
+                if(face.getAxis()==Direction.Axis.X){q[0]=ax;q[1]=0;q[2]=.375f;q[3]=ax;q[4]=low;q[5]=.375f;q[6]=ax;q[7]=low;q[8]=.625f;q[9]=ax;q[10]=0;q[11]=.625f;}
+                else{q[0]=.375f;q[1]=0;q[2]=az;q[3]=.375f;q[4]=low;q[5]=az;q[6]=.625f;q[7]=low;q[8]=az;q[9]=.625f;q[10]=0;q[11]=az;}
+                emit(vc,pose.last(),light,face,face.getStepX(),0,face.getStepZ());
+            }
+        }
     }
 
     /** Block-local position for along coordinate t, lateral w, height y. */

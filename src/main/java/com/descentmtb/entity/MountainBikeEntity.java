@@ -42,9 +42,6 @@ public class MountainBikeEntity extends Entity {
     /** Entity position → frame centre of mass, metres. */
     public static final double COM_HEIGHT = 0.52;
 
-    /** Shared tuning (config hooks into this later). */
-    public static final BikeParams PARAMS = new BikeParams();
-
     /** Installed by the client mod; runs the local rider's simulation or remote interpolation. */
     public static Consumer<MountainBikeEntity> clientTicker = b -> {};
 
@@ -57,6 +54,37 @@ public class MountainBikeEntity extends Entity {
     private static final EntityDataAccessor<Float> D_RIDER_FWD = def(EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> D_CRANK = def(EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Byte> D_FLAGS = def(EntityDataSerializers.BYTE);
+    private static final EntityDataAccessor<Integer> D_TYPE = def(EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> D_TRICK = def(EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Float> D_TRICK_AMOUNT = def(EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> D_TRICK_PROGRESS = def(EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Integer> D_TRICK_SIDE = def(EntityDataSerializers.INT);
+    private BikeParams bikeParams;
+    private static final EntityDataAccessor<Float> D_FRONT_PSI = def(EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> D_REAR_PSI = def(EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> D_FORK_PSI = def(EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> D_BRAKE = def(EntityDataSerializers.FLOAT);
+    float dBrake() { return entityData.get(D_BRAKE); }
+    public float frontPsi() { return entityData.get(D_FRONT_PSI); }
+    public float rearPsi() { return entityData.get(D_REAR_PSI); }
+    public float forkPsi() { return entityData.get(D_FORK_PSI); }
+    public void setPressure(float front, float rear, float fork) {
+        entityData.set(D_FRONT_PSI, net.minecraft.util.Mth.clamp(front, 5, 65));
+        entityData.set(D_REAR_PSI, net.minecraft.util.Mth.clamp(rear, 5, 65));
+        entityData.set(D_FORK_PSI, net.minecraft.util.Mth.clamp(fork, 20, 180));
+        serverSim = null; restTicks = 0;
+    }
+
+    public BikeType bikeType() { return BikeType.byId(entityData.get(D_TYPE)); }
+    public void setBikeType(BikeType type) { entityData.set(D_TYPE, type.ordinal()); bikeParams = null; }
+    public BikeParams params() {
+        if (bikeParams == null) bikeParams = bikeType().params();
+        return bikeParams;
+    }
+    public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
+        super.onSyncedDataUpdated(key);
+        if (key == D_TYPE) bikeParams = null;
+    }
 
     @SuppressWarnings("unchecked")
     private static <T> EntityDataAccessor<T> def(net.minecraft.network.syncher.EntityDataSerializer<T> s) {
@@ -115,7 +143,8 @@ public class MountainBikeEntity extends Entity {
     private void startSim() {
         if (columns == null) columns = new McColumns(level());
         columns.setLevel(level());
-        sim = new BikeSim(PARAMS, new BlockTerrain(columns));
+        sim = new BikeSim(params(), columns.terrain());
+        sim.bikeType = bikeType();
         sim.place(getX(), getY(), getZ(), Math.toRadians(getYRot()));
         simulating = true;
         rsCur.fromSim(sim, null);
@@ -157,10 +186,12 @@ public class MountainBikeEntity extends Entity {
         if (sim.airborne) flags |= BikeStatePayload.AIRBORNE;
         if (sim.bailed) flags |= BikeStatePayload.BAILED;
         if (teleport) flags |= BikeStatePayload.TELEPORT;
+        if (sim.wallRide) flags |= BikeStatePayload.WALL_RIDE;
         return new BikeStatePayload(getId(), sim.pos.x, sim.pos.y, sim.pos.z, (float) sim.yaw, (float) sim.pitch,
                 (float) sim.lean, (float) sim.steerAngle, (float) sim.front.compression, (float) sim.rear.compression,
                 (float) sim.riderUp, (float) sim.riderFwd, (float) sim.crankAngle, flags,
-                (float) sim.vel.x, (float) sim.vel.y, (float) sim.vel.z);
+                (float) sim.vel.x, (float) sim.vel.y, (float) sim.vel.z,
+                sim.tricks.trick.ordinal(), (float) sim.tricks.amount, (float) sim.tricks.progress, sim.tricks.side, (float) sim.brake);
     }
 
     /** Server: accept the rider's simulated state. */
@@ -177,6 +208,11 @@ public class MountainBikeEntity extends Entity {
         entityData.set(D_RIDER_FWD, m.riderFwd());
         entityData.set(D_CRANK, m.crank());
         entityData.set(D_FLAGS, m.flags());
+        entityData.set(D_TRICK, m.trickId());
+        entityData.set(D_TRICK_AMOUNT, m.trickAmount());
+        entityData.set(D_TRICK_PROGRESS, m.trickProgress());
+        entityData.set(D_TRICK_SIDE, m.trickSide());
+        entityData.set(D_BRAKE, m.brake());
         lastVel = new V3(m.vx(), m.vy(), m.vz());
         lastPitch = m.pitch();
         lastLean = m.lean();
@@ -203,7 +239,8 @@ public class MountainBikeEntity extends Entity {
         // terrain as when ridden (vanilla box collision let parked bikes sink into blocks)
         if (serverSim == null) {
             if (serverColumns == null) serverColumns = new McColumns(level());
-            serverSim = new BikeSim(PARAMS, new BlockTerrain(serverColumns));
+            com.descentmtb.physics.BikeTuning.apply(params(),bikeType().params(),frontPsi(),rearPsi(),forkPsi(),1);
+            serverSim = new BikeSim(params(), serverColumns.terrain());
             serverSim.riderless = true;
             serverSim.place(getX(), getY(), getZ(), Math.toRadians(getYRot()));
             if (lastVel.lengthSq() > 0.01) {    // just bailed / hopped off: keep the motion
@@ -218,6 +255,7 @@ public class MountainBikeEntity extends Entity {
         if (restTicks > 60) return;                 // settled: stop simulating
         serverColumns.newTick();
         serverSim.tick(Controls.NONE, 0.05);
+        serverSim.events.clear();
         BikeSim s = serverSim;
         setPos(s.pos.x, s.pos.y - COM_HEIGHT, s.pos.z);
         setYRot((float) Math.toDegrees(s.yaw));
@@ -228,6 +266,8 @@ public class MountainBikeEntity extends Entity {
         entityData.set(D_COMP_F, (float) s.front.compression);
         entityData.set(D_COMP_R, (float) s.rear.compression);
         entityData.set(D_FLAGS, s.airborne ? BikeStatePayload.AIRBORNE : 0);
+        entityData.set(D_TRICK, 0);
+        entityData.set(D_TRICK_AMOUNT, 0f);
         restTicks = (s.speed() < 0.05 && s.grounded() && Math.abs(Math.abs(s.lean) - 1.38) < 0.05) ? restTicks + 1 : 0;
     }
 
@@ -242,6 +282,10 @@ public class MountainBikeEntity extends Entity {
     float dCrank() { return entityData.get(D_CRANK); }
     public boolean dBailed() { return (entityData.get(D_FLAGS) & BikeStatePayload.BAILED) != 0; }
     byte entityDataFlags() { return entityData.get(D_FLAGS); }
+    int dTrick() { return entityData.get(D_TRICK); }
+    float dTrickAmount() { return entityData.get(D_TRICK_AMOUNT); }
+    float dTrickProgress() { return entityData.get(D_TRICK_PROGRESS); }
+    int dTrickSide() { return entityData.get(D_TRICK_SIDE); }
 
     // =====================================================================
     //  Rider
@@ -284,7 +328,7 @@ public class MountainBikeEntity extends Entity {
     @Override
     public Vec3 getDismountLocationForPassenger(LivingEntity passenger) {
         Vec3 side = Vec3.directionFromRotation(0, getYRot() + 90).scale(0.8);
-        return position().add(side).add(0, 0.1, 0);
+        return com.descentmtb.world.SafeDismount.find(level(), passenger, position().add(side).add(0, 0.1, 0));
     }
 
     // =====================================================================
@@ -293,6 +337,18 @@ public class MountainBikeEntity extends Entity {
 
     @Override
     public InteractionResult interact(Player player, InteractionHand hand) {
+        if (player.getItemInHand(hand).getItem() instanceof com.descentmtb.item.BikePumpItem) {
+            if (isVehicle()) return InteractionResult.FAIL;
+            if (!level().isClientSide) {
+                int valve = com.descentmtb.item.BikePumpItem.valve(player.getItemInHand(hand));
+                float step = (player.isShiftKeyDown() ? -1 : 1) * (valve == 2 ? 5 : 2);
+                setPressure(frontPsi() + (valve == 0 ? step : 0), rearPsi() + (valve == 1 ? step : 0), forkPsi() + (valve == 2 ? step : 0));
+                player.displayClientMessage(net.minecraft.network.chat.Component.translatable("descentmtb.pump.pressure",
+                        com.descentmtb.item.BikePumpItem.valveName(valve), valve == 0 ? frontPsi() : valve == 1 ? rearPsi() : forkPsi()), true);
+                level().playSound(null, blockPosition(), net.minecraft.sounds.SoundEvents.PISTON_EXTEND, net.minecraft.sounds.SoundSource.PLAYERS, .35f, 1.5f);
+            }
+            return InteractionResult.sidedSuccess(level().isClientSide);
+        }
         if (player.isSecondaryUseActive() || isVehicle()) return InteractionResult.PASS;
         if (!level().isClientSide) {
             return player.startRiding(this) ? InteractionResult.CONSUME : InteractionResult.PASS;
@@ -304,7 +360,13 @@ public class MountainBikeEntity extends Entity {
     public boolean hurt(DamageSource source, float amount) {
         if (isRemoved() || level().isClientSide) return false;
         if (source.getEntity() instanceof Player player && !isVehicle()) {
-            if (!player.getAbilities().instabuild) spawnAtLocation(ModItems.MOUNTAIN_BIKE.get());
+            if (!player.getAbilities().instabuild) {
+                var stack = new net.minecraft.world.item.ItemStack(bikeType() == BikeType.HARDTAIL ? ModItems.HARDTAIL_BIKE.get() : ModItems.MOUNTAIN_BIKE.get());
+                net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA, stack, tag -> {
+                    tag.putFloat("FrontPsi", frontPsi()); tag.putFloat("RearPsi", rearPsi()); tag.putFloat("ForkPsi", forkPsi());
+                });
+                spawnAtLocation(stack);
+            }
             discard();
             return true;
         }
@@ -348,13 +410,26 @@ public class MountainBikeEntity extends Entity {
         b.define(D_RIDER_FWD, 0f);
         b.define(D_CRANK, 0f);
         b.define(D_FLAGS, (byte) 0);
+        b.define(D_TYPE, 0);
+        b.define(D_TRICK, 0);
+        b.define(D_TRICK_AMOUNT, 0f);
+        b.define(D_TRICK_PROGRESS, 0f);
+        b.define(D_TRICK_SIDE, 1);
+        b.define(D_FRONT_PSI, 26f); b.define(D_REAR_PSI, 28f); b.define(D_FORK_PSI, 80f);
+        b.define(D_BRAKE, 0f);
     }
 
     @Override
-    protected void readAdditionalSaveData(CompoundTag tag) {}
+    protected void readAdditionalSaveData(CompoundTag tag) {
+        setBikeType(BikeType.byId(tag.getInt("BikeType")));
+        if (tag.contains("FrontPsi")) setPressure(tag.getFloat("FrontPsi"), tag.getFloat("RearPsi"), tag.getFloat("ForkPsi"));
+    }
 
     @Override
-    protected void addAdditionalSaveData(CompoundTag tag) {}
+    protected void addAdditionalSaveData(CompoundTag tag) {
+        tag.putInt("BikeType", bikeType().ordinal());
+        tag.putFloat("FrontPsi", frontPsi()); tag.putFloat("RearPsi", rearPsi()); tag.putFloat("ForkPsi", forkPsi());
+    }
 
     @Override
     public void onAddedToLevel() {

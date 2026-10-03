@@ -12,9 +12,11 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 repositories {
     mavenCentral()
+    maven { url = 'https://maven.ryanhcode.dev/releases' }
 }
 
 dependencies {
+    jarJar(implementation('dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:1.6.0'))
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
@@ -30,7 +32,7 @@ test {
 }
 
 neoForge {
-    version = "21.1.190"
+    version = "21.1.250"
 
     runs {
         client {
@@ -46,6 +48,7 @@ neoForge {
             client()
             programArguments.addAll('--quickPlaySingleplayer', 'New World')
             systemProperty 'descentmtb.autopilot', 'true'
+            systemProperty 'descentmtb.autopilot.keepOpen', providers.gradleProperty('autopilotKeepOpen').orElse('false').get()
         }
         server {
             server()

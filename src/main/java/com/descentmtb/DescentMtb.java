@@ -22,12 +22,19 @@ public class DescentMtb {
     public static final String MODID = "descentmtb";
     public static final Logger LOG = LogUtils.getLogger();
 
-    public DescentMtb(IEventBus modBus) {
+    public DescentMtb(IEventBus modBus, net.neoforged.fml.ModContainer container) {
+        container.registerConfig(net.neoforged.fml.config.ModConfig.Type.COMMON, com.descentmtb.trail.TrailConfig.SPEC);
         ModItems.register(modBus);
         ModEntities.register(modBus);
         ModBlocks.register(modBus);
         ModNetwork.register(modBus);
+        NeoForge.EVENT_BUS.addListener(com.descentmtb.trail.DevTrailTests::register);
+        NeoForge.EVENT_BUS.addListener(com.descentmtb.world.DevSableTests::register);
+        NeoForge.EVENT_BUS.addListener(com.descentmtb.world.DevSableTests::tick);
         NeoForge.EVENT_BUS.addListener(Ragdolls::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(Ragdolls::onFall);
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppedEvent e)->{
+            com.descentmtb.network.Ragdolls.clearSession();com.descentmtb.trail.TrailEdit.clearSession();com.descentmtb.trail.TrailCloneItem.clearSession();com.descentmtb.trail.TrailDraft.clearSession();
+        });
     }
 }

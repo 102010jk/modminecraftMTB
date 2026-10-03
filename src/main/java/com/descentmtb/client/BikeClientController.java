@@ -11,9 +11,8 @@ import java.util.ArrayDeque;
 
 /**
  * Client brain for the bike the local player is riding: feeds controls into the
- * simulation, streams the result to the server, keeps respawn points, handles
- * bails (Descenders: crash → short pause → back on the trail a few seconds
- * earlier) and produces the HUD messages.
+ * simulation, streams the result to the server, keeps manual reset points,
+ * starts a ragdoll after a crash and produces the HUD messages.
  */
 public final class BikeClientController {
     private record SafePoint(double x, double y, double z, double yaw) {}
@@ -22,12 +21,7 @@ public final class BikeClientController {
     private static final ArrayDeque<SafePoint> safe = new ArrayDeque<>();
     private static SafePoint start;
     private static int safeTimer, bailTicks;
-
-    private static RiderPose.Trick trick = RiderPose.Trick.NONE;
-
-    public static RiderPose.Trick trick() {
-        return trick;
-    }
+    private static String airLabel = "";
 
     // ---- HUD feed ----
     public static String message = "";
@@ -43,7 +37,7 @@ public final class BikeClientController {
             return;
         }
         if (riding != bike) onMount(bike, player);
-        ClientConfig.apply();
+        ClientConfig.apply(bike);
 
         BikeInputHandler.Frame in = DevAutopilot.active() ? DevAutopilot.frame()
                 : (mc.isPaused() || mc.screen != null) ? BikeInputHandler.Frame.NONE : BikeInputHandler.poll();
@@ -65,15 +59,14 @@ public final class BikeClientController {
 
         bike.driveLocal(in.controls());
         sim = bike.sim();
-        trick = (sim.airborne && !sim.bailed && in.controls().trickMod)
-                ? RiderPose.trickFor(in.controls().trickX, in.controls().trickY) : RiderPose.Trick.NONE;
+        // The server needs the crash frame before the bail detaches the rider.
+        PacketDistributor.sendToServer(bike.statePayload(teleport));
         handleEvents(sim);
         recordSafePoint(bike, sim);
 
         if (in.cycleCamera()) BikeCamera.cycle();
         if (in.resetCamera()) BikeCamera.snapBehind();
 
-        PacketDistributor.sendToServer(bike.statePayload(teleport));
         if (messageTicks > 0) messageTicks--;
     }
 
@@ -97,8 +90,9 @@ public final class BikeClientController {
         safe.clear();
         start = null;
         bailTicks = 0;
-        BikeInputHandler.announce(player);
+        net.minecraft.client.Minecraft.getInstance().gui.setOverlayMessage(net.minecraft.network.chat.Component.empty(),false);
         BikeCamera.onMount();
+        DevAutopilot.prepareBike(bike);
     }
 
     private static void handleEvents(BikeSim sim) {
@@ -106,25 +100,39 @@ public final class BikeClientController {
             switch (e.type()) {
                 case BAIL -> {
                     bailTicks = 0;
+                    com.descentmtb.DescentMtb.LOG.info("[bike] bail: {} at {} speed {} m/s", e.info(), sim.pos, String.format("%.1f", e.value()));
                     show("BAIL! " + e.info(), 0xFF5555, 60);
                     PacketDistributor.sendToServer(new BikeBailPayload(riding.getId(),
-                            sim.riderPos.x, sim.riderPos.y, sim.riderPos.z,
-                            (float) sim.riderVel.x, (float) sim.riderVel.y, (float) sim.riderVel.z));
+                            sim.crashRiderPos.x, sim.crashRiderPos.y, sim.crashRiderPos.z,
+                            (float) sim.crashRiderVel.x, (float) sim.crashRiderVel.y, (float) sim.crashRiderVel.z));
                 }
                 case LAND -> {
                     if (!sim.bailed && sim.airTime > 0.45) {
                         String trick = trickName(sim);
                         show(String.format(java.util.Locale.ROOT, "%s%.1f s air", trick.isEmpty() ? "" : trick + "  ", sim.airTime),
                                 0x55FFFF, 40);
+                        if (!trick.isEmpty()) TrickToast.show(trick, "LANDED  •  " + String.format(java.util.Locale.ROOT, "%.1f s AIR", sim.airTime));
                     }
                 }
+                case HIT -> {
+                    if (DevAutopilot.ENABLED) com.descentmtb.DescentMtb.LOG.info("[bike] hit {} m/s: {}", String.format("%.1f", e.value()), e.info());
+                }
+                case TAKEOFF -> airLabel = "";
                 default -> {}
             }
         }
+        if (DevAutopilot.ENABLED && riding.tickCount % 10 == 0) {
+            com.descentmtb.DescentMtb.LOG.info("[bike] pos {} v={} air={} F[{} {}] R[{} {}]", sim.pos, String.format("%.1f", sim.speed()), sim.airborne,
+                    sim.front.contact, String.format("%.2f", sim.front.compression), sim.rear.contact, String.format("%.2f", sim.rear.compression));
+        }
         sim.events.clear();
+        if (sim.airborne && sim.airTime > .35) {
+            String label = sim.wallRide ? "Wallride" : trickName(sim);
+            if (!label.isEmpty() && !label.equals(airLabel)) { TrickToast.show(label, "IN THE AIR"); airLabel = label; }
+        }
     }
 
-    /** Names the rotation of the jump that just ended (full trick system comes in P6). */
+    /** Names the flip/spin of the jump that just ended. */
     private static String trickName(BikeSim sim) {
         int flips = (int) Math.round(sim.airPitchTravel / (2 * Math.PI));
         int spin = (int) Math.round(Math.abs(sim.airYawTravel) / Math.PI) * 180;
@@ -135,8 +143,14 @@ public final class BikeClientController {
             if (n > 1) sb.append(n == 2 ? "Double " : n == 3 ? "Triple " : n + "x ");
             sb.append(flips > 0 ? "Backflip" : "Frontflip");
         }
+        if (sim.maxWhip > .6 && spin < 180) appendTrick(sb, "Whip");
+        if (sim.maxTable > .75 && (sim.trickMask & (1 << com.descentmtb.trick.Trick.TABLETOP.ordinal())) == 0) appendTrick(sb, "Tabletop");
+        for (var trick : com.descentmtb.trick.Trick.values())
+            if (trick != com.descentmtb.trick.Trick.NONE && (sim.trickMask & (1 << trick.ordinal())) != 0) appendTrick(sb, trick.displayName);
         return sb.toString().trim();
     }
+
+    private static void appendTrick(StringBuilder sb, String name) { if (!sb.isEmpty()) sb.append(" + "); sb.append(name); }
 
     private static void recordSafePoint(MountainBikeEntity bike, BikeSim sim) {
         if (++safeTimer < 10) return;

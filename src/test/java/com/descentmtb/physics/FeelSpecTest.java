@@ -171,15 +171,15 @@ class FeelSpecTest {
 
     @Test
     void carvesAndLeansIntoTurns() {
-        Ride r = new Ride("carve", TestTerrains.flat(64, Terrain.Surface.DIRT)).place(0, 64, 0, 0).speed(10);
+        Ride r = new Ride("carve", TestTerrains.flat(64, Terrain.Surface.DIRT)).place(0, 64, 0, 0).speed(7.2);
         double[] latG = {0};
         r.run(3, rr -> {
             double yawRate = -rr.sim.omega.dot(V3.Y);
-            latG[0] = yawRate * rr.sim.vel.horizontalLength() / 9.81;
-            return ctl(1, 0, rr.sim.speed() < 10 ? 1 : 0, 0, 0);
+            if (rr.t > 2) latG[0] += yawRate * rr.sim.vel.horizontalLength() / 9.81 / 20;
+            return ctl(1, 0, 1, 0, 0);
         });
         r.save();
-        log("carve @36 km/h full lock: %.2f g, lean %.0f°, speed %.1f km/h, sliding F/R %s/%s",
+        log("carve @26 km/h full lock: %.2f g, lean %.0f°, speed %.1f km/h, sliding F/R %s/%s",
                 latG[0], Math.toDegrees(r.sim.lean), r.kmh(), r.sim.front.sliding, r.sim.rear.sliding);
         assertTrue(latG[0] > 0.6 && latG[0] < 1.3, "lateral g " + latG[0]);
         assertTrue(Math.toDegrees(r.sim.lean) > 28 && Math.toDegrees(r.sim.lean) < 55, "lean");
@@ -461,6 +461,7 @@ class FeelSpecTest {
         assertTrue(r.kmh() < 0.5, "should come to rest");
         assertTrue(Math.abs(r.sim.lean) > 1.2, "should lie on its side");
         assertTrue(r.sim.pos.y > 63.9, "must not sink");
+        assertTrue(r.sim.pos.y < 64.4, "a bike on its side must rest on the ground, not hover at upright wheel height");
     }
 
     // ------------------------------------------------------------------ robustness

@@ -1,0 +1,9 @@
+{
+  "selector": "descentmtb:trail_roots",
+  "properties": {
+    "sable:mass": 0.08,
+    "sable:volume": 0.1,
+    "sable:friction": 0.85,
+    "sable:restitution": 0
+  }
+}

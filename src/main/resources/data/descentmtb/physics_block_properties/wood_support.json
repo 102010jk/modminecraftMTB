@@ -1,0 +1,9 @@
+{
+  "selector": "descentmtb:wood_support",
+  "properties": {
+    "sable:mass": 0.12,
+    "sable:volume": 0.063,
+    "sable:friction": 0.9,
+    "sable:restitution": 0
+  }
+}

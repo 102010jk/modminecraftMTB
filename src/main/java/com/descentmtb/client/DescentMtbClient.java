@@ -2,6 +2,7 @@ package com.descentmtb.client;
 
 import com.descentmtb.DescentMtb;
 import com.descentmtb.client.model.EnduroBikeModel;
+import com.descentmtb.client.model.HardtailBikeModel;
 import com.descentmtb.entity.MountainBikeEntity;
 import com.descentmtb.registry.ModEntities;
 import net.minecraft.client.KeyMapping;
@@ -45,6 +46,9 @@ public final class DescentMtbClient {
         modBus.addListener(this::registerKeyMappings);
         modBus.addListener(this::registerGuiLayers);
 
+        com.descentmtb.client.trail.TrailClient.setup();
+        NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e)->com.descentmtb.client.trail.TrailClient.tick());
+        NeoForge.EVENT_BUS.addListener(com.descentmtb.client.trail.TrailClient::renderGhost);
         MountainBikeEntity.clientTicker = BikeClientController::tick;
         RagdollPayload.clientHandler = RagdollClient::onPayload;
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> RagdollClient.tick());
@@ -99,10 +103,12 @@ public final class DescentMtbClient {
     private void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(ModEntities.MOUNTAIN_BIKE.get(), MountainBikeRenderer::new);
         com.descentmtb.client.ramp.RampClient.registerRenderers(event);
+        event.registerBlockEntityRenderer(com.descentmtb.registry.ModBlocks.SIGN_BE.get(),com.descentmtb.client.trail.TrailSignRenderer::new);
     }
 
     private void registerLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(EnduroBikeModel.LAYER, EnduroBikeModel::createLayer);
+        event.registerLayerDefinition(HardtailBikeModel.LAYER, HardtailBikeModel::createLayer);
     }
 
     private void registerKeyMappings(RegisterKeyMappingsEvent event) {
@@ -110,6 +116,7 @@ public final class DescentMtbClient {
     }
 
     private void registerGuiLayers(RegisterGuiLayersEvent event) {
+        event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID,"trail"),(g,t)->com.descentmtb.client.trail.TrailClient.hud(g));
         event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "speed"), new SpeedHud());
     }
 }

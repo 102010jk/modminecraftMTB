@@ -2,6 +2,9 @@ package com.descentmtb.physics;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.descentmtb.entity.BikeType;
+import com.descentmtb.trick.Trick;
+import com.descentmtb.trick.TrickAnimation;
 
 /**
  * The bike: a rigid frame on two raycast wheels with spring-damper suspension,
@@ -33,6 +36,8 @@ import java.util.List;
  */
 public final class BikeSim {
     public final BikeParams p;
+    public BikeType bikeType = BikeType.ENDURO;
+    public final TrickAnimation tricks = new TrickAnimation();
     private final Terrain terrain;
 
     // ---------------- frame ----------------
@@ -73,6 +78,11 @@ public final class BikeSim {
     private double landAssistTimer;
     /** Accumulated rotation in the current air session (rad) - for trick scoring. */
     public double airPitchTravel, airYawTravel;
+    public double maxWhip, maxTable, brake;
+    public int trickMask;
+    public boolean wallRide;
+    private int wallSide;
+    private double wallTime;
 
     public boolean bailed;
     /**
@@ -81,7 +91,10 @@ public final class BikeSim {
      */
     public boolean riderless;
     private double restSide = 1;
+    private boolean bodyGrounded;
+    private V3 bodyNormal = V3.Y;
     public String bailReason = "";
+    public V3 crashRiderPos = V3.ZERO, crashRiderVel = V3.ZERO;
 
     /** Things that happened since the caller last drained the list. */
     public final List<Event> events = new ArrayList<>();
@@ -106,6 +119,8 @@ public final class BikeSim {
     public void place(double x, double groundY, double z, double yawRad) {
         this.yaw = yawRad;
         this.pitch = 0;
+        this.lean = 0;
+        bodyGrounded = false;
         this.omega = V3.ZERO;
         this.vel = V3.ZERO;
         this.riderVel = V3.ZERO;
@@ -127,6 +142,13 @@ public final class BikeSim {
         this.groundFactor = 1;
         this.steerAngle = 0;
         this.lean = 0;
+        tricks.reset();
+        loopTimer = landAssistTimer = popMeter = 0;
+        airPitchTravel = airYawTravel = airBudget = 0;
+        maxWhip = maxTable = brake = 0;
+        trickMask = 0;
+        wallRide = false; wallTime = 0;
+        events.clear();
     }
 
     // =====================================================================
@@ -160,6 +182,7 @@ public final class BikeSim {
         contact(front, h);
         contact(rear, h);
         boolean grounded = front.contact || rear.contact;
+        wallContact(c, grounded, h);
         groundFactor += ((grounded ? 1 : 0) - groundFactor) * (1 - Math.exp(-h / 0.05));
 
         // ---------- rider actuators ----------
@@ -168,6 +191,15 @@ public final class BikeSim {
         // ---------- gravity ----------
         vel = vel.addScaled(V3.Y, -g * h);
         riderVel = riderVel.addScaled(V3.Y, -g * h);
+        if (wallRide) {
+            double support = clamp(vel.horizontalLength() * vel.horizontalLength() / (13 * 13), 0, .95);
+            vel = vel.addScaled(V3.Y, g * support * h);
+            riderVel = riderVel.addScaled(V3.Y, g * support * h);
+            V3 normal = right.mul(-wallSide);
+            double into = Math.min(0, vel.dot(normal));
+            vel = vel.addScaled(normal, -into).mul(Math.exp(-h * .18));
+            riderVel = riderVel.addScaled(normal, -Math.min(0, riderVel.dot(normal)));
+        }
 
         // ---------- aero + soft speed cap (uniform decel on bike & rider) ----------
         double drag = 0.5 * p.airDensity * p.dragArea * speed * speed;
@@ -185,7 +217,7 @@ public final class BikeSim {
         if (rear.contact && c.pedal > 0.01) {
             double vLong = Math.max(pointVel(rear.patch).dot(rear.tF), 0);
             double f = Math.min(p.pedalMaxForce, p.pedalPower / Math.max(vLong, 1.0)) * c.pedal;
-            if (vLong > p.pedalSpinOut) f *= Math.max(0, 1 - (vLong - p.pedalSpinOut) / 3.0);
+            if (vLong > p.pedalSpinOut) f *= Math.max(0, 1 - (vLong - p.pedalSpinOut) / 1.5);
             f = Math.min(f, rear.grip * rear.load);
             applyImpulse(rear.patch, rear.tF.mul(f * h));
             rear.driveForce = f;
@@ -197,7 +229,8 @@ public final class BikeSim {
         if (p.manualAssist > 0 && c.lean < -0.15 && rear.contact && vFwd > 1.5) {
             double want = -c.lean * p.manualTargetPitch;
             double rel = pitch - groundPitch(rear.normal);
-            double tq = p.manualAssist * (-c.lean) * clamp((want - rel) * 4.0, -1, 1);
+            double tq = p.manualAssist * (-c.lean)
+                    * clamp((want - rel) * 3.0 - omega.dot(right) * .65, -1, 1);
             omega = omega.add(angularDelta(right.mul(tq * h)));
         }
 
@@ -221,6 +254,8 @@ public final class BikeSim {
         // ---------- air control / landing assist ----------
         if (riderless) {
             // nothing steers or balances a bike nobody is riding
+        } else if (wallRide) {
+            setOmega(0, -pitch * 3);
         } else if (!grounded) {
             airControl(c, h);
         } else if (landAssistTimer > 0) {
@@ -240,13 +275,19 @@ public final class BikeSim {
         }
 
         // ---------- obviously over: on its back or standing on its nose ----------
-        if (!riderless && grounded) {
-            Wheel w = rear.contact ? rear : front;
-            double rel = Math.abs(wrap(pitch - groundPitch(w.normal)));
+        if (!riderless && (grounded || bodyGrounded)) {
+            V3 n = grounded ? (rear.contact ? rear.normal : front.normal) : bodyNormal;
+            double rel = Math.abs(wrap(pitch - groundPitch(n)));
             loopTimer = rel > Math.toRadians(80) ? loopTimer + h : 0;
             if (loopTimer > 0.25) bail(rel > Math.PI / 2 ? "flipped over" : "looped out");
-        }
+        } else loopTimer = 0;
 
+        // An airbag dissipates energy returned by the rider/suspension constraints too.
+        // Only an intentional body extension can pop away from the cushion.
+        if ((front.contact && front.surface==Terrain.Surface.AIRBAG || rear.contact && rear.surface==Terrain.Surface.AIRBAG) && c.body<.3) {
+            vel=new V3(vel.x,Math.min(0,vel.y),vel.z);
+            riderVel=new V3(riderVel.x,Math.min(0,riderVel.y),riderVel.z);
+        }
         // ---------- integrate positions (with wall probes) ----------
         integrate(h);
         if (riderless) {
@@ -256,7 +297,10 @@ public final class BikeSim {
 
         // ---------- wheel spin / cranks / lean ----------
         bookkeeping(c, h);
-        airState(grounded, h);
+        airState(grounded || (riderless && bodyGrounded), h);
+        tricks.tick(c.trickMod ? bikeType.trickFor(c.trickX, c.trickY) : Trick.NONE,
+                c.trickX < 0 ? -1 : 1, airborne && !bailed && !riderless, h);
+        if (tricks.trick != Trick.NONE && (tricks.amount > .75 || tricks.progress > .85)) trickMask |= 1 << tricks.trick.ordinal();
     }
 
     // =====================================================================
@@ -272,7 +316,7 @@ public final class BikeSim {
         w.contact = false;
         w.load = 0;
 
-        if (!terrain.ground(ext.x, ext.z, ext.y + 1.3, ext.y - p.wheelRadius - travel - 1.5, w.hit)) {
+        if (!wheelGround(ext, travel, w.hit)) {
             w.compression = Math.max(0, w.compression - h * 3.0); // extends in the air
             w.compVel = 0;
             return;
@@ -290,7 +334,7 @@ public final class BikeSim {
             w.compVel = 0;
             return;
         }
-        double cdot = -pointVel(ext).dot(n) / upn;
+        double cdot = -pointVel(ext).sub(w.hit.velocity).dot(n) / upn;
         double cc = Math.min(c, travel);
         double rate = w.isFront ? p.forkRate : p.shockRate;
         double prog = w.isFront ? p.forkProgression : p.shockProgression;
@@ -300,6 +344,13 @@ public final class BikeSim {
                 ? (w.isFront ? p.forkCompDamp : p.shockCompDamp) * cdot
                 : (w.isFront ? p.forkRebDamp : p.shockRebDamp) * cdot;
         double load = Math.max(0, spring + damp);
+        if(w.hit.surface==Terrain.Surface.AIRBAG){
+            // The cushion removes impact energy, instead of storing it for a rebound.
+            if(vel.y<0)vel=new V3(vel.x,vel.y*Math.exp(-h*12),vel.z);
+            if(riderVel.y<0)riderVel=new V3(riderVel.x,riderVel.y*Math.exp(-h*12),riderVel.z);
+            omega=omega.mul(Math.exp(-h*4));
+            load=Math.min(load,(p.bikeMass+p.riderMass)*p.gravity*.51);
+        }
 
         w.contact = true;
         w.justLanded = !was;
@@ -308,8 +359,8 @@ public final class BikeSim {
         w.overshoot = c - travel;     // > 0 = bottomed out / wheel penetrating
         w.penetration = Math.max(0, w.overshoot) * upn;
         w.normal = n;
-        w.grip = w.hit.grip;
-        w.rollRes = w.hit.rollRes;
+        w.grip = w.hit.grip * p.tyreGrip;
+        w.rollRes = w.hit.rollRes * p.tyreRolling;
         w.surface = w.hit.surface;
         V3 centre = ext.addScaled(up, cc);
         w.patch = centre.addScaled(n, -p.wheelRadius);
@@ -327,13 +378,57 @@ public final class BikeSim {
         applyImpulse(w.patch, n.mul(load * h));
     }
 
+    /** High-speed side contact supplies friction from speed-dependent normal force, then releases. */
+    private void wallContact(Controls c, boolean grounded, double h) {
+        wallRide = false;
+        if (!p.wallRides || riderless || grounded || vel.horizontalLength() < 8) { wallTime = 0; return; }
+        for (int side : new int[]{-1, 1}) {
+            V3 q = pos.addScaled(right, side * .65);
+            if (!terrain.solidAt(q.x,q.y-.2,q.z) || !terrain.solidAt(q.x,q.y+.6,q.z)) continue;
+            if (Math.abs(vel.dot(right)) > vel.horizontalLength() * .45) continue;
+            wallTime += h;
+            if ((c.steer * side > .1 || c.tweak * side > .1) && wallTime < 2.2) {
+                wallRide = true; wallSide = side;
+            }
+            return;
+        }
+        wallTime = 0;
+    }
+
+    /** Keep the tyre supported by a lip until its round tread clears the edge. */
+    private boolean wheelGround(V3 ext, double travel, Terrain.GroundHit hit) {
+        boolean found = terrain.ground(ext.x, ext.z, ext.y + 1.3,
+                ext.y - p.wheelRadius - travel - 1.5, hit);
+        double best = found ? (p.wheelRadius - (ext.y - hit.height) * hit.normal.y)
+                / Math.max(0.25, up.dot(hit.normal)) : -Double.MAX_VALUE;
+        // On an ordinary slope the central plane is already exact. Edge samples
+        // supply a rounded tread contact only when a surface stops abruptly.
+        for (int i = -4; i <= 4; i++) {
+            if (i == 0) continue;
+            double offset = p.wheelRadius * i / 5.0;
+            V3 sample = ext.addScaled(fH, offset);
+            if (!terrain.ground(sample.x, sample.z, ext.y + 1.3,
+                    ext.y - p.wheelRadius - travel - 1.5, bodyHit)) continue;
+            double support = bodyHit.height + Math.sqrt(p.wheelRadius * p.wheelRadius - offset * offset);
+            double c = (support - ext.y) / Math.max(0.25, up.y);
+            if (c <= best) continue;
+            best = c;
+            // Express the rounded contact in the wheel's usual plane format.
+            hit.set(ext.y + (c * up.dot(bodyHit.normal) - p.wheelRadius) / bodyHit.normal.y,
+                    bodyHit.normal, bodyHit.surface);
+            hit.velocity = bodyHit.velocity;
+            found = true;
+        }
+        return found;
+    }
+
     private void solveWheel(Wheel w, double brakeF, double h) {
         if (!w.contact) return;
         V3 P = w.patch;
 
         // bottom-out / penetration: no closing velocity along the normal
         if (w.overshoot > 0) {
-            double vn = pointVel(P).dot(w.normal);
+            double vn = pointVel(P).sub(w.hit.velocity).dot(w.normal);
             double k = invMass(P, w.normal);
             double j = -vn / k;
             double old = w.accN;
@@ -345,7 +440,7 @@ public final class BikeSim {
         double mu = w.grip;
 
         // longitudinal: brakes + rolling resistance (static hold at zero speed)
-        double vl = pointVel(P).dot(w.tF);
+        double vl = pointVel(P).sub(w.hit.velocity).dot(w.tF);
         double kl = invMass(P, w.tF);
         double limL = Math.min(brakeF + w.rollRes * nLoad, mu * nLoad) * h;
         double jl = -vl / kl;
@@ -355,7 +450,7 @@ public final class BikeSim {
         if (jl != 0) applyImpulse(P, w.tF.mul(jl));
 
         // lateral grip, friction ellipse with whatever longitudinal force is used
-        double vs = pointVel(P).dot(w.tL);
+        double vs = pointVel(P).sub(w.hit.velocity).dot(w.tL);
         double ks = invMass(P, w.tL);
         double fLong = Math.abs(w.accL) / h + (w == rear ? rear.driveForce : 0);
         double muEff = w.sliding ? mu * p.slideFriction : mu;
@@ -474,18 +569,26 @@ public final class BikeSim {
     // =====================================================================
 
     private void bodyContacts(double h) {
+        bodyGrounded = false;
+        V3 rolledRight = fwd.cross(up).normalize();
+        double tyreHeight = riderless ? p.wheelRadius * Math.hypot(fwd.y, up.y)
+                + 0.04 * Math.abs(rolledRight.y) : 0;
         V3[] pts = {
                 pos.addScaled(fwd, -0.19).addScaled(up, -0.30),                    // bottom bracket
                 pos.addScaled(fwd, -0.35).addScaled(up, 0.45),                     // saddle
                 pos.addScaled(fwd, 0.45).addScaled(up, 0.55),                      // bars
-                front.contact ? null : pos.addScaled(fwd, p.halfWheelbase).addScaled(up, p.axleDrop),
-                rear.contact ? null : pos.addScaled(fwd, -p.halfWheelbase).addScaled(up, p.axleDrop),
+                front.contact ? null : pos.addScaled(fwd, p.halfWheelbase).addScaled(up, p.axleDrop).addScaled(V3.Y, -tyreHeight),
+                rear.contact ? null : pos.addScaled(fwd, -p.halfWheelbase).addScaled(up, p.axleDrop).addScaled(V3.Y, -tyreHeight),
+                riderless ? pos.addScaled(fwd, 0.45).addScaled(up, 0.55).addScaled(rolledRight, 0.40) : null,
+                riderless ? pos.addScaled(fwd, 0.45).addScaled(up, 0.55).addScaled(rolledRight, -0.40) : null,
         };
         for (int i = 0; i < pts.length; i++) {
             V3 pt = pts[i];
             if (pt == null || !terrain.ground(pt.x, pt.z, pt.y + 1.0, pt.y - 1.5, bodyHit)) continue;
             double pen = bodyHit.height + 0.02 - pt.y;
             if (pen <= 0) continue;
+            bodyGrounded = true;
+            bodyNormal = bodyHit.normal;
             V3 n = bodyHit.normal;
             double vn = pointVel(pt).dot(n);
             double jn = 0;
@@ -500,7 +603,7 @@ public final class BikeSim {
                 double jt = Math.min(vtl / invMass(pt, td), 0.6 * (jn + p.bikeMass * p.gravity * h));
                 applyImpulse(pt, td.mul(-jt));
             }
-            pos = pos.addScaled(n, Math.min(pen * 0.3, 0.05));
+            pos = pos.addScaled(n, Math.min(pen * (riderless ? .8 : .3), riderless ? .15 : .05));
             // saddle/bars on the ground only counts as a crash if the bike is clearly over
             // (looped out or nose-planted), not when it just scrapes a steep bank
             boolean over = Math.abs(wrap(pitch - groundPitch(n))) > Math.toRadians(65);
@@ -581,6 +684,8 @@ public final class BikeSim {
                 airTime = 0;
                 airPitchTravel = 0;
                 airYawTravel = 0;
+                maxWhip = maxTable = 0;
+                trickMask = 0;
                 // Rotations must be earned at take-off: a real rider cannot start a
                 // spin in mid-air. Popping hard (and launching off a lip) buys authority.
                 double pop = clamp(popMeter / 1.6, 0, 1);
@@ -593,6 +698,8 @@ public final class BikeSim {
             lastAirVel = vel;
             airPitchTravel += omega.dot(right) * h;
             airYawTravel += -omega.dot(V3.Y) * h;
+            if (vel.horizontalLength() > 2) maxWhip = Math.max(maxWhip, Math.abs(wrap(yaw - Math.atan2(-vel.x, vel.z))));
+            maxTable = Math.max(maxTable, Math.abs(lean));
             return;
         }
         if (airborne) {
@@ -615,12 +722,10 @@ public final class BikeSim {
         // already started slowing us by the time this runs)
         double impact = Math.max(0, -lastAirVel.dot(w.normal));
         if (airTime > 0.25) {
-            if (impact > p.bailImpactSpeed) {
+            if (impact > p.bailImpactSpeed && w.surface!=Terrain.Surface.AIRBAG) {
                 bail("landed too hard (" + String.format(java.util.Locale.ROOT, "%.1f", impact) + " m/s into the ground)");
-            } else if (pitchErr > p.bailPitchError) {
+            } else if (pitchErr > p.bailPitchError && w.surface!=Terrain.Surface.AIRBAG) {
                 bail("landed with the nose " + (int) Math.toDegrees(pitchErr) + "° off");
-            } else if (yawErr > p.bailYawError) {
-                bail("landed sideways (" + (int) Math.toDegrees(yawErr) + "°)");
             } else {
                 // Descenders-style "magnet": ease pitch onto the slope and finish an
                 // under/over-rotated spin onto the direction of travel
@@ -635,6 +740,8 @@ public final class BikeSim {
     private void bail(String reason) {
         if (bailed || riderless) return;
         bailed = true;
+        crashRiderPos = riderPos;
+        crashRiderVel = riderVel;
         bailReason = reason;
         events.add(new Event(Event.Type.BAIL, vel.length(), reason));
     }
@@ -644,6 +751,7 @@ public final class BikeSim {
     // =====================================================================
 
     private void integrate(double h) {
+        V3 before = pos, oldFwd=fwd, oldUp=up;
         V3 step = vel.mul(h);
         // probes: points that must not enter walls (frame-relative)
         V3[] probes = {
@@ -664,6 +772,7 @@ public final class BikeSim {
             else nrm = new V3(0, -Math.signum(step.y), 0);
             double into = -vel.dot(nrm);
             if (into <= 0) continue;
+            events.add(new Event(Event.Type.HIT, into, "probe " + i + " n=" + nrm + " at " + b));
             if (nrm.y != 0) {
                 // a floor/ceiling, not a wall: tyres handle the ground, but the head or
                 // bars hitting it means you went over the bars / landed upside down
@@ -690,6 +799,34 @@ public final class BikeSim {
 
         yaw -= omega.dot(V3.Y) * h;
         pitch = wrap(pitch + omega.dot(right) * h);
+        protectFloor(before,oldFwd,oldUp);
+    }
+
+    /** Sweep the tyres over the floor so a fast fall cannot miss a thin block. */
+    private void protectFloor(V3 before,V3 oldFwd,V3 oldUp) {
+        axes();
+        V3 rolledRight = fwd.cross(up).normalize();
+        double radiusY = riderless ? p.wheelRadius * Math.hypot(fwd.y, up.y)
+                + .04 * Math.abs(rolledRight.y) : p.wheelRadius;
+        double lift = 0;
+        Terrain.Surface floorSurface=Terrain.Surface.DIRT;
+        for (Wheel w : new Wheel[]{front, rear}) {
+            double sign = w.isFront ? 1 : -1;
+            V3 point = pos.addScaled(fwd, sign * p.halfWheelbase)
+                    .addScaled(up, p.axleDrop + w.compression).addScaled(V3.Y, -radiusY);
+            double oldRadiusY=riderless?p.wheelRadius*Math.hypot(oldFwd.y,oldUp.y)+.04*Math.abs(oldFwd.cross(oldUp).normalize().y):p.wheelRadius;
+            double oldY=before.addScaled(oldFwd,sign*p.halfWheelbase).addScaled(oldUp,p.axleDrop+w.compression).y-oldRadiusY;
+            double top = Math.max(oldY, point.y) + .08;
+            if (terrain.floor(point.x, point.z, top, point.y - .6, bodyHit)) {
+                if(bodyHit.height-point.y>lift){lift=bodyHit.height-point.y;floorSurface=bodyHit.surface;}
+            }
+        }
+        if (lift > .12) {
+            if (airborne && !riderless && floorSurface!=Terrain.Surface.AIRBAG && -vel.y > p.bailImpactSpeed) bail("landed too hard");
+            pos = pos.addScaled(V3.Y, lift);
+            if (!riderless) riderPos = riderPos.addScaled(V3.Y, lift);
+            if (vel.y < 0) vel = new V3(vel.x, 0, vel.z);
+        }
     }
 
     private double speedAgainst(V3 n) {
@@ -697,6 +834,7 @@ public final class BikeSim {
     }
 
     private void bookkeeping(Controls c, double h) {
+        brake += (c.brake - brake) * (1 - Math.exp(-h / .06));
         for (Wheel w : new Wheel[]{front, rear}) {
             if (w.contact) {
                 w.spinRate = pointVel(w.patch).dot(w.tF) / p.wheelRadius;
@@ -721,9 +859,11 @@ public final class BikeSim {
             return;
         } else if (!airborne) {
             double latAcc = -omega.dot(V3.Y) * vel.horizontalLength();
-            leanT = clamp(Math.atan2(latAcc, p.gravity), -0.95, 0.95);
+            V3 normal = rear.contact ? rear.normal : front.normal;
+            double bank = Math.atan2(normal.dot(right), normal.y);
+            leanT = clamp(Math.atan2(latAcc, p.gravity) + bank, -1.25, 1.25);
         } else {
-            leanT = 0;
+            leanT = wallRide ? -wallSide * 1.38 : c.tweak * 1.2;
         }
         lean += (leanT - lean) * (1 - Math.exp(-h / 0.09));
     }
@@ -739,6 +879,7 @@ public final class BikeSim {
         double sp = Math.sin(pitch), cp = Math.cos(pitch);
         fwd = fH.mul(cp).addScaled(V3.Y, sp);
         up = fH.mul(-sp).addScaled(V3.Y, cp);
+        if (riderless) up = up.mul(Math.cos(lean)).addScaled(right, Math.sin(lean));
     }
 
     private V3 pointVel(V3 point) {
@@ -780,7 +921,7 @@ public final class BikeSim {
     public V3 upAxis() { axes(); return up; }
     public V3 rightAxis() { axes(); return right; }
     public double speed() { return vel.length(); }
-    public boolean grounded() { return front.contact || rear.contact; }
+    public boolean grounded() { return front.contact || rear.contact || (riderless && bodyGrounded); }
 
     /** Lowest clearance between either tyre and the ground below it (m), for tests/HUD. */
     public double wheelClearance() {
@@ -827,7 +968,7 @@ public final class BikeSim {
     }
 
     public record Event(Type type, double value, String info) {
-        public enum Type { TAKEOFF, LAND, BAIL }
+        public enum Type { TAKEOFF, LAND, BAIL, HIT }
     }
 
     // =====================================================================

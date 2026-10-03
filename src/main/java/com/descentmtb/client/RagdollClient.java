@@ -33,6 +33,8 @@ public final class RagdollClient {
         float lie, lieO;        // 0 = upright/tumbling height, 1 = lying flat
         int age, downTicks, getUp = -1;
         boolean landed;
+        CameraType savedCamera;
+        net.minecraft.world.entity.Pose savedPose;
     }
 
     private static final Map<Integer, State> STATES = new HashMap<>();
@@ -42,10 +44,17 @@ public final class RagdollClient {
         State s = new State();
         double speed = Math.sqrt(m.vx() * m.vx() + m.vy() * m.vy() + m.vz() * m.vz());
         s.yaw = (float) Math.atan2(-m.vx(), m.vz());
-        s.spin = (float) Math.max(0.25, Math.min(0.9, speed * 0.05));
+        s.spin = (float) Math.max(0.08, Math.min(0.32, speed * 0.018));
         STATES.put(m.playerId(), s);
+        if (DevAutopilot.ENABLED) com.descentmtb.DescentMtb.LOG.info("[ragdoll] received for {}", m.playerId());
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player != null && m.playerId() == mc.player.getId()) camYaw = s.yaw;
+        if (mc.player != null && m.playerId() == mc.player.getId()) {
+            camYaw = s.yaw;
+            s.savedCamera = BikeCamera.originalCameraType();
+            mc.player.getAbilities().flying = false;
+            s.savedPose = mc.player.getForcedPose();
+            mc.player.setForcedPose(net.minecraft.world.entity.Pose.SWIMMING);
+        }
     }
 
     public static boolean active(Entity e) {
@@ -74,12 +83,17 @@ public final class RagdollClient {
         STATES.entrySet().removeIf(en -> {
             Entity e = mc.level.getEntity(en.getKey());
             State s = en.getValue();
-            if (!(e instanceof LivingEntity) || e.isPassenger()) return true;
+            if (!(e instanceof LivingEntity)) return true;
+            // The animation packet can reach the client before vanilla's
+            // passenger update. Give that dismount time to arrive.
+            if (e.isPassenger() && s.age > 10) { restore(mc, e, s); return true; }
+            if (e.isPassenger()) { s.age++; return false; }
             s.age++;
             s.angleO = s.angle;
             s.lieO = s.lie;
             if (!s.landed) {
-                s.angle += s.spin;
+                double moving = Math.min(1, e.getDeltaMovement().length() / .25);
+                s.angle += s.spin * Math.exp(-s.age / 24.0) * (float) moving;
                 if (e.onGround() && s.age > 3) s.landed = true;
             } else if (s.getUp < 0) {
                 s.downTicks++;
@@ -96,7 +110,7 @@ public final class RagdollClient {
                 float target = nearestLying(s.angle) - (float) (Math.PI / 2);   // stand up
                 s.angle += (target - s.angle) * 0.3f;
                 if (s.getUp >= GET_UP) {
-                    if (e == mc.player) mc.options.setCameraType(CameraType.FIRST_PERSON);
+                    restore(mc, e, s);
                     return true;
                 }
             }
@@ -104,6 +118,14 @@ public final class RagdollClient {
         });
         if (localActive() && mc.options.getCameraType() != CameraType.THIRD_PERSON_BACK) {
             mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);   // so our own body is drawn
+        }
+    }
+
+    private static void restore(Minecraft mc, Entity e, State s) {
+        if (e == mc.player) {
+            mc.player.setForcedPose(s.savedPose);
+            net.neoforged.neoforge.network.PacketDistributor.sendToServer(new com.descentmtb.network.RagdollRecoveryPayload());
+            if (s.savedCamera != null) mc.options.setCameraType(s.savedCamera);
         }
     }
 
@@ -119,7 +141,8 @@ public final class RagdollClient {
         if (s == null) return false;
         float angle = s.angleO + (s.angle - s.angleO) * pt;
         float lie = s.lieO + (s.lie - s.lieO) * pt;
-        float pivot = 0.9f - 0.62f * lie;          // body centre height: 0.9 m tumbling, ~0.28 m lying
+        // The projected body extent keeps a rotating body above its real collision floor.
+        float pivot = .9f * Math.abs((float) Math.cos(angle)) + .25f * Math.abs((float) Math.sin(angle)) + .03f;
         pose.pushPose();
         pose.translate(0, pivot, 0);
         pose.mulPose(Axis.YP.rotation((float) Math.PI - s.yaw));
@@ -133,6 +156,9 @@ public final class RagdollClient {
     public static void limbs(PlayerModel<?> m, LivingEntity e, float ageInTicks) {
         State s = STATES.get(e.getId());
         if (s == null) return;
+        m.body.xRot=0;m.body.y=0;m.body.z=0;m.head.y=0;m.head.z=0;
+        m.rightArm.y=m.leftArm.y=2;m.rightArm.z=m.leftArm.z=0;
+        m.rightLeg.y=m.leftLeg.y=12;m.rightLeg.z=m.leftLeg.z=0;
         float flail = s.landed ? 0.05f : 0.35f;
         float w = (float) Math.sin(ageInTicks * 0.9f) * flail;
         m.rightArm.xRot = -0.4f + w;

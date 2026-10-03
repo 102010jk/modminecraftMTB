@@ -1,0 +1,9 @@
+{
+  "selector": "descentmtb:trail_sign",
+  "properties": {
+    "sable:mass": 0.035,
+    "sable:volume": 0.06,
+    "sable:friction": 0.8,
+    "sable:restitution": 0
+  }
+}
