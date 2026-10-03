@@ -20,6 +20,9 @@ public abstract class PlayerModelMixin {
             RiderPose.apply((PlayerModel<?>) (Object) this, entity, bike, Math.max(0f, Math.min(1f, pt)));
         } else {
             RiderPose.reset((PlayerModel<?>) (Object) this);
+            if (com.descentmtb.client.RagdollClient.active(entity)) {
+                com.descentmtb.client.RagdollClient.limbs((PlayerModel<?>) (Object) this, entity, ageInTicks);
+            }
         }
     }
 }

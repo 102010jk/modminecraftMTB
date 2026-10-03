@@ -18,7 +18,6 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -68,6 +67,13 @@ public class MountainBikeEntity extends Entity {
     private BikeSim sim;
     private McColumns columns;
     private boolean simulating;
+
+    // ---------------- server: riderless physics ----------------
+    private BikeSim serverSim;
+    private McColumns serverColumns;
+    private int restTicks;
+    private V3 lastVel = V3.ZERO;
+    private double lastPitch, lastLean;
 
     // ---------------- render snapshots (all sides that render) ----------------
     public final BikeRenderState rsPrev = new BikeRenderState();
@@ -153,7 +159,8 @@ public class MountainBikeEntity extends Entity {
         if (teleport) flags |= BikeStatePayload.TELEPORT;
         return new BikeStatePayload(getId(), sim.pos.x, sim.pos.y, sim.pos.z, (float) sim.yaw, (float) sim.pitch,
                 (float) sim.lean, (float) sim.steerAngle, (float) sim.front.compression, (float) sim.rear.compression,
-                (float) sim.riderUp, (float) sim.riderFwd, (float) sim.crankAngle, flags);
+                (float) sim.riderUp, (float) sim.riderFwd, (float) sim.crankAngle, flags,
+                (float) sim.vel.x, (float) sim.vel.y, (float) sim.vel.z);
     }
 
     /** Server: accept the rider's simulated state. */
@@ -170,6 +177,9 @@ public class MountainBikeEntity extends Entity {
         entityData.set(D_RIDER_FWD, m.riderFwd());
         entityData.set(D_CRANK, m.crank());
         entityData.set(D_FLAGS, m.flags());
+        lastVel = new V3(m.vx(), m.vy(), m.vz());
+        lastPitch = m.pitch();
+        lastLean = m.lean();
     }
 
     /** Everyone who is not riding this bike: interpolate the server's view of it. */
@@ -184,14 +194,41 @@ public class MountainBikeEntity extends Entity {
 
     private void serverTick() {
         rsCur.fromSynced(this, rsPrev); // keeps the server-side passenger placed correctly
-        if (getControllingPassenger() != null) return; // the rider's client drives it
-        // parked: just settle onto the ground
-        if (!onGround()) {
-            setDeltaMovement(getDeltaMovement().add(0, -0.08, 0));
-        } else {
-            setDeltaMovement(getDeltaMovement().multiply(0.5, 0, 0.5));
+        if (getControllingPassenger() != null) {   // the rider's client drives it
+            serverSim = null;
+            restTicks = 0;
+            return;
         }
-        move(MoverType.SELF, getDeltaMovement());
+        // nobody on it: it rolls, tumbles and falls over by itself, on the same smoothed
+        // terrain as when ridden (vanilla box collision let parked bikes sink into blocks)
+        if (serverSim == null) {
+            if (serverColumns == null) serverColumns = new McColumns(level());
+            serverSim = new BikeSim(PARAMS, new BlockTerrain(serverColumns));
+            serverSim.riderless = true;
+            serverSim.place(getX(), getY(), getZ(), Math.toRadians(getYRot()));
+            if (lastVel.lengthSq() > 0.01) {    // just bailed / hopped off: keep the motion
+                serverSim.pos = new V3(getX(), getY() + COM_HEIGHT, getZ());
+                serverSim.pitch = lastPitch;
+                serverSim.lean = lastLean;
+                serverSim.vel = lastVel;
+            }
+            lastVel = V3.ZERO;
+            restTicks = 0;
+        }
+        if (restTicks > 60) return;                 // settled: stop simulating
+        serverColumns.newTick();
+        serverSim.tick(Controls.NONE, 0.05);
+        BikeSim s = serverSim;
+        setPos(s.pos.x, s.pos.y - COM_HEIGHT, s.pos.z);
+        setYRot((float) Math.toDegrees(s.yaw));
+        setXRot((float) -Math.toDegrees(s.pitch));
+        entityData.set(D_PITCH, (float) s.pitch);
+        entityData.set(D_LEAN, (float) s.lean);
+        entityData.set(D_STEER, 0f);
+        entityData.set(D_COMP_F, (float) s.front.compression);
+        entityData.set(D_COMP_R, (float) s.rear.compression);
+        entityData.set(D_FLAGS, s.airborne ? BikeStatePayload.AIRBORNE : 0);
+        restTicks = (s.speed() < 0.05 && s.grounded() && Math.abs(Math.abs(s.lean) - 1.38) < 0.05) ? restTicks + 1 : 0;
     }
 
     // synced visual accessors for remote rendering

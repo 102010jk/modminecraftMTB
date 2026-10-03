@@ -96,6 +96,8 @@ public final class BikeCamera {
 
     /** @return the camera for this frame, or null when not riding. */
     public static View compute(float partialTick) {
+        View crash = RagdollClient.cameraView(partialTick);
+        if (crash != null) return crash;
         MountainBikeEntity bike = BikeClientController.riding();
         Minecraft mc = Minecraft.getInstance();
         if (bike == null || mc.level == null) return null;

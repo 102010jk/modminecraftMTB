@@ -75,10 +75,17 @@ public final class BikeSim {
     public double airPitchTravel, airYawTravel;
 
     public boolean bailed;
+    /**
+     * No rider: the bike just rolls, tumbles and settles (after a bail, or parked).
+     * Rider forces, assists and bail detection are off; it lies down on its side at rest.
+     */
+    public boolean riderless;
+    private double restSide = 1;
     public String bailReason = "";
 
     /** Things that happened since the caller last drained the list. */
     public final List<Event> events = new ArrayList<>();
+    private double loopTimer;
 
     // ---------------- per-substep frame axes ----------------
     private V3 fH, right, fwd, up;
@@ -156,7 +163,7 @@ public final class BikeSim {
         groundFactor += ((grounded ? 1 : 0) - groundFactor) * (1 - Math.exp(-h / 0.05));
 
         // ---------- rider actuators ----------
-        riderForces(c, grounded, h);
+        if (!riderless) riderForces(c, grounded, h);
 
         // ---------- gravity ----------
         vel = vel.addScaled(V3.Y, -g * h);
@@ -169,7 +176,7 @@ public final class BikeSim {
             drag += p.softCapDrag * over * over;
         }
         if (speed > 1e-6) {
-            V3 dv = vel.mul(-drag / p.totalMass() / speed * h);
+            V3 dv = vel.mul(-drag / (riderless ? p.bikeMass * 3 : p.totalMass()) / speed * h);
             vel = vel.add(dv);
             riderVel = riderVel.add(dv);
         }
@@ -197,11 +204,12 @@ public final class BikeSim {
         // ---------- velocity constraints (sequential impulses) ----------
         front.resetAccum();
         rear.resetAccum();
-        double brakeF = c.brake * p.brakeForce;
+        // a riderless bike lying on its side just scrapes along the dirt
+        double brakeF = (riderless && Math.abs(lean) > 0.9) ? p.brakeForce : c.brake * p.brakeForce;
         for (int it = 0; it < 8; it++) {
             solveWheel(front, brakeF * p.brakeFrontShare, h);
             solveWheel(rear, brakeF * (1 - p.brakeFrontShare), h);
-            solveRider(h, grounded);
+            if (!riderless) solveRider(h, grounded);
         }
         front.sliding = front.contact && front.latSaturated;
         rear.sliding = rear.contact && rear.latSaturated;
@@ -211,7 +219,9 @@ public final class BikeSim {
         omega = omega.reject(fH);
 
         // ---------- air control / landing assist ----------
-        if (!grounded) {
+        if (riderless) {
+            // nothing steers or balances a bike nobody is riding
+        } else if (!grounded) {
             airControl(c, h);
         } else if (landAssistTimer > 0) {
             landAssistTimer -= h;
@@ -229,8 +239,20 @@ public final class BikeSim {
             setOmega(a + (aT - a) * k, b + (bT - b) * k);
         }
 
+        // ---------- obviously over: on its back or standing on its nose ----------
+        if (!riderless && grounded) {
+            Wheel w = rear.contact ? rear : front;
+            double rel = Math.abs(wrap(pitch - groundPitch(w.normal)));
+            loopTimer = rel > Math.toRadians(80) ? loopTimer + h : 0;
+            if (loopTimer > 0.25) bail(rel > Math.PI / 2 ? "flipped over" : "looped out");
+        }
+
         // ---------- integrate positions (with wall probes) ----------
         integrate(h);
+        if (riderless) {
+            riderPos = pos.addScaled(up, p.riderHeight);
+            riderVel = vel;
+        }
 
         // ---------- wheel spin / cranks / lean ----------
         bookkeeping(c, h);
@@ -479,10 +501,13 @@ public final class BikeSim {
                 applyImpulse(pt, td.mul(-jt));
             }
             pos = pos.addScaled(n, Math.min(pen * 0.3, 0.05));
-            if ((i == 1 || i == 2) && !bailed && -vn > p.crashSpeed) bail("hit the ground with the frame");
+            // saddle/bars on the ground only counts as a crash if the bike is clearly over
+            // (looped out or nose-planted), not when it just scrapes a steep bank
+            boolean over = Math.abs(wrap(pitch - groundPitch(n))) > Math.toRadians(65);
+            if ((i == 1 || i == 2) && over && -vn > p.crashSpeed) bail("went over the bars");
         }
         // the rider's body never sinks into the ground either
-        if (terrain.ground(riderPos.x, riderPos.z, riderPos.y + 1.0, riderPos.y - 1.5, bodyHit)) {
+        if (!riderless && terrain.ground(riderPos.x, riderPos.z, riderPos.y + 1.0, riderPos.y - 1.5, bodyHit)) {
             double pen = bodyHit.height + 0.25 - riderPos.y;
             if (pen > 0) {
                 double vn = riderVel.dot(bodyHit.normal);
@@ -608,7 +633,7 @@ public final class BikeSim {
     }
 
     private void bail(String reason) {
-        if (bailed) return;
+        if (bailed || riderless) return;
         bailed = true;
         bailReason = reason;
         events.add(new Event(Event.Type.BAIL, vel.length(), reason));
@@ -688,7 +713,13 @@ public final class BikeSim {
         crankAngle += crankRate * h;
 
         double leanT;
-        if (!airborne) {
+        if (riderless) {
+            // nobody holding it up: once it slows down it falls over onto its side
+            if (Math.abs(lean) > 0.05) restSide = Math.signum(lean);
+            leanT = speed() < 6.0 && grounded() ? restSide * 1.38 : lean;
+            lean += (leanT - lean) * (1 - Math.exp(-h / 0.35));
+            return;
+        } else if (!airborne) {
             double latAcc = -omega.dot(V3.Y) * vel.horizontalLength();
             leanT = clamp(Math.atan2(latAcc, p.gravity), -0.95, 0.95);
         } else {

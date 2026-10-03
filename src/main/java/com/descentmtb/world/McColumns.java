@@ -2,6 +2,7 @@ package com.descentmtb.world;
 
 import com.descentmtb.physics.BlockTerrain;
 import com.descentmtb.physics.Terrain;
+import com.descentmtb.ramp.RampBlock;
 import it.unimi.dsi.fastutil.longs.Long2DoubleOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -50,6 +51,9 @@ public final class McColumns implements BlockTerrain.Columns {
         for (int y = yStart; y >= yEnd; y--) {
             VoxelShape shape = shapeAt(x, y, z);
             boolean solid = !shape.isEmpty();
+            if (solid && aboveFree && RampBlock.isRamp(level.getBlockState(mpos.set(x, y, z)))) {
+                break; // ramps are exact surfaces; NaN keeps them out of the neighbours' blur
+            }
             if (solid && aboveFree) {
                 double t = y + shape.max(Direction.Axis.Y);
                 if (t <= yTop + 1e-3) {
@@ -64,9 +68,31 @@ public final class McColumns implements BlockTerrain.Columns {
     }
 
     @Override
+    public boolean exactSurface(double x, double z, double yTop, double yBottom, double[] out) {
+        int bx = (int) Math.floor(x), bz = (int) Math.floor(z);
+        int yStart = (int) Math.floor(yTop), yEnd = (int) Math.floor(yBottom);
+        for (int y = yStart; y >= yEnd; y--) {
+            mpos.set(bx, y, bz);
+            if (!level.isLoaded(mpos)) return false;
+            BlockState s = level.getBlockState(mpos);
+            if (s.getCollisionShape(level, mpos).isEmpty()) continue;
+            if (!RampBlock.isRamp(s)) return false;          // ordinary block: use the smoother
+            double fx = x - bx, fz = z - bz;
+            double h = y + RampBlock.heightAt(s, fx, fz);
+            if (h > yTop + 1e-3) return false;
+            out[0] = h;
+            out[1] = RampBlock.slopeX(s, fx, fz);
+            out[2] = RampBlock.slopeZ(s, fx, fz);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
     public Terrain.Surface surface(int x, int z, double topY) {
         mpos.set(x, (int) Math.floor(topY - 0.01), z);
         BlockState s = level.getBlockState(mpos);
+        if (RampBlock.isRamp(s)) return Terrain.Surface.TRAIL;
         // snow layer on top of something
         if (s.is(Blocks.SNOW) || s.is(Blocks.SNOW_BLOCK) || s.is(Blocks.POWDER_SNOW)) return Terrain.Surface.SNOW;
         if (s.is(BlockTags.ICE) || s.getBlock().getFriction() > 0.9f) return Terrain.Surface.ICE;

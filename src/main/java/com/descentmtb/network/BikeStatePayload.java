@@ -18,7 +18,8 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  */
 public record BikeStatePayload(int entityId, double x, double y, double z, float yaw, float pitch,
                                float lean, float steer, float compF, float compR,
-                               float riderUp, float riderFwd, float crank, byte flags)
+                               float riderUp, float riderFwd, float crank, byte flags,
+                               float vx, float vy, float vz)
         implements CustomPacketPayload {
 
     public static final byte AIRBORNE = 1, BAILED = 2, TELEPORT = 4;
@@ -44,12 +45,16 @@ public record BikeStatePayload(int entityId, double x, double y, double z, float
         b.writeFloat(riderFwd);
         b.writeFloat(crank);
         b.writeByte(flags);
+        b.writeFloat(vx);
+        b.writeFloat(vy);
+        b.writeFloat(vz);
     }
 
     private static BikeStatePayload read(FriendlyByteBuf b) {
         return new BikeStatePayload(b.readVarInt(), b.readDouble(), b.readDouble(), b.readDouble(),
                 b.readFloat(), b.readFloat(), b.readFloat(), b.readFloat(), b.readFloat(), b.readFloat(),
-                b.readFloat(), b.readFloat(), b.readFloat(), b.readByte());
+                b.readFloat(), b.readFloat(), b.readFloat(), b.readByte(),
+                b.readFloat(), b.readFloat(), b.readFloat());
     }
 
     @Override

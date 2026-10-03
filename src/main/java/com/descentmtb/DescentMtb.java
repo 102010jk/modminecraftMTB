@@ -1,6 +1,9 @@
 package com.descentmtb;
 
 import com.descentmtb.network.ModNetwork;
+import com.descentmtb.network.Ragdolls;
+import net.neoforged.neoforge.common.NeoForge;
+import com.descentmtb.registry.ModBlocks;
 import com.descentmtb.registry.ModEntities;
 import com.descentmtb.registry.ModItems;
 import com.mojang.logging.LogUtils;
@@ -22,6 +25,9 @@ public class DescentMtb {
     public DescentMtb(IEventBus modBus) {
         ModItems.register(modBus);
         ModEntities.register(modBus);
+        ModBlocks.register(modBus);
         ModNetwork.register(modBus);
+        NeoForge.EVENT_BUS.addListener(Ragdolls::onPlayerTick);
+        NeoForge.EVENT_BUS.addListener(Ragdolls::onFall);
     }
 }

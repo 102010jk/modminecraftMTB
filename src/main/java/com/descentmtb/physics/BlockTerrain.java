@@ -36,6 +36,16 @@ public final class BlockTerrain implements Terrain {
 
         /** True if (x, y, z) is inside a block's collision shape. */
         boolean solid(double x, double y, double z);
+
+        /**
+         * Exact analytic surface for shaped blocks (ramps): if the first solid block in
+         * column (x, z) below {@code yTop} is one, write {height, dH/dx, dH/dz} into
+         * {@code out} and return true. Such columns are never smoothed, and must report
+         * NaN from {@link #top} so they don't blur their neighbours (keeps lips sharp).
+         */
+        default boolean exactSurface(double x, double z, double yTop, double yBottom, double[] out) {
+            return false;
+        }
     }
 
     private final Columns cols;
@@ -44,8 +54,15 @@ public final class BlockTerrain implements Terrain {
         this.cols = cols;
     }
 
+    private final double[] exact = new double[3];
+
     @Override
     public boolean ground(double x, double z, double yTop, double yBottom, GroundHit out) {
+        if (cols.exactSurface(x, z, yTop, yBottom, exact)) {
+            V3 n = new V3(-exact[1], 1, -exact[2]).normalize();
+            out.set(exact[0], n, cols.surface((int) Math.floor(x), (int) Math.floor(z), exact[0]));
+            return true;
+        }
         double fx = x - 0.5, fz = z - 0.5;
         int i0 = (int) Math.floor(fx), j0 = (int) Math.floor(fz);
         double tx = fx - i0, tz = fz - j0;

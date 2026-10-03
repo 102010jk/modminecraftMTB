@@ -24,7 +24,10 @@ public final class ModItems {
             TABS.register("main", () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.descentmtb"))
                     .icon(() -> new ItemStack(MOUNTAIN_BIKE.get()))
-                    .displayItems((params, output) -> output.accept(MOUNTAIN_BIKE.get()))
+                    .displayItems((params, output) -> {
+                        output.accept(MOUNTAIN_BIKE.get());
+                        ModBlocks.TAB_ITEMS.forEach(s -> output.accept(s.get()));
+                    })
                     .build());
 
     private ModItems() {}

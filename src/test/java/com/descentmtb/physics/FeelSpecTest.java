@@ -431,6 +431,38 @@ class FeelSpecTest {
         assertTrue(r.sim.riderPos.y > 64.0, "rider must not sink through the ground");
     }
 
+    @Test
+    void sketchyLandingIsNotABail() {
+        // off a 2.5 m ledge, nose 50° high and no assists: ugly, but you ride it out
+        BikeParams p = new BikeParams();
+        p.airAlignAssist = 0;
+        p.landingAssistRate = 0;
+        Terrain ledge = TestTerrains.fn((x, z) -> z < 5 ? 66.5 : 64, Terrain.Surface.DIRT);
+        Ride r = new Ride("sketchy", ledge, p).place(0, 66.5, 0, 0).speed(6);
+        boolean[] tilted = {false};
+        r.run(3, rr -> {
+            if (rr.sim.airborne && !tilted[0] && rr.sim.airTime > 0.1) {
+                rr.sim.pitch += Math.toRadians(50);
+                tilted[0] = true;
+            }
+            return Controls.NONE;
+        });
+        log("sketchy 50° landing: bailed=%s %s", r.sim.bailed, r.sim.bailReason);
+        assertTrue(tilted[0]);
+        assertFalse(r.sim.bailed, "only obvious crashes should bail: " + r.sim.bailReason);
+    }
+
+    @Test
+    void riderlessBikeFallsOverAndStops() {
+        Ride r = new Ride("riderless", TestTerrains.flat(64, Terrain.Surface.DIRT)).place(0, 64, 0, 0).speed(5);
+        r.sim.riderless = true;
+        r.run(6, Controls.NONE);
+        log("riderless: %.2f km/h after 6 s, lying at %.0f°, y=%.2f", r.kmh(), Math.toDegrees(r.sim.lean), r.sim.pos.y);
+        assertTrue(r.kmh() < 0.5, "should come to rest");
+        assertTrue(Math.abs(r.sim.lean) > 1.2, "should lie on its side");
+        assertTrue(r.sim.pos.y > 63.9, "must not sink");
+    }
+
     // ------------------------------------------------------------------ robustness
 
     @Test

@@ -18,6 +18,8 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
+import net.neoforged.neoforge.client.event.MovementInputUpdateEvent;
+import com.descentmtb.network.RagdollPayload;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.event.RenderHandEvent;
 import net.neoforged.neoforge.client.event.RenderPlayerEvent;
@@ -44,6 +46,17 @@ public final class DescentMtbClient {
         modBus.addListener(this::registerGuiLayers);
 
         MountainBikeEntity.clientTicker = BikeClientController::tick;
+        RagdollPayload.clientHandler = RagdollClient::onPayload;
+        NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> RagdollClient.tick());
+        NeoForge.EVENT_BUS.addListener((MovementInputUpdateEvent e) -> {
+            if (RagdollClient.localLocked()) {
+                e.getInput().forwardImpulse = 0;
+                e.getInput().leftImpulse = 0;
+                e.getInput().jumping = false;
+                e.getInput().shiftKeyDown = false;
+                e.getInput().up = e.getInput().down = e.getInput().left = e.getInput().right = false;
+            }
+        });
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> BikeClientController.checkDismount());
         NeoForge.EVENT_BUS.addListener((ViewportEvent.ComputeFov e) -> {
             if (e.usedConfiguredFov()) e.setFOV(e.getFOV() + BikeCamera.fovBoost());
@@ -63,6 +76,7 @@ public final class DescentMtbClient {
         });
         // the rider pitches and leans with the bike (rotation about the pedals)
         NeoForge.EVENT_BUS.addListener((RenderPlayerEvent.Pre e) -> {
+            if (RagdollClient.transform(e.getEntity(), e.getPoseStack(), e.getPartialTick())) return;
             if (e.getEntity().getVehicle() instanceof MountainBikeEntity bike) {
                 BikeRenderState a = bike.rsPrev, b = bike.rsCur;
                 double t = e.getPartialTick();
@@ -76,12 +90,15 @@ public final class DescentMtbClient {
             }
         });
         NeoForge.EVENT_BUS.addListener((RenderPlayerEvent.Post e) -> {
-            if (e.getEntity().getVehicle() instanceof MountainBikeEntity) e.getPoseStack().popPose();
+            if (RagdollClient.active(e.getEntity()) || e.getEntity().getVehicle() instanceof MountainBikeEntity) {
+                e.getPoseStack().popPose();
+            }
         });
     }
 
     private void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(ModEntities.MOUNTAIN_BIKE.get(), MountainBikeRenderer::new);
+        com.descentmtb.client.ramp.RampClient.registerRenderers(event);
     }
 
     private void registerLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {

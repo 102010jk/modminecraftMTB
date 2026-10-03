@@ -86,8 +86,8 @@ public final class BikeParams {
     public double airAlignRate = 3.5;         // 1/s
 
     // ---------------- landing / bails ----------------
-    public double bailPitchError = Math.toRadians(68);
-    public double bailYawError = Math.toRadians(80);
+    public double bailPitchError = Math.toRadians(100);   // only landing on your back / nose
+    public double bailYawError = Math.toRadians(115);     // only landing properly sideways
     public double bailImpactSpeed = 13.5;     // m/s into the ground (≈ 9 m drop to flat)
     /** Frame / bars / head must hit things at least this fast (m/s) to count as a crash. */
     public double crashSpeed = 4.5;

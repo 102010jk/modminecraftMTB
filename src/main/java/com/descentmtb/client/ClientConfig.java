@@ -45,8 +45,8 @@ public final class ClientConfig {
         p.manualAssist = MANUAL_ASSIST.get() ? DEFAULTS.manualAssist * MANUAL_ASSIST_STRENGTH.get() : 0;
         p.landingAssistRate = LANDING_ASSIST.get() ? DEFAULTS.landingAssistRate : 0;
         double tol = BAIL_TOLERANCE.get();
-        p.bailPitchError = Math.min(Math.toRadians(89), DEFAULTS.bailPitchError * tol);
-        p.bailYawError = Math.min(Math.toRadians(120), DEFAULTS.bailYawError * tol);
+        p.bailPitchError = Math.min(Math.toRadians(175), DEFAULTS.bailPitchError * tol);
+        p.bailYawError = Math.min(Math.toRadians(175), DEFAULTS.bailYawError * tol);
         p.bailImpactSpeed = DEFAULTS.bailImpactSpeed * tol;
         p.crashSpeed = DEFAULTS.crashSpeed * tol;
         p.wallCrashSpeed = DEFAULTS.wallCrashSpeed * tol;

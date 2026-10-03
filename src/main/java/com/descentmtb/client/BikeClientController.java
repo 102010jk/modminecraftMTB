@@ -4,6 +4,7 @@ import com.descentmtb.entity.MountainBikeEntity;
 import com.descentmtb.physics.BikeSim;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import com.descentmtb.network.BikeBailPayload;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayDeque;
@@ -50,11 +51,9 @@ public final class BikeClientController {
         boolean teleport = false;
         BikeSim sim = bike.sim();
         if (sim != null && sim.bailed) {
+            // crashed: the server throws us off (ragdoll); just wait for the dismount
             bailTicks++;
-            if (bailTicks > 45 || in.respawn()) {
-                respawn(bike, false);
-                teleport = true;
-            }
+            return;
         } else if (in.respawn()) {
             respawn(bike, false);
             teleport = true;
@@ -108,6 +107,9 @@ public final class BikeClientController {
                 case BAIL -> {
                     bailTicks = 0;
                     show("BAIL! " + e.info(), 0xFF5555, 60);
+                    PacketDistributor.sendToServer(new BikeBailPayload(riding.getId(),
+                            sim.riderPos.x, sim.riderPos.y, sim.riderPos.z,
+                            (float) sim.riderVel.x, (float) sim.riderVel.y, (float) sim.riderVel.z));
                 }
                 case LAND -> {
                     if (!sim.bailed && sim.airTime > 0.45) {
