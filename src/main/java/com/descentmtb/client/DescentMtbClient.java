@@ -8,7 +8,11 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.neoforge.client.gui.ConfigurationScreen;
+import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
@@ -31,7 +35,9 @@ import net.neoforged.neoforge.common.NeoForge;
 @Mod(value = DescentMtb.MODID, dist = Dist.CLIENT)
 public final class DescentMtbClient {
 
-    public DescentMtbClient(IEventBus modBus) {
+    public DescentMtbClient(IEventBus modBus, ModContainer container) {
+        container.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);
+        container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         modBus.addListener(this::registerRenderers);
         modBus.addListener(this::registerLayers);
         modBus.addListener(this::registerKeyMappings);

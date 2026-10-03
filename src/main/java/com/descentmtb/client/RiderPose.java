@@ -34,6 +34,22 @@ public final class RiderPose {
         return Trick.NAC_NAC;
     }
 
+    /** Body stance in model px: how far the shoulders drop, how far forward they sit, torso pitch. */
+    public record Stance(float bend, float shoulderFwd, float theta) {
+        /** Eye position relative to the feet in metres: {forward, up}. */
+        public double[] eye() {
+            return new double[]{(shoulderFwd + 2.5f) / PX, (24f - bend + 2.0f) / PX};
+        }
+    }
+
+    public static Stance stance(float riderUp, float riderFwd) {
+        // attack position: knees and elbows bent, chest low, head over the stem
+        float bend = 4.5f + clamp(-riderUp, -0.15f, 0.30f) * PX * 0.9f;
+        float shoulderFwd = clamp(0.06f + riderFwd * 0.8f, -0.10f, 0.35f) * PX;
+        float theta = clamp(0.52f + 0.025f * (bend - 4.5f) + riderFwd * 0.9f, 0.2f, 1.1f);
+        return new Stance(bend, shoulderFwd, theta);
+    }
+
     public static void apply(PlayerModel<?> m, LivingEntity entity, MountainBikeEntity bike, float pt) {
         BikeRenderState a = bike.rsPrev, b = bike.rsCur;
         float riderUp = (float) BikeRenderState.lerp(pt, a.riderUp, b.riderUp);
@@ -44,22 +60,24 @@ public final class RiderPose {
         boolean bailed = b.bailed;
 
         // ---------------- torso ----------------
-        float bend = 3.0f + clamp(-riderUp, -0.15f, 0.35f) * PX * 0.9f;    // px the shoulders drop
-        float theta = clamp(0.38f + 0.05f * bend + riderFwd * 1.4f, 0.1f, 1.15f);
-        if (trick == Trick.SUPERMAN) theta = 1.25f;
+        Stance st = stance(riderUp, riderFwd);
+        float bend = st.bend();
+        float sz = -st.shoulderFwd();                 // shoulders ahead of the pedals (-Z = forward)
+        float theta = st.theta();
+        if (trick == Trick.SUPERMAN) theta = 1.35f;
         if (bailed) theta = 0.2f;
 
         m.body.xRot = theta;
         m.body.yRot = 0;
         m.body.zRot = 0;
         m.body.y = bend;
-        m.body.z = 0;
+        m.body.z = sz;
         m.head.y = bend;
-        m.head.z = 0;
+        m.head.z = sz;
         m.head.xRot = -theta * 0.85f + 0.15f;     // eyes on the trail
         m.head.yRot = steer * 0.4f;
 
-        float hipZ = 12f * (float) Math.sin(theta);
+        float hipZ = sz + 12f * (float) Math.sin(theta);
         float hipY = bend + 12f * (float) Math.cos(theta);
 
         // ---------------- legs to the pedals ----------------
@@ -70,10 +88,18 @@ public final class RiderPose {
         float shoulderY = bend + 2f;
         float gz = -GRIP_FWD * PX, gy = 24f - GRIP_UP * PX, gx = GRIP_HALF * PX;
         float swing = (float) Math.sin(steer) * GRIP_HALF * PX;   // bars turning moves the grips
-        armTo(m.rightArm, -5f, shoulderY, -gx, gy, gz - swing);
-        armTo(m.leftArm, 5f, shoulderY, gx, gy, gz + swing);
+        armTo(m.rightArm, -5f, shoulderY, sz, -gx, gy, gz - swing);
+        armTo(m.leftArm, 5f, shoulderY, sz, gx, gy, gz + swing);
 
         // ---------------- tricks ----------------
+        if (trick == Trick.NO_HANDER || trick == Trick.TABLETOP || bailed) {
+            m.rightArm.yScale = 1f;
+            m.leftArm.yScale = 1f;
+        }
+        if (trick == Trick.SUPERMAN || trick == Trick.NAC_NAC || trick == Trick.CAN_CAN) {
+            m.leftLeg.yScale = 1f;
+            if (trick == Trick.SUPERMAN) m.rightLeg.yScale = 1f;
+        }
         switch (trick) {
             case NO_HANDER, TABLETOP -> {
                 m.rightArm.xRot = -2.6f;
@@ -129,14 +155,16 @@ public final class RiderPose {
         leg.xRot = (float) Math.atan2(vz, vy);
         leg.yRot = 0;
         leg.zRot = x < 0 ? 0.04f : -0.04f;
+        // the leg box is 12 px; squash it to the hip-pedal distance (reads as a bent knee)
+        leg.yScale = clamp((float) Math.sqrt(vy * vy + vz * vz) / 12f, 0.55f, 1.0f);
     }
 
-    /** Points an arm from the shoulder at (sx, sy, 0) toward a grip at (gx, gy, gz). */
-    private static void armTo(ModelPart arm, float sx, float sy, float gx, float gy, float gz) {
+    /** Points an arm from the shoulder at (sx, sy, sz) toward a grip at (gx, gy, gz). */
+    private static void armTo(ModelPart arm, float sx, float sy, float sz, float gx, float gy, float gz) {
         arm.x = sx;
         arm.y = sy;
-        arm.z = 0;
-        float vx = gx - sx, vy = gy - sy, vz = gz;
+        arm.z = sz;
+        float vx = gx - sx, vy = gy - sy, vz = gz - sz;
         float len = (float) Math.sqrt(vx * vx + vy * vy + vz * vz);
         if (len < 1e-3f) return;
         vx /= len;
@@ -146,6 +174,14 @@ public final class RiderPose {
         arm.xRot = (float) Math.asin(clamp(vz, -1, 1));
         arm.yRot = 0;
         arm.zRot = (float) Math.atan2(-vx, vy);
+        arm.yScale = clamp(len / 11.0f, 0.6f, 1.0f);   // bent elbows: hands end on the grips
+    }
+
+    /** Undo our limb scaling for anyone not on a bike (the player model is shared). */
+    public static void reset(PlayerModel<?> m) {
+        if (m.rightLeg.yScale == 1f && m.leftLeg.yScale == 1f && m.rightArm.yScale == 1f && m.leftArm.yScale == 1f) return;
+        m.rightLeg.yScale = m.leftLeg.yScale = m.rightArm.yScale = m.leftArm.yScale = 1f;
+        m.rightPants.yScale = m.leftPants.yScale = m.rightSleeve.yScale = m.leftSleeve.yScale = 1f;
     }
 
     private static float clamp(float v, float lo, float hi) {

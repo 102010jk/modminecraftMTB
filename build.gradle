@@ -41,6 +41,12 @@ neoForge {
             client()
             programArguments.addAll('--quickPlaySingleplayer', 'New World')
         }
+        // dev test pilot: rides a script, saves run/screenshots/mtb_*.png, quits
+        clientAuto {
+            client()
+            programArguments.addAll('--quickPlaySingleplayer', 'New World')
+            systemProperty 'descentmtb.autopilot', 'true'
+        }
         server {
             server()
         }

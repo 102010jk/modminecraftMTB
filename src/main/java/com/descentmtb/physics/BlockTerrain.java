@@ -19,6 +19,8 @@ package com.descentmtb.physics;
 public final class BlockTerrain implements Terrain {
     /** Height differences above this (m) are cliffs, not bumps. */
     public static final double STEP_LIMIT = 1.25;
+    /** How far (m) the smoothed surface may dip below a block's real top. */
+    public static final double SINK_LIMIT = 0.35;
 
     /** Source of block data. Implemented over a Minecraft level in the mod. */
     public interface Columns {
@@ -63,8 +65,8 @@ public final class BlockTerrain implements Terrain {
         double dhdx = (h10 - h00) * (1 - tz) + (h11 - h01) * tz;
         double dhdz = (h01 - h00) * (1 - tx) + (h11 - h10) * tx;
         // never let smoothing lift the wheel more than half a block above the real top,
-        // nor sink it more than half a block into it
-        h = Math.max(ref - 0.5, Math.min(ref + 0.5, h));
+        // and barely let it sink in (a wheel buried in a block edge looks like falling through)
+        h = Math.max(ref - SINK_LIMIT, Math.min(ref + 0.5, h));
 
         V3 n = new V3(-dhdx, 1, -dhdz).normalize();
         out.set(h, n, cols.surface(ci, cj, ref));

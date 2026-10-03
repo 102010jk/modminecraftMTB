@@ -18,6 +18,8 @@ public abstract class PlayerModelMixin {
         if (entity.getVehicle() instanceof MountainBikeEntity bike) {
             float pt = ageInTicks - entity.tickCount;
             RiderPose.apply((PlayerModel<?>) (Object) this, entity, bike, Math.max(0f, Math.min(1f, pt)));
+        } else {
+            RiderPose.reset((PlayerModel<?>) (Object) this);
         }
     }
 }

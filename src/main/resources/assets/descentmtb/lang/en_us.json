@@ -17,5 +17,12 @@
   "key.descentmtb.respawn": "Respawn",
   "key.descentmtb.respawn_start": "Respawn at start",
   "key.descentmtb.camera": "Switch camera",
-  "key.descentmtb.reset_camera": "Reset camera"
+  "key.descentmtb.reset_camera": "Reset camera",
+  "descentmtb.configuration.title": "Descent MTB settings",
+  "descentmtb.configuration.riding": "Riding",
+  "descentmtb.config.manual_assist": "Manual assist",
+  "descentmtb.config.manual_assist.tooltip": "Leaning back lifts the front wheel and holds the balance point.",
+  "descentmtb.config.manual_assist_strength": "Manual assist strength",
+  "descentmtb.config.landing_assist": "Landing assist",
+  "descentmtb.config.bail_tolerance": "Bail tolerance"
 }

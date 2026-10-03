@@ -42,9 +42,10 @@ public final class BikeClientController {
             return;
         }
         if (riding != bike) onMount(bike, player);
+        ClientConfig.apply();
 
-        BikeInputHandler.Frame in = (mc.isPaused() || mc.screen != null)
-                ? BikeInputHandler.Frame.NONE : BikeInputHandler.poll();
+        BikeInputHandler.Frame in = DevAutopilot.active() ? DevAutopilot.frame()
+                : (mc.isPaused() || mc.screen != null) ? BikeInputHandler.Frame.NONE : BikeInputHandler.poll();
 
         boolean teleport = false;
         BikeSim sim = bike.sim();
@@ -79,6 +80,7 @@ public final class BikeClientController {
 
     /** Called every client tick to notice dismounts. */
     public static void checkDismount() {
+        DevAutopilot.clientTick();
         Minecraft mc = Minecraft.getInstance();
         if (riding != null && (mc.player == null || mc.player.getVehicle() != riding)) {
             riding.stopSim();

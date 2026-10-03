@@ -65,6 +65,7 @@ public final class BikeSim {
     private double landingPitch;
     private boolean landingKnown;
     private int predictTimer;
+    private V3 lastAirVel = V3.ZERO;
 
     // ---------------- air / landing ----------------
     public boolean airborne;
@@ -186,7 +187,7 @@ public final class BikeSim {
         }
 
         // ---------- manual helper (lean back on the rear wheel) ----------
-        if (c.lean < -0.3 && rear.contact && vFwd > 1.5) {
+        if (p.manualAssist > 0 && c.lean < -0.15 && rear.contact && vFwd > 1.5) {
             double want = -c.lean * p.manualTargetPitch;
             double rel = pitch - groundPitch(rear.normal);
             double tq = p.manualAssist * (-c.lean) * clamp((want - rel) * 4.0, -1, 1);
@@ -564,6 +565,7 @@ public final class BikeSim {
                 events.add(new Event(Event.Type.TAKEOFF, vel.length(), ""));
             }
             airTime += h;
+            lastAirVel = vel;
             airPitchTravel += omega.dot(right) * h;
             airYawTravel += -omega.dot(V3.Y) * h;
             return;
@@ -584,7 +586,9 @@ public final class BikeSim {
             double velYaw = Math.atan2(-vel.x, vel.z);
             yawErr = Math.abs(wrap(velYaw - yaw));
         }
-        double impact = Math.max(0, -vel.dot(w.normal));
+        // speed into the ground just before the tyres touched (the suspension has
+        // already started slowing us by the time this runs)
+        double impact = Math.max(0, -lastAirVel.dot(w.normal));
         if (airTime > 0.25) {
             if (impact > p.bailImpactSpeed) {
                 bail("landed too hard (" + String.format(java.util.Locale.ROOT, "%.1f", impact) + " m/s into the ground)");

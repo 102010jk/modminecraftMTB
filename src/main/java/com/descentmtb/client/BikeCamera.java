@@ -29,6 +29,10 @@ public final class BikeCamera {
     private static CameraType savedType;
     private static boolean init;
     private static double camYaw, camPitch, focusY, fovBoost;
+    private static double hYaw, hPitch, hRoll;
+    /** Dev autopilot only: 0 = off, ±1 = side view, 2 = front view. */
+    static int debugSide;
+    private static boolean hInit;
     private static long lastNanos;
 
     private static CameraType applied;
@@ -47,8 +51,13 @@ public final class BikeCamera {
         return mode;
     }
 
+    /** Helmet cam looks this far below the bike's heading, like a tilted action cam. */
+    private static final double HELMET_TILT_DEG = 24.0;
+    private static final double HELMET_EXTRA_FOV = 22.0;
+
     public static void snapBehind() {
         init = false;
+        hInit = false;
     }
 
     static void onMount() {
@@ -66,8 +75,10 @@ public final class BikeCamera {
         fovBoost = 0;
     }
 
+    /** Always third-person underneath: it is what makes vanilla draw our own body (the
+     *  helmet cam hides just the head); position and angles come from this class. */
     private static CameraType wanted() {
-        return mode == Mode.HELMET ? CameraType.FIRST_PERSON : CameraType.THIRD_PERSON_BACK;
+        return CameraType.THIRD_PERSON_BACK;
     }
 
     private static void applyCameraType() {
@@ -110,23 +121,50 @@ public final class BikeCamera {
 
         double kmh = speed * 3.6;
         double fovTarget = Math.max(0, Math.min(55, kmh - 15)) * 0.22;
+        if (mode == Mode.HELMET) fovTarget += HELMET_EXTRA_FOV;   // action-cam wide angle
         fovBoost += (fovTarget - fovBoost) * (1 - Math.exp(-dt / 0.4));
+
+        if (debugSide != 0) {
+            // dev autopilot: look at the bike from its side (debugSide = ±1) or from the front (2)
+            double sy = Math.sin(yaw), cy = Math.cos(yaw);
+            V3 fH = new V3(-sy, 0, cy);
+            V3 rightH = fH.cross(V3.Y);
+            V3 target = com.addScaled(V3.Y, 0.45);
+            V3 eye = debugSide == 2 ? target.addScaled(fH, 3.2).addScaled(V3.Y, 0.3)
+                    : target.addScaled(rightH, 3.0 * debugSide).addScaled(V3.Y, 0.25);
+            V3 d = target.sub(eye);
+            init = true;
+            return new View(new Vec3(eye.x, eye.y, eye.z), (float) Math.toDegrees(Math.atan2(-d.x, d.z)),
+                    (float) -Math.toDegrees(Math.atan2(d.y, d.horizontalLength())), 0f);
+        }
 
         if (mode == Mode.HELMET) {
             double sy = Math.sin(yaw), cy = Math.cos(yaw), sp = Math.sin(pitch), cp = Math.cos(pitch);
             V3 fH = new V3(-sy, 0, cy);
             V3 fwd = fH.mul(cp).addScaled(V3.Y, sp);
             V3 up = fH.mul(-sp).addScaled(V3.Y, cp);
-            // eyes of the posed body: above the pedals, lower when bending
-            double riderUp = BikeRenderState.lerp(t, a.riderUp, b.riderUp);
-            double bendM = (3.0 + Math.max(-0.15, Math.min(0.35, -riderUp)) * 15.4) / 17.07;
+            // eyes of the posed body (same stance maths as RiderPose)
+            RiderPose.Stance st = RiderPose.stance(
+                    (float) BikeRenderState.lerp(t, a.riderUp, b.riderUp),
+                    (float) BikeRenderState.lerp(t, a.riderFwd, b.riderFwd));
+            double[] eye = st.eye();
             V3 feet = BikeRenderState.lerp(t, a.feet(), b.feet());
-            V3 head = feet.addScaled(up, 1.62 - bendM).addScaled(fwd, 0.16);
+            V3 head = feet.addScaled(up, eye[1]).addScaled(fwd, eye[0]);
+            // the neck soaks up the chatter: smooth the view, never twitch with the bars
+            if (!hInit) {
+                hYaw = yaw;
+                hPitch = pitch;
+                hRoll = lean;
+                hInit = true;
+            }
+            hYaw += wrap(yaw - hYaw) * (1 - Math.exp(-dt / 0.06));
+            hPitch += wrap(pitch - hPitch) * (1 - Math.exp(-dt / 0.10));
+            hRoll += (lean - hRoll) * (1 - Math.exp(-dt / 0.12));
             init = true;
             return new View(new Vec3(head.x, head.y, head.z),
-                    (float) Math.toDegrees(yaw + steer * 0.3),
-                    (float) (-Math.toDegrees(pitch) + 9.0),
-                    (float) Math.toDegrees(lean * 0.55));
+                    (float) Math.toDegrees(hYaw),
+                    (float) (-Math.toDegrees(hPitch) + HELMET_TILT_DEG),
+                    (float) Math.toDegrees(hRoll * 0.3));
         }
 
         // ---------------- chase ----------------

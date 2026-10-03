@@ -33,6 +33,7 @@ public abstract class CameraMixin {
             // "detached" makes the level renderer draw the local player, so in the helmet
             // cam you see your own arms on the bars and legs on the pedals (head hidden)
             detached = true;
+
         }
     }
 }

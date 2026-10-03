@@ -21,7 +21,7 @@ public final class BikeParams {
     /** Axle height relative to the bike COM at full extension (negative = below). */
     public double axleDrop = -0.15;
     /** Rider COM neutral position relative to bike COM (along bike up / forward). */
-    public double riderHeight = 0.62, riderForward = -0.05;
+    public double riderHeight = 0.62, riderForward = -0.09;
 
     // ---------------- suspension ----------------
     public double forkTravel = 0.17, shockTravel = 0.16;
@@ -69,6 +69,7 @@ public final class BikeParams {
     public double riderForeAftMin = -0.36, riderForeAftMax = 0.26;
     public double armStiffness = 4500, armDamping = 900, armDriveDamping = 250, armMax = 900;
     /** Pitch-up torque helper while leaning back on the rear wheel (manual), N m. */
+    /** Manual helper torque at full lean-back (N m); 0 = pure physics (config: manualAssist). */
     public double manualAssist = 650;
     public double manualTargetPitch = 0.30;
 
