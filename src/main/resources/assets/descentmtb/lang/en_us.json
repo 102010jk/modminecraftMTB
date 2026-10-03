@@ -1,0 +1,9 @@
+{
+  "itemGroup.descentmtb": "Descent MTB",
+  "item.descentmtb.mountain_bike": "Mountain Bike",
+  "entity.descentmtb.mountain_bike": "Mountain Bike",
+  "key.categories.descentmtb": "Descent MTB",
+  "key.descentmtb.brake": "Brake",
+  "key.descentmtb.lean_left": "Lean left",
+  "key.descentmtb.lean_right": "Lean right"
+}

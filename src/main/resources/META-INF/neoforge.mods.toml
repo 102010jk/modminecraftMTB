@@ -1,0 +1,28 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "MIT"
+
+[[mods]]
+modId = "descentmtb"
+version = "0.4.0"
+displayName = "Descent MTB"
+authors = "jakub"
+description = '''
+Mountain biking for Minecraft with Descenders-style physics: momentum, slope/ramp
+launches, charged bunny hops, lean and air control. Full controller support (GLFW
+gamepad) plus keyboard. Right-click a Mountain Bike to deploy it, then ride.
+'''
+
+[[dependencies.descentmtb]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.descentmtb]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21,1.22)"
+ordering = "NONE"
+side = "BOTH"
