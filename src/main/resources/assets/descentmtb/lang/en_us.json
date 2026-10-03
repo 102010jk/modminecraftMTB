@@ -147,5 +147,10 @@
   "descentmtb.ramp_tune.action.profile": "Profile",
   "descentmtb.ramp_tune.action.rotate": "Rotate",
   "descentmtb.ramp_tune.action.link": "Link",
-  "descentmtb.ramp_tune.sub": "Tuning: %s (Shift + wheel changes)"
+  "descentmtb.ramp_tune.sub": "Tuning: %s (Shift + wheel changes)",
+  "item.descentmtb.clearing_tool": "Trail Machete",
+  "descentmtb.machete.felled": "Felled: %s blocks",
+  "descentmtb.machete.tidied": "Cleared %s plants, smoothed %s blocks",
+  "descentmtb.machete.nothing": "Nothing to tidy here",
+  "descentmtb.machete.hint": "Right-click a trunk: fells the tree • on the ground: clears plants and smooths (Shift = wider)"
 }

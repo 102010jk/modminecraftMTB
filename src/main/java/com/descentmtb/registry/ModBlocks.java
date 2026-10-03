@@ -46,6 +46,14 @@ public final class ModBlocks {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<com.descentmtb.trail.TrailSurfaceEntity>> TRAIL_BE =
             BLOCK_ENTITIES.register("trail_surface", () -> BlockEntityType.Builder.of(com.descentmtb.trail.TrailSurfaceEntity::new, TRAIL_SURFACE.get()).build(null));
     public static final DeferredItem<com.descentmtb.trail.TrailWandItem> TRAIL_WAND=ITEMS.registerItem("trail_wand",com.descentmtb.trail.TrailWandItem::new,new Item.Properties().stacksTo(1));
+    /** Tool 2: fells trees (6x speed on logs and leaves) and lightly tidies the ground. */
+    public static final DeferredItem<com.descentmtb.trail.ClearingToolItem> CLEARING_TOOL = ITEMS.registerItem(
+            "clearing_tool", com.descentmtb.trail.ClearingToolItem::new,
+            new Item.Properties().stacksTo(1).durability(250).component(net.minecraft.core.component.DataComponents.TOOL,
+                    new net.minecraft.world.item.component.Tool(List.of(
+                            net.minecraft.world.item.component.Tool.Rule.overrideSpeed(net.minecraft.tags.BlockTags.LOGS, 6F),
+                            net.minecraft.world.item.component.Tool.Rule.overrideSpeed(net.minecraft.tags.BlockTags.LEAVES, 6F)),
+                            1.0F, 1)));
     public static final DeferredBlock<com.descentmtb.trail.WoodSupportBlock> WOOD_SUPPORT=BLOCKS.registerBlock("wood_support",com.descentmtb.trail.WoodSupportBlock::new,BlockBehaviour.Properties.of().strength(1f).sound(SoundType.WOOD).noOcclusion());
     public static final DeferredItem<BlockItem> SUPPORT_ITEM=ITEMS.registerSimpleBlockItem("wood_support",WOOD_SUPPORT);
     public static final DeferredBlock<com.descentmtb.trail.AirbagBlock> AIRBAG=BLOCKS.registerBlock("airbag",com.descentmtb.trail.AirbagBlock::new,BlockBehaviour.Properties.of().strength(.5f).sound(SoundType.WOOL));
@@ -63,7 +71,7 @@ public final class ModBlocks {
     public static final DeferredBlock<net.minecraft.world.level.block.Block> TRAIL_STAKE=BLOCKS.registerBlock("trail_stake",net.minecraft.world.level.block.Block::new,
             BlockBehaviour.Properties.of().strength(.2f).sound(SoundType.WOOD).noOcclusion().noCollission());
     public static final DeferredItem<BlockItem> STAKE_ITEM=ITEMS.registerSimpleBlockItem("trail_stake",TRAIL_STAKE);
-    public static final List<Supplier<? extends ItemLike>> TAB_ITEMS = List.of(TRAIL_WAND, RAMP_ITEM, STAKE_ITEM, ROOT_ITEM, ROCK_ITEM, SUPPORT_ITEM, AIRBAG_ITEM, BARRIER_ITEM, SIGN_ITEM);
+    public static final List<Supplier<? extends ItemLike>> TAB_ITEMS = List.of(TRAIL_WAND, CLEARING_TOOL, RAMP_ITEM, STAKE_ITEM, ROOT_ITEM, ROCK_ITEM, SUPPORT_ITEM, AIRBAG_ITEM, BARRIER_ITEM, SIGN_ITEM);
 
     private ModBlocks() {}
 

@@ -147,5 +147,10 @@
   "descentmtb.ramp_tune.action.profile": "Profil",
   "descentmtb.ramp_tune.action.rotate": "Otočení",
   "descentmtb.ramp_tune.action.link": "Propojení",
-  "descentmtb.ramp_tune.sub": "Ladění: %s (Shift + kolečko mění)"
+  "descentmtb.ramp_tune.sub": "Ladění: %s (Shift + kolečko mění)",
+  "item.descentmtb.clearing_tool": "Mačeta",
+  "descentmtb.machete.felled": "Pokáceno: %s bloků",
+  "descentmtb.machete.tidied": "Uklizeno: %s rostlin, uhlazeno: %s bloků",
+  "descentmtb.machete.nothing": "Tady není co uklízet",
+  "descentmtb.machete.hint": "Pravý klik na kmen: pokácí strom • na zem: uklidí a uhladí (Shift = větší oblast)"
 }
