@@ -29,6 +29,7 @@ public class DescentMtb {
         ModBlocks.register(modBus);
         ModNetwork.register(modBus);
         NeoForge.EVENT_BUS.addListener(com.descentmtb.trail.DevTrailTests::register);
+        NeoForge.EVENT_BUS.addListener(com.descentmtb.trail.DevPumpTrack::register);
         NeoForge.EVENT_BUS.addListener(com.descentmtb.world.DevSableTests::register);
         NeoForge.EVENT_BUS.addListener(com.descentmtb.world.DevSableTests::tick);
         NeoForge.EVENT_BUS.addListener(Ragdolls::onPlayerTick);

@@ -59,31 +59,14 @@ public final class SurfacePlans {
   validate(a);validate(b);validate(c);
   if(Math.abs(c.x()-a.x())>TrailConfig.MAX_LENGTH.get()||Math.abs(c.z()-a.z())>TrailConfig.MAX_LENGTH.get())throw new IllegalArgumentException("Oblast přesahuje maximální délku serveru");
   double half=s.width()/2,margin=2.0;
+  DoubleBinaryOperator ground=(x,z)->terrain(l,x,z,a.y());
   if(s.mode()==WandMode.PUMP_LOOP){
-   // An area selection defines an oval: straights carry rollers, ends are smoothly banked.
-   double cx=(a.x()+c.x())/2,cz=(a.z()+c.z())/2,rx=Math.abs(c.x()-a.x())/2-half-margin,rz=Math.abs(c.z()-a.z())/2-half-margin;
-   if(rx<4||rz<4)throw new IllegalArgumentException("Pro okruh vyber oblast alespoň "+(int)(2*(half+margin+4))+" × "+(int)(2*(half+margin+4))+" m");
-   double perimeter=Math.PI*(3*(rx+rz)-Math.sqrt((3*rx+rz)*(rx+3*rz))),spacing=s.spacing(),active=Math.min(perimeter,spacing*s.repeats());
-   DoubleBinaryOperator height=(x,z)->{
-    double nx=(x-cx)/rx,nz=(z-cz)/rz,theta=Math.atan2(nz,nx),rad=Math.sqrt(nx*nx+nz*nz),side=(rad-1)*Math.min(rx,rz),base=terrain(l,x,z,a.y());
-    double edge=PumpMath.edge(Math.abs(side),half+margin,.6),bank=Math.max(0,side)/half;
-    double distance=(theta+Math.PI)/Math.PI/2*perimeter;
-    double wave=distance<=active?PumpMath.wave(distance,spacing,s.height())*PumpMath.smooth((active-distance)/2):0;
-    double target=a.y()+(c.y()-a.y())*Math.max(0,Math.min(1,((x-a.x())*(c.x()-a.x())+(z-a.z())*(c.z()-a.z()))/Math.max(1,Math.pow(c.x()-a.x(),2)+Math.pow(c.z()-a.z(),2))));
-    return base+edge*(target-base+wave+Math.min(2,bank*bank)*s.height()*.9);
-   };
-   return surface(l,(int)Math.floor(Math.min(a.x(),c.x())),(int)Math.floor(Math.min(a.z(),c.z())),(int)Math.ceil(Math.max(a.x(),c.x())),(int)Math.ceil(Math.max(a.z(),c.z())),a.y(),height,(x,z)->Math.abs((Math.hypot((x-cx)/rx,(z-cz)/rz)-1)*Math.min(rx,rz))<half+margin,false);
+   // An area selection defines an oval: rollers on the straights, banked berms in the turns.
+   var oval=PumpShapes.oval(a,c,s.pump());
+   return surface(l,(int)Math.floor(Math.min(a.x(),c.x())),(int)Math.floor(Math.min(a.z(),c.z())),(int)Math.ceil(Math.max(a.x(),c.x())),(int)Math.ceil(Math.max(a.z(),c.z())),a.y(),PumpShapes.loop(ground,a,c,s.pump()),oval::contains,false);
   }
-  double[] distances=new double[129];Point last=a;for(int i=1;i<=128;i++){Point p=curve(a,b,c,i/128.0);distances[i]=distances[i-1]+Math.hypot(p.x()-last.x(),p.z()-last.z());last=p;}
-  double length=distances[128];if(length<2||length>TrailConfig.MAX_LENGTH.get())throw new IllegalArgumentException("Zkrať trasu na 2–"+TrailConfig.MAX_LENGTH.get()+" m");
-  double active=Math.min(length,s.spacing()*s.repeats());
-  DoubleBinaryOperator height=(x,z)->{
-   double t=nearest(a,b,c,x,z);Point p=curve(a,b,c,t);double lateral=Math.hypot(x-p.x(),z-p.z()),base=terrain(l,x,z,a.y());
-   int i=Math.min(127,(int)(t*128));double d=distances[i]+(distances[i+1]-distances[i])*(t*128-i);
-   double fade=PumpMath.smooth(d/2)*PumpMath.smooth((active-d)/2)*PumpMath.edge(lateral,half+margin,.5);
-   return base+(curve(a,b,c,t).y()-base+PumpMath.wave(d,s.spacing(),s.height()))*fade;
-  };
-  return surface(l,(int)Math.floor(Math.min(a.x(),Math.min(b.x(),c.x()))-half-margin),(int)Math.floor(Math.min(a.z(),Math.min(b.z(),c.z()))-half-margin),(int)Math.ceil(Math.max(a.x(),Math.max(b.x(),c.x()))+half+margin),(int)Math.ceil(Math.max(a.z(),Math.max(b.z(),c.z()))+half+margin),a.y(),height,(x,z)->{Point p=curve(a,b,c,nearest(a,b,c,x,z));return Math.hypot(x-p.x(),z-p.z())<half+margin;},false);
+  double length=PumpShapes.distances(a,b,c)[128];if(length<2||length>TrailConfig.MAX_LENGTH.get())throw new IllegalArgumentException("Zkrať trasu na 2–"+TrailConfig.MAX_LENGTH.get()+" m");
+  return surface(l,(int)Math.floor(Math.min(a.x(),Math.min(b.x(),c.x()))-half-margin),(int)Math.floor(Math.min(a.z(),Math.min(b.z(),c.z()))-half-margin),(int)Math.ceil(Math.max(a.x(),Math.max(b.x(),c.x()))+half+margin),(int)Math.ceil(Math.max(a.z(),Math.max(b.z(),c.z()))+half+margin),a.y(),PumpShapes.line(ground,a,b,c,s.pump()),(x,z)->{Point p=curve(a,b,c,nearest(a,b,c,x,z));return Math.hypot(x-p.x(),z-p.z())<half+margin;},false);
  }
  public static void validate(Point p){if(!Double.isFinite(p.x())||!Double.isFinite(p.y())||!Double.isFinite(p.z())||Math.abs(p.x())>30000000||Math.abs(p.z())>30000000)throw new IllegalArgumentException("Neplatný vodicí bod");}
  private SurfacePlans(){}

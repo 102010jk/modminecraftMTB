@@ -22,7 +22,7 @@ public final class DevAutopilot {
     private static boolean flew, shotAir, shotTrick, sawRagdoll, remountSent;
     private static MountainBikeEntity crashedBike;
 
-    static boolean active() { return ENABLED && !finished && tick >= 60 && rideTick >= 0 && afterBail < 0; }
+    static boolean active() { return ENABLED && !finished && (DevPumpRide.riding() || tick >= 60 && rideTick >= 0 && afterBail < 0); }
 
     static void prepareBike(MountainBikeEntity bike) {
         if (!ENABLED || o == null || tick < 60 || afterBail >= 0) return;
@@ -72,7 +72,10 @@ public final class DevAutopilot {
                 sableWait++;
                 if(com.descentmtb.world.DevSableTests.FAILED){fail(mc,"Sable integration test failed");return;}
                 if(!com.descentmtb.world.DevSableTests.PASSED){if(sableWait>180)fail(mc,"Sable integration test timed out");return;}
-                DescentMtb.LOG.info("[autopilot] PASS: enduro jump, hardtail tailwhip/barspin, gentle drop, manual/no-hander, natural whip/table, wallride, ragdoll, standing and remount");
+                DevPumpRide.tick(mc, p, bike, o);
+                if (DevPumpRide.failed()) { fail(mc, DevPumpRide.why()); return; }
+                if (!DevPumpRide.finished()) return;
+                DescentMtb.LOG.info("[autopilot] PASS: enduro jump, hardtail tailwhip/barspin, gentle drop, manual/no-hander, natural whip/table, wallride, ragdoll, standing, remount and a full pumptrack ride");
                 finished = true;
                 BikeCamera.debugSide = 0;
                 mc.options.hideGui = false;
@@ -107,6 +110,7 @@ public final class DevAutopilot {
 
     static BikeInputHandler.Frame frame() {
         MountainBikeEntity bike = BikeClientController.riding();
+        if (DevPumpRide.riding()) return DevPumpRide.frame(bike);
         double z = bike != null ? bike.getZ() - o.getZ() : 0;
         float body = phase == 3 ? 0 : z > 19.5 && z < 24.6 ? -1 : z >= 24.6 && z < 27 ? 1 : 0;
         boolean trick = (phase == 1 || phase == 2 || phase == 4) && bike != null && bike.sim() != null && bike.sim().airborne && z > 25.8;
