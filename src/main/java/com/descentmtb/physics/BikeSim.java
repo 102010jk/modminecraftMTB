@@ -478,7 +478,7 @@ public final class BikeSim {
                 applyImpulse(pt, td.mul(-jt));
             }
             pos = pos.addScaled(n, Math.min(pen * 0.3, 0.05));
-            if ((i == 1 || i == 2) && !bailed && speed() > 3) bail("hit the ground with the frame");
+            if ((i == 1 || i == 2) && !bailed && -vn > p.crashSpeed) bail("hit the ground with the frame");
         }
         // the rider's body never sinks into the ground either
         if (terrain.ground(riderPos.x, riderPos.z, riderPos.y + 1.0, riderPos.y - 1.5, bodyHit)) {
@@ -639,10 +639,10 @@ public final class BikeSim {
                 // a floor/ceiling, not a wall: tyres handle the ground, but the head or
                 // bars hitting it means you went over the bars / landed upside down
                 if (i == 0) continue;
-                if (into > 2.5) bail(i == 2 ? "head first into the ground" : "went over the bars");
-            } else if (i == 2 && speedAgainst(nrm) > 2.0) {
+                if (into > p.crashSpeed) bail(i == 2 ? "head first into the ground" : "went over the bars");
+            } else if (i == 2 && speedAgainst(nrm) > p.crashSpeed) {
                 bail("head strike");
-            } else if (into > 5.5) {
+            } else if (into > p.wallCrashSpeed) {
                 bail("crashed into a wall at " + Math.round(into * 3.6) + " km/h");
             }
             vel = vel.addScaled(nrm, into);

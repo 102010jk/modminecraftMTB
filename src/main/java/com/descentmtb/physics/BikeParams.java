@@ -85,10 +85,13 @@ public final class BikeParams {
     public double airAlignRate = 3.5;         // 1/s
 
     // ---------------- landing / bails ----------------
-    public double bailPitchError = Math.toRadians(48);
-    public double bailYawError = Math.toRadians(55);
-    public double bailImpactSpeed = 11.0;     // m/s into the ground after bottom-out
-    public double landingAssistAngle = Math.toRadians(28);
+    public double bailPitchError = Math.toRadians(68);
+    public double bailYawError = Math.toRadians(80);
+    public double bailImpactSpeed = 13.5;     // m/s into the ground (≈ 9 m drop to flat)
+    /** Frame / bars / head must hit things at least this fast (m/s) to count as a crash. */
+    public double crashSpeed = 4.5;
+    public double wallCrashSpeed = 8.0;
+    public double landingAssistAngle = Math.toRadians(42);
     public double landingAssistRate = 10.0;   // 1/s pitch snap toward the slope
 
     // ---------------- assists (0 = sim, 1 = full arcade help) ----------------

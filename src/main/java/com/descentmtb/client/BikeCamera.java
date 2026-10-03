@@ -31,9 +31,20 @@ public final class BikeCamera {
     private static double camYaw, camPitch, focusY, fovBoost;
     private static long lastNanos;
 
+    private static CameraType applied;
+
     public static void cycle() {
         mode = Mode.values()[(mode.ordinal() + 1) % Mode.values().length];
         applyCameraType();
+        BikeClientController.toast(switch (mode) {
+            case HELMET -> "Kamera: první osoba";
+            case CHASE -> "Kamera: třetí osoba";
+            case CHASE_FAR -> "Kamera: třetí osoba (daleko)";
+        });
+    }
+
+    public static Mode mode() {
+        return mode;
     }
 
     public static void snapBehind() {
@@ -51,11 +62,17 @@ public final class BikeCamera {
         Minecraft mc = Minecraft.getInstance();
         if (savedType != null) mc.options.setCameraType(savedType);
         savedType = null;
+        applied = null;
         fovBoost = 0;
     }
 
+    private static CameraType wanted() {
+        return mode == Mode.HELMET ? CameraType.FIRST_PERSON : CameraType.THIRD_PERSON_BACK;
+    }
+
     private static void applyCameraType() {
-        Minecraft.getInstance().options.setCameraType(mode == Mode.HELMET ? CameraType.FIRST_PERSON : CameraType.THIRD_PERSON_BACK);
+        applied = wanted();
+        Minecraft.getInstance().options.setCameraType(applied);
     }
 
     public static boolean helmet() {
@@ -72,8 +89,9 @@ public final class BikeCamera {
         Minecraft mc = Minecraft.getInstance();
         if (bike == null || mc.level == null) return null;
         // keep the camera type we need even if the player pressed F5
-        CameraType want = mode == Mode.HELMET ? CameraType.FIRST_PERSON : CameraType.THIRD_PERSON_BACK;
-        if (mc.options.getCameraType() != want) mc.options.setCameraType(want);
+        // vanilla F5 changed the perspective -> treat it as our camera switch
+        if (applied != null && mc.options.getCameraType() != applied) cycle();
+        else if (mc.options.getCameraType() != wanted()) applyCameraType();
 
         long now = System.nanoTime();
         double dt = init ? Math.min(0.1, Math.max(0, (now - lastNanos) / 1e9)) : 0;

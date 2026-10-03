@@ -163,6 +163,10 @@ public final class BikeClientController {
         show(atStart ? "Back to the start" : "Respawned", 0xAAAAAA, 25);
     }
 
+    public static void toast(String text) {
+        show(text, 0xFFFFFF, 30);
+    }
+
     private static void show(String text, int color, int ticks) {
         message = text;
         messageColor = color;
