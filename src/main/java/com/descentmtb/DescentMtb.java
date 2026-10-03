@@ -34,6 +34,12 @@ public class DescentMtb {
         NeoForge.EVENT_BUS.addListener(com.descentmtb.world.DevSableTests::tick);
         NeoForge.EVENT_BUS.addListener(Ragdolls::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(Ragdolls::onFall);
+        // the shaping items never break blocks: left click lowers (see SculptPayload)
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.LeftClickBlock e) -> {
+            if (e.getItemStack().getItem() instanceof com.descentmtb.trail.ShapingBlockItem) {
+                e.setCanceled(true);
+            }
+        });
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppedEvent e)->{
             com.descentmtb.network.Ragdolls.clearSession();com.descentmtb.trail.TrailEdit.clearSession();com.descentmtb.trail.RampTuning.clearSession();com.descentmtb.trail.TrailClone.clearSession();com.descentmtb.trail.TrailDraft.clearSession();
         });

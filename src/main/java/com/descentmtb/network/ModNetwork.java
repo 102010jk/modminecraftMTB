@@ -16,6 +16,7 @@ public final class ModNetwork {
         r.playToServer(SignArtPayload.TYPE,SignArtPayload.CODEC,SignArtPayload::handle);
         r.playToClient(TrailPreviewPayload.TYPE,TrailPreviewPayload.CODEC,(m,ctx)->TrailPreviewPayload.clientHandler.accept(m));
         r.playToServer(BikeStatePayload.TYPE, BikeStatePayload.CODEC, BikeStatePayload::handle);
+        r.playToServer(SculptPayload.TYPE, SculptPayload.CODEC, SculptPayload::handle);
         r.playToServer(BikeBailPayload.TYPE, BikeBailPayload.CODEC, BikeBailPayload::handle);
         r.playToClient(RagdollPayload.TYPE, RagdollPayload.CODEC, (m, ctx) -> RagdollPayload.clientHandler.accept(m));
     }

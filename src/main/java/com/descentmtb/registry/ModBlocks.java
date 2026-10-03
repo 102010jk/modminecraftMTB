@@ -46,6 +46,11 @@ public final class ModBlocks {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<com.descentmtb.trail.TrailSurfaceEntity>> TRAIL_BE =
             BLOCK_ENTITIES.register("trail_surface", () -> BlockEntityType.Builder.of(com.descentmtb.trail.TrailSurfaceEntity::new, TRAIL_SURFACE.get()).build(null));
     public static final DeferredItem<com.descentmtb.trail.TrailWandItem> TRAIL_WAND=ITEMS.registerItem("trail_wand",com.descentmtb.trail.TrailWandItem::new,new Item.Properties().stacksTo(1));
+    /** Hand-sculpted shaped blocks: no tool needed, see {@link com.descentmtb.trail.ShapingBlockItem}. */
+    public static final DeferredItem<com.descentmtb.trail.ShapingBlockItem> TRAIL_DIRT = ITEMS.registerItem(
+            "trail_dirt", p -> new com.descentmtb.trail.ShapingBlockItem(TRAIL_SURFACE.get(), p, false), new Item.Properties());
+    public static final DeferredItem<com.descentmtb.trail.ShapingBlockItem> TRAIL_DECK = ITEMS.registerItem(
+            "trail_deck", p -> new com.descentmtb.trail.ShapingBlockItem(TRAIL_SURFACE.get(), p, true), new Item.Properties());
     /** Tool 2: fells trees (6x speed on logs and leaves) and lightly tidies the ground. */
     public static final DeferredItem<com.descentmtb.trail.ClearingToolItem> CLEARING_TOOL = ITEMS.registerItem(
             "clearing_tool", com.descentmtb.trail.ClearingToolItem::new,
@@ -71,7 +76,7 @@ public final class ModBlocks {
     public static final DeferredBlock<net.minecraft.world.level.block.Block> TRAIL_STAKE=BLOCKS.registerBlock("trail_stake",net.minecraft.world.level.block.Block::new,
             BlockBehaviour.Properties.of().strength(.2f).sound(SoundType.WOOD).noOcclusion().noCollission());
     public static final DeferredItem<BlockItem> STAKE_ITEM=ITEMS.registerSimpleBlockItem("trail_stake",TRAIL_STAKE);
-    public static final List<Supplier<? extends ItemLike>> TAB_ITEMS = List.of(TRAIL_WAND, CLEARING_TOOL, RAMP_ITEM, STAKE_ITEM, ROOT_ITEM, ROCK_ITEM, SUPPORT_ITEM, AIRBAG_ITEM, BARRIER_ITEM, SIGN_ITEM);
+    public static final List<Supplier<? extends ItemLike>> TAB_ITEMS = List.of(TRAIL_WAND, CLEARING_TOOL, TRAIL_DIRT, TRAIL_DECK, RAMP_ITEM, STAKE_ITEM, ROOT_ITEM, ROCK_ITEM, SUPPORT_ITEM, AIRBAG_ITEM, BARRIER_ITEM, SIGN_ITEM);
 
     private ModBlocks() {}
 

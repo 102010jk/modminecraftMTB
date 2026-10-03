@@ -20,6 +20,8 @@ public final class TrailSurfaceEntity extends RampBlockEntity {
         this.deck = deck; shape = null; setChanged();
         if (level != null) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
     }
+    /** The four corner heights relative to this block (copy), order NW NE SW SE. */
+    public double[] corners() { return h.clone(); }
     public boolean beam(){return beam;}
     public boolean deck() { return deck; }
     public double rawHeight(double x, double z) { return TrailMath.bilerp(h, x, z); }

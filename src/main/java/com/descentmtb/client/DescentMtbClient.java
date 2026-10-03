@@ -49,6 +49,7 @@ public final class DescentMtbClient {
         com.descentmtb.client.trail.TrailClient.setup();
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e)->com.descentmtb.client.trail.TrailClient.tick());
         NeoForge.EVENT_BUS.addListener(com.descentmtb.client.trail.TrailClient::renderGhost);
+        NeoForge.EVENT_BUS.addListener(com.descentmtb.client.trail.ShapingHighlight::render);
         MountainBikeEntity.clientTicker = BikeClientController::tick;
         RagdollPayload.clientHandler = RagdollClient::onPayload;
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> RagdollClient.tick());
@@ -79,6 +80,16 @@ public final class DescentMtbClient {
                 net.neoforged.neoforge.network.PacketDistributor.sendToServer(new com.descentmtb.network.TrailActionPayload(
                         com.descentmtb.network.TrailActionPayload.TUNE_SUB, new net.minecraft.nbt.CompoundTag(), "",
                         e.getScrollDeltaY() > 0 ? -1 : 1, 0, 0));
+            }
+        });
+        // left click with a shaping item lowers the corner / edge under the cursor
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.LeftClickBlock e) -> {
+            if (!e.getLevel().isClientSide() || !(e.getItemStack().getItem() instanceof com.descentmtb.trail.ShapingBlockItem)
+                    || e.getAction() != net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.LeftClickBlock.Action.START) return;
+            if (net.minecraft.client.Minecraft.getInstance().hitResult instanceof net.minecraft.world.phys.BlockHitResult hit
+                    && hit.getBlockPos().equals(e.getPos())) {
+                net.neoforged.neoforge.network.PacketDistributor.sendToServer(new com.descentmtb.network.SculptPayload(
+                        hit.getBlockPos(), hit.getLocation().x, hit.getLocation().y, hit.getLocation().z));
             }
         });
         // no digging / placing while riding (Steam Input maps the triggers to mouse clicks!)

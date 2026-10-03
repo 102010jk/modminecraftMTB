@@ -50,4 +50,12 @@ class ColumnShaperTest {
         assertEquals(-1, l.bottom());
         assertEquals(-1, l.top());
     }
+
+    @Test void clickZonesPickCornerEdgeOrWholeBlock() {
+        assertEquals(java.util.List.of(new ColumnShaper.Vertex(10, 20)), ColumnShaper.pickVertices(10, 20, .1, .1));
+        assertEquals(java.util.List.of(new ColumnShaper.Vertex(11, 21)), ColumnShaper.pickVertices(10, 20, .9, .95));
+        assertEquals(java.util.List.of(new ColumnShaper.Vertex(10, 21), new ColumnShaper.Vertex(11, 21)),
+                ColumnShaper.pickVertices(10, 20, .5, .95), "edge zone picks both ends of the edge");
+        assertEquals(4, ColumnShaper.pickVertices(10, 20, .5, .5).size(), "the middle moves the whole block");
+    }
 }

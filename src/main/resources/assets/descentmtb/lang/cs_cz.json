@@ -152,5 +152,12 @@
   "descentmtb.machete.felled": "Pokáceno: %s bloků",
   "descentmtb.machete.tidied": "Uklizeno: %s rostlin, uhlazeno: %s bloků",
   "descentmtb.machete.nothing": "Tady není co uklízet",
-  "descentmtb.machete.hint": "Pravý klik na kmen: pokácí strom • na zem: uklidí a uhladí (Shift = větší oblast)"
+  "descentmtb.machete.hint": "Pravý klik na kmen: pokácí strom • na zem: uklidí a uhladí (Shift = větší oblast)",
+  "item.descentmtb.trail_dirt": "Tvarovací hlína",
+  "item.descentmtb.trail_deck": "Dřevěná deska (tvarovací)",
+  "descentmtb.shaping.hint.place": "Pravý klik na blok: položí tvarovací blok",
+  "descentmtb.shaping.hint.raise": "Pravý klik na tvarovací blok: zvedne roh / hranu / celý blok podle místa kliknutí (Shift = sníží)",
+  "descentmtb.shaping.hint.lower": "Levý klik: sníží (z pozemního bloku udělá tvarovatelný)",
+  "descentmtb.shaping.height": "Výška: %s",
+  "descentmtb.shaping.empty": "Došla hlína"
 }

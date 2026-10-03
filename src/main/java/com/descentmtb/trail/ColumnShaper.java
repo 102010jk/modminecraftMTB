@@ -72,5 +72,28 @@ public final class ColumnShaper {
         return best;
     }
 
+    /** A vertex of the block grid (integer world coordinates of a block corner). */
+    public record Vertex(int x, int z) {}
+
+    /**
+     * The vertices a click at in-block position (fx, fz) refers to: a corner zone picks that corner, an edge
+     * zone picks both corners of the edge, the middle picks all four corners of the block.
+     */
+    public static List<Vertex> pickVertices(int bx, int bz, double fx, double fz) {
+        int zoneX = zone(fx), zoneZ = zone(fz);
+        List<Vertex> out = new ArrayList<>();
+        for (int vx : zoneX == 1 ? new int[]{0, 1} : new int[]{zoneX == 2 ? 1 : 0}) {
+            for (int vz : zoneZ == 1 ? new int[]{0, 1} : new int[]{zoneZ == 2 ? 1 : 0}) {
+                out.add(new Vertex(bx + vx, bz + vz));
+            }
+        }
+        return out;
+    }
+
+    /** 0 = near the low edge, 2 = near the high edge, 1 = middle. */
+    private static int zone(double f) {
+        return f < .3 ? 0 : f > .7 ? 2 : 1;
+    }
+
     private ColumnShaper() {}
 }

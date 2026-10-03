@@ -20,5 +20,15 @@ public final class TrailSurfaceBlock extends RampBlock {
     @Override protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext ctx) {
         return level.getBlockEntity(pos) instanceof TrailSurfaceEntity be ? be.shape() : Shapes.block();
     }
+    /** Breaking a shaped block gives back one shaping item (dirt or deck), whatever the planner built it from. */
+    @Override
+    protected java.util.List<net.minecraft.world.item.ItemStack> getDrops(BlockState state,
+            net.minecraft.world.level.storage.loot.LootParams.Builder builder) {
+        var be = builder.getOptionalParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.BLOCK_ENTITY);
+        boolean deck = be instanceof TrailSurfaceEntity shaped && shaped.deck();
+        return java.util.List.of(new net.minecraft.world.item.ItemStack(
+                deck ? com.descentmtb.registry.ModBlocks.TRAIL_DECK.get() : com.descentmtb.registry.ModBlocks.TRAIL_DIRT.get()));
+    }
+
     @Override protected VoxelShape getCollisionShape(BlockState s, BlockGetter l, BlockPos p, CollisionContext c) { return getShape(s, l, p, c); }
 }

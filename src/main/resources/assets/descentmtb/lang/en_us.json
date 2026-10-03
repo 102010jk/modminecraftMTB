@@ -152,5 +152,12 @@
   "descentmtb.machete.felled": "Felled: %s blocks",
   "descentmtb.machete.tidied": "Cleared %s plants, smoothed %s blocks",
   "descentmtb.machete.nothing": "Nothing to tidy here",
-  "descentmtb.machete.hint": "Right-click a trunk: fells the tree • on the ground: clears plants and smooths (Shift = wider)"
+  "descentmtb.machete.hint": "Right-click a trunk: fells the tree • on the ground: clears plants and smooths (Shift = wider)",
+  "item.descentmtb.trail_dirt": "Shaping Dirt",
+  "item.descentmtb.trail_deck": "Shaping Deck",
+  "descentmtb.shaping.hint.place": "Right-click a block: places a shaping block",
+  "descentmtb.shaping.hint.raise": "Right-click a shaping block: raises the corner / edge / whole block under the cursor (Shift = lower)",
+  "descentmtb.shaping.hint.lower": "Left-click: lowers (turns plain ground into a sculptable block)",
+  "descentmtb.shaping.height": "Height: %s",
+  "descentmtb.shaping.empty": "Out of dirt"
 }
