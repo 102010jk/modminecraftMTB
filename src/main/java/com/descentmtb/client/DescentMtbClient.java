@@ -42,6 +42,8 @@ public final class DescentMtbClient {
         container.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         modBus.addListener(this::registerRenderers);
+        modBus.addListener(com.descentmtb.client.shaped.ShapedGeometry::register);
+        modBus.addListener(com.descentmtb.client.shaped.ShapedGeometry::registerColors);
         modBus.addListener(this::registerLayers);
         modBus.addListener(this::registerKeyMappings);
         modBus.addListener(this::registerGuiLayers);
@@ -126,7 +128,6 @@ public final class DescentMtbClient {
 
     private void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(ModEntities.MOUNTAIN_BIKE.get(), MountainBikeRenderer::new);
-        com.descentmtb.client.ramp.RampClient.registerRenderers(event);
         event.registerBlockEntityRenderer(com.descentmtb.registry.ModBlocks.SIGN_BE.get(),com.descentmtb.client.trail.TrailSignRenderer::new);
     }
 

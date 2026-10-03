@@ -17,11 +17,14 @@ public final class TrailSurfaceEntity extends RampBlockEntity {
     public TrailSurfaceEntity(BlockPos pos, BlockState state) { super(ModBlocks.TRAIL_BE.get(), pos, state); }
     public void setShape(double[] heights, boolean deck) {
         for (int i = 0; i < 4; i++) h[i] = Double.isFinite(heights[i])?Math.max(-16,Math.min(16,heights[i])):0;
-        this.deck = deck; shape = null; setChanged();
+        this.deck = deck; shape = null; shapeChanged(); setChanged();
         if (level != null) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
     }
     /** The four corner heights relative to this block (copy), order NW NE SW SE. */
     public double[] corners() { return h.clone(); }
+    @Override protected com.descentmtb.ramp.ShapeKey buildShapeKey() {
+        return com.descentmtb.ramp.ShapeKey.surface(h, deck, beam, getMaterial());
+    }
     public boolean beam(){return beam;}
     public boolean deck() { return deck; }
     public double rawHeight(double x, double z) { return TrailMath.bilerp(h, x, z); }

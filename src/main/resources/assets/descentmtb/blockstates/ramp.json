@@ -1,5 +1,5 @@
 {
   "variants": {
-    "": { "model": "descentmtb:block/ramp" }
+    "": { "model": "descentmtb:block/shaped" }
   }
 }

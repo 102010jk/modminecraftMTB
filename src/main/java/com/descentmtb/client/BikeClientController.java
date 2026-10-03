@@ -20,7 +20,7 @@ public final class BikeClientController {
     private static MountainBikeEntity riding;
     private static final ArrayDeque<SafePoint> safe = new ArrayDeque<>();
     private static SafePoint start;
-    private static int safeTimer, bailTicks;
+    private static int safeTimer, bailTicks, idleTicks;
     private static String airLabel = "";
 
     // ---- HUD feed ----
@@ -60,7 +60,12 @@ public final class BikeClientController {
         bike.driveLocal(in.controls());
         sim = bike.sim();
         // The server needs the crash frame before the bail detaches the rider.
-        PacketDistributor.sendToServer(bike.statePayload(teleport));
+        // a parked bike changes nothing: a few updates a second are plenty
+        boolean resting = sim.speed() < .05 && !sim.airborne && sim.grounded() && !teleport;
+        idleTicks = resting ? idleTicks + 1 : 0;
+        if (!resting || idleTicks % 10 == 1) {
+            PacketDistributor.sendToServer(bike.statePayload(teleport));
+        }
         handleEvents(sim);
         recordSafePoint(bike, sim);
 

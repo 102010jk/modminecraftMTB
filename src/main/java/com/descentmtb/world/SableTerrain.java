@@ -17,14 +17,25 @@ public final class SableTerrain implements Terrain {
     private final Terrain base;
     private final McColumns columns;
     private final Level level;
-    private final Map<String, Boolean> nearby = new HashMap<>();
+    /** Without the Sable mod there are no moving decks: skip every lookup. */
+    private static final boolean SABLE_PRESENT = net.neoforged.fml.ModList.get().isLoaded("sable");
+    private final it.unimi.dsi.fastutil.longs.Long2BooleanOpenHashMap nearby = new it.unimi.dsi.fastutil.longs.Long2BooleanOpenHashMap();
     public SableTerrain(Terrain base, McColumns columns, Level level) { this.base = base; this.columns = columns; this.level = level; }
     public void newTick() { nearby.clear(); }
     private boolean nearby(double x, double y, double z) {
+        if (!SABLE_PRESENT) {
+            return false;
+        }
         int cx = (int) Math.floor(x / 8), cy = (int) Math.floor(y / 8), cz = (int) Math.floor(z / 8);
-        return nearby.computeIfAbsent(cx + ":" + cy + ":" + cz, key -> SableCompanion.INSTANCE
+        long key = ((long) cx & 0x1FFFFF) << 42 | ((long) cy & 0xFFFFF) << 21 | ((long) cz & 0x1FFFFF);
+        if (nearby.containsKey(key)) {
+            return nearby.get(key);
+        }
+        boolean found = SableCompanion.INSTANCE
                 .getAllIntersecting(level, new BoundingBox3d(cx * 8 - 2, cy * 8 - 8, cz * 8 - 2,
-                        cx * 8 + 10, cy * 8 + 16, cz * 8 + 10)).iterator().hasNext());
+                        cx * 8 + 10, cy * 8 + 16, cz * 8 + 10)).iterator().hasNext();
+        nearby.put(key, found);
+        return found;
     }
     public boolean ground(double x, double z, double top, double bottom, GroundHit out) { return query(x, z, top, bottom, out, false); }
     public boolean floor(double x, double z, double top, double bottom, GroundHit out) { return query(x, z, top, bottom, out, true); }

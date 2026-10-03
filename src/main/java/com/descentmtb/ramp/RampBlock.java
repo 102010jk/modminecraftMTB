@@ -151,7 +151,8 @@ public class RampBlock extends BaseEntityBlock {
     protected boolean useShapeForLightOcclusion(BlockState s) { return true; }
 
     @Override
-    protected RenderShape getRenderShape(BlockState s) { return RenderShape.ENTITYBLOCK_ANIMATED; }
+    // meshed into the chunk by ShapedBakedModel (a block-entity renderer would redraw every block every frame)
+    protected RenderShape getRenderShape(BlockState s) { return RenderShape.MODEL; }
 
     // ---- placement / state ----------------------------------------------------------------------
 

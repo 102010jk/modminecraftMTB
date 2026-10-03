@@ -1,0 +1,4 @@
+{
+  "loader": "descentmtb:shaped",
+  "textures": { "particle": "minecraft:block/coarse_dirt" }
+}

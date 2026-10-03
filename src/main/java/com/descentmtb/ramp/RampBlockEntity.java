@@ -24,6 +24,41 @@ public class RampBlockEntity extends BlockEntity {
     }
     protected RampBlockEntity(net.minecraft.world.level.block.entity.BlockEntityType<?> type, BlockPos pos, BlockState state) { super(type, pos, state); }
 
+    /** What the baked model needs to know about this block (material, and for trail surfaces the corners). */
+    public static final net.neoforged.neoforge.client.model.data.ModelProperty<ShapeKey> SHAPE =
+            new net.neoforged.neoforge.client.model.data.ModelProperty<>();
+
+    private ShapeKey shapeKey;
+
+    protected ShapeKey buildShapeKey() { return ShapeKey.ramp(material); }
+
+    /** Drops the cached key; call after anything that changes the shape or the material. */
+    protected void shapeChanged() {
+        shapeKey = null;
+        if (level != null && level.isClientSide) {
+            requestModelDataUpdate();
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 8);   // 8 = re-mesh on the main thread
+        }
+    }
+
+    @Override
+    public net.neoforged.neoforge.client.model.data.ModelData getModelData() {
+        if (shapeKey == null) shapeKey = buildShapeKey();
+        return net.neoforged.neoforge.client.model.data.ModelData.builder().with(SHAPE, shapeKey).build();
+    }
+
+    @Override
+    public void onDataPacket(net.minecraft.network.Connection net, ClientboundBlockEntityDataPacket pkt, HolderLookup.Provider registries) {
+        super.onDataPacket(net, pkt, registries);
+        shapeChanged();
+    }
+
+    @Override
+    public void handleUpdateTag(CompoundTag tag, HolderLookup.Provider registries) {
+        super.handleUpdateTag(tag, registries);
+        shapeChanged();
+    }
+
     public BlockState getMaterial() { return material; }
 
     public boolean isConsumed() { return consumed; }
@@ -31,6 +66,7 @@ public class RampBlockEntity extends BlockEntity {
     public void setMaterial(BlockState mat, boolean consumed) {
         this.material = mat;
         this.consumed = consumed;
+        shapeKey = null;
         setChanged();
         if (level != null) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
     }
