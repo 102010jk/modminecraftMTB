@@ -13,7 +13,14 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.event.InputEvent;
+import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.event.RenderHandEvent;
+import net.neoforged.neoforge.client.event.RenderPlayerEvent;
+import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
+import com.descentmtb.entity.BikeRenderState;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import net.neoforged.neoforge.client.event.ViewportEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
@@ -37,6 +44,33 @@ public final class DescentMtbClient {
         });
         NeoForge.EVENT_BUS.addListener((RenderHandEvent e) -> {
             if (BikeCamera.helmet()) e.setCanceled(true);
+        });
+        // no digging / placing while riding (Steam Input maps the triggers to mouse clicks!)
+        NeoForge.EVENT_BUS.addListener((InputEvent.InteractionKeyMappingTriggered e) -> {
+            if (BikeClientController.riding() != null) {
+                e.setSwingHand(false);
+                e.setCanceled(true);
+            }
+        });
+        NeoForge.EVENT_BUS.addListener((RenderGuiLayerEvent.Pre e) -> {
+            if (BikeClientController.riding() != null && e.getName().equals(VanillaGuiLayers.CROSSHAIR)) e.setCanceled(true);
+        });
+        // the rider pitches and leans with the bike (rotation about the pedals)
+        NeoForge.EVENT_BUS.addListener((RenderPlayerEvent.Pre e) -> {
+            if (e.getEntity().getVehicle() instanceof MountainBikeEntity bike) {
+                BikeRenderState a = bike.rsPrev, b = bike.rsCur;
+                double t = e.getPartialTick();
+                double yaw = BikeRenderState.lerp(t, a.yaw, b.yaw);
+                PoseStack pose = e.getPoseStack();
+                pose.pushPose();
+                pose.mulPose(Axis.YP.rotation((float) (Math.PI - yaw)));
+                pose.mulPose(Axis.XP.rotation((float) BikeRenderState.lerp(t, a.pitch, b.pitch)));
+                pose.mulPose(Axis.ZP.rotation((float) -BikeRenderState.lerp(t, a.lean, b.lean)));
+                pose.mulPose(Axis.YP.rotation((float) -(Math.PI - yaw)));
+            }
+        });
+        NeoForge.EVENT_BUS.addListener((RenderPlayerEvent.Post e) -> {
+            if (e.getEntity().getVehicle() instanceof MountainBikeEntity) e.getPoseStack().popPose();
         });
     }
 

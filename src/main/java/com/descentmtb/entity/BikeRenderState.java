@@ -96,6 +96,25 @@ public final class BikeRenderState {
         riderPos = com.addScaled(up, p.riderHeight + riderUp).addScaled(fwd, p.riderForward + riderFwd);
     }
 
+    /** Rider's feet: on the pedals (bottom-bracket height), fixed to the frame. */
+    public V3 feet() {
+        double sy = Math.sin(yaw), cy = Math.cos(yaw), sp = Math.sin(pitch), cp = Math.cos(pitch);
+        V3 fH = new V3(-sy, 0, cy);
+        V3 fwd = fH.mul(cp).addScaled(V3.Y, sp);
+        V3 up = fH.mul(-sp).addScaled(V3.Y, cp);
+        return com.addScaled(up, -0.15).addScaled(fwd, -0.19);
+    }
+
+    public V3 upAxis() {
+        double sy = Math.sin(yaw), cy = Math.cos(yaw), sp = Math.sin(pitch), cp = Math.cos(pitch);
+        return new V3(-sy, 0, cy).mul(-sp).addScaled(V3.Y, cp);
+    }
+
+    public V3 forwardAxis() {
+        double sy = Math.sin(yaw), cy = Math.cos(yaw), sp = Math.sin(pitch), cp = Math.cos(pitch);
+        return new V3(-sy, 0, cy).mul(cp).addScaled(V3.Y, sp);
+    }
+
     static double unwrapNear(double a, double ref) {
         while (a - ref > Math.PI) a -= 2 * Math.PI;
         while (a - ref < -Math.PI) a += 2 * Math.PI;

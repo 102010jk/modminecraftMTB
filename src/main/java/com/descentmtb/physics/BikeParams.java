@@ -73,9 +73,13 @@ public final class BikeParams {
     public double manualTargetPitch = 0.30;
 
     // ---------------- air ----------------
-    public double flipRate = 8.6;             // rad/s at full stick (backflip ≈ 0.9 s)
-    public double spinRate = 8.8;             // rad/s (360 ≈ 0.8 s)
-    public double airControlResponse = 0.12;  // s
+    public double flipRate = 6.4;             // rad/s at full stick and full pop (backflip ≈ 1.15 s)
+    public double spinRate = 6.6;             // rad/s at full pop (360 ≈ 1.1 s)
+    public double airControlResponse = 0.18;  // s
+    /** Rotation authority with no pop at all (a lazy roll-off can only twitch). */
+    public double airBudgetBase = 0.12;
+    /** Rotation authority ramps in over this long after take-off. */
+    public double airRampTime = 0.18;
     /** 0..1: how strongly the bike noses toward its flight path with no input (feel F8). */
     public double airAlignAssist = 0.85;
     public double airAlignRate = 3.5;         // 1/s

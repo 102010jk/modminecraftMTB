@@ -56,6 +56,15 @@ public final class BikeSim {
     public double crankAngle, crankRate;
     private double groundFactor;
     private double legTarget, armTarget;
+    /** Recent active leg-extension speed (m/s) - how hard the rider popped. */
+    private double popMeter;
+    /** 0..1 rotation authority for this air session, earned by the pop at take-off. */
+    public double airBudget;
+    private final Terrain.GroundHit bodyHit = new Terrain.GroundHit();
+    /** Pitch of the ground where the current jump will land (ballistic prediction). */
+    private double landingPitch;
+    private boolean landingKnown;
+    private int predictTimer;
 
     // ---------------- air / landing ----------------
     public boolean airborne;
@@ -195,6 +204,7 @@ public final class BikeSim {
         }
         front.sliding = front.contact && front.latSaturated;
         rear.sliding = rear.contact && rear.latSaturated;
+        bodyContacts(h);
 
         // ---------- roll lock ----------
         omega = omega.reject(fH);
@@ -239,7 +249,7 @@ public final class BikeSim {
         w.contact = false;
         w.load = 0;
 
-        if (!terrain.ground(ext.x, ext.z, ext.y + 0.6, ext.y - p.wheelRadius - travel - 1.5, w.hit)) {
+        if (!terrain.ground(ext.x, ext.z, ext.y + 1.3, ext.y - p.wheelRadius - travel - 1.5, w.hit)) {
             w.compression = Math.max(0, w.compression - h * 3.0); // extends in the air
             w.compVel = 0;
             return;
@@ -372,7 +382,9 @@ public final class BikeSim {
 
         legTarget = hT;
         armTarget = sT;
+        popMeter *= Math.exp(-h / 0.25);
         if (!grounded) return; // in the air the rider is held rigidly (see solveRider)
+        if (!c.trickMod && c.body > 0.3 && hd > popMeter) popMeter = hd;
 
         double g = p.gravity;
         // muscles: little damping while driving toward the target (explosive pop),
@@ -435,6 +447,52 @@ public final class BikeSim {
     }
 
     // =====================================================================
+    //  Frame / rider vs ground (crashes, bike on its side, upside-down landings)
+    // =====================================================================
+
+    private void bodyContacts(double h) {
+        V3[] pts = {
+                pos.addScaled(fwd, -0.19).addScaled(up, -0.30),                    // bottom bracket
+                pos.addScaled(fwd, -0.35).addScaled(up, 0.45),                     // saddle
+                pos.addScaled(fwd, 0.45).addScaled(up, 0.55),                      // bars
+                front.contact ? null : pos.addScaled(fwd, p.halfWheelbase).addScaled(up, p.axleDrop),
+                rear.contact ? null : pos.addScaled(fwd, -p.halfWheelbase).addScaled(up, p.axleDrop),
+        };
+        for (int i = 0; i < pts.length; i++) {
+            V3 pt = pts[i];
+            if (pt == null || !terrain.ground(pt.x, pt.z, pt.y + 1.0, pt.y - 1.5, bodyHit)) continue;
+            double pen = bodyHit.height + 0.02 - pt.y;
+            if (pen <= 0) continue;
+            V3 n = bodyHit.normal;
+            double vn = pointVel(pt).dot(n);
+            double jn = 0;
+            if (vn < 0) {
+                jn = -vn / invMass(pt, n);
+                applyImpulse(pt, n.mul(jn));
+            }
+            V3 vt = pointVel(pt).reject(n);
+            double vtl = vt.length();
+            if (vtl > 1e-4) {
+                V3 td = vt.mul(1 / vtl);
+                double jt = Math.min(vtl / invMass(pt, td), 0.6 * (jn + p.bikeMass * p.gravity * h));
+                applyImpulse(pt, td.mul(-jt));
+            }
+            pos = pos.addScaled(n, Math.min(pen * 0.3, 0.05));
+            if ((i == 1 || i == 2) && !bailed && speed() > 3) bail("hit the ground with the frame");
+        }
+        // the rider's body never sinks into the ground either
+        if (terrain.ground(riderPos.x, riderPos.z, riderPos.y + 1.0, riderPos.y - 1.5, bodyHit)) {
+            double pen = bodyHit.height + 0.25 - riderPos.y;
+            if (pen > 0) {
+                double vn = riderVel.dot(bodyHit.normal);
+                if (vn < 0) riderVel = riderVel.addScaled(bodyHit.normal, -vn);
+                riderVel = riderVel.mul(Math.exp(-h * 3));  // scrub along the dirt
+                riderPos = riderPos.addScaled(bodyHit.normal, Math.min(pen * 0.3, 0.05));
+            }
+        }
+    }
+
+    // =====================================================================
     //  Air
     // =====================================================================
 
@@ -443,23 +501,51 @@ public final class BikeSim {
         double b = omega.dot(right);
         double k = 1 - Math.exp(-h / p.airControlResponse);
 
+        double authority = airBudget * clamp(airTime / p.airRampTime, 0, 1);
         double bT;
         if (Math.abs(c.lean) > 0.15) {
-            bT = -c.lean * p.flipRate;                  // stick up = frontflip (nose down)
+            bT = -c.lean * p.flipRate * authority;      // stick up = frontflip (nose down)
         } else if (Math.cos(pitch) > 0.3 || Math.abs(airPitchTravel) < 1.2) {
-            double path = Math.atan2(vel.y, Math.max(vel.horizontalLength(), 0.1));
-            bT = wrap(path - pitch) * p.airAlignRate * p.airAlignAssist;
+            // Descenders-style: the bike settles onto the slope it is going to land on
+            if (--predictTimer <= 0) {
+                predictLanding();
+                predictTimer = 6;
+            }
+            double target = landingKnown ? landingPitch
+                    : Math.atan2(vel.y, Math.max(vel.horizontalLength(), 0.1));
+            bT = wrap(target - pitch) * p.airAlignRate * p.airAlignAssist;
         } else {
             bT = b;                                     // mid-flip: keep rotating
         }
-        double aT = Math.abs(c.steer) > 0.15 ? -c.steer * p.spinRate : a * Math.exp(-h / 0.35);
+        double aT = Math.abs(c.steer) > 0.15 ? -c.steer * p.spinRate * authority : a * Math.exp(-h / 0.35);
 
         double na = a + (aT - a) * k;
         double nb = b + (bT - b) * k;
         V3 old = omega;
         setOmega(na, nb);
         V3 dOmega = omega.sub(old);
-        riderVel = riderVel.add(dOmega.cross(riderPos.sub(pos)));
+        // spin bike + rider together about their common centre of mass
+        V3 com = pos.mul(p.bikeMass).addScaled(riderPos, p.riderMass).mul(1.0 / p.totalMass());
+        vel = vel.add(dOmega.cross(pos.sub(com)));
+        riderVel = riderVel.add(dOmega.cross(riderPos.sub(com)));
+    }
+
+    /** Steps the flight path forward to find where (and on what slope) we will touch down. */
+    private void predictLanding() {
+        landingKnown = false;
+        V3 pt = pos;
+        V3 v = vel;
+        double dt = 0.05;
+        for (int i = 0; i < 50; i++) {
+            v = v.addScaled(V3.Y, -p.gravity * dt);
+            pt = pt.addScaled(v, dt);
+            if (terrain.ground(pt.x, pt.z, pt.y + 0.5, pt.y - 1.5, bodyHit)
+                    && pt.y - (p.wheelRadius - p.axleDrop) <= bodyHit.height + 0.05) {
+                landingPitch = groundPitch(bodyHit.normal);
+                landingKnown = true;
+                return;
+            }
+        }
     }
 
     private void airState(boolean grounded, double h) {
@@ -469,6 +555,12 @@ public final class BikeSim {
                 airTime = 0;
                 airPitchTravel = 0;
                 airYawTravel = 0;
+                // Rotations must be earned at take-off: a real rider cannot start a
+                // spin in mid-air. Popping hard (and launching off a lip) buys authority.
+                double pop = clamp(popMeter / 1.6, 0, 1);
+                double launch = clamp(vel.y / 5.0, 0, 1);
+                airBudget = clamp(p.airBudgetBase + 0.85 * pop + 0.35 * launch, p.airBudgetBase, 1);
+                predictTimer = 0;
                 events.add(new Event(Event.Type.TAKEOFF, vel.length(), ""));
             }
             airTime += h;

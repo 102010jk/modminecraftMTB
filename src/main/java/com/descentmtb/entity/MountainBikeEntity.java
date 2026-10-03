@@ -213,9 +213,9 @@ public class MountainBikeEntity extends Entity {
     @Override
     protected void positionRider(Entity passenger, MoveFunction move) {
         if (!hasPassenger(passenger)) return;
-        V3 r = rsCur.riderPos;
-        // feet ≈ 0.98 m below the rider's centre of mass in an attack stance
-        move.accept(passenger, r.x, r.y - 0.98, r.z);
+        // feet on the pedals; the body pose (bend, lean) is drawn by RiderPose
+        V3 f = rsCur.bailed ? rsCur.riderPos.addScaled(V3.Y, -0.9) : rsCur.feet();
+        move.accept(passenger, f.x, f.y, f.z);
         if (passenger instanceof LivingEntity le) {
             float yaw = (float) Math.toDegrees(rsCur.yaw);
             le.setYBodyRot(yaw);

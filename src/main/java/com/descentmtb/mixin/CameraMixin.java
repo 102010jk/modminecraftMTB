@@ -20,6 +20,9 @@ public abstract class CameraMixin {
     @Shadow
     protected abstract void setPosition(Vec3 pos);
 
+    @Shadow
+    private boolean detached;
+
     @Inject(method = "setup", at = @At("TAIL"))
     private void descentmtb$bikeCamera(BlockGetter level, Entity entity, boolean detached, boolean mirror,
                                        float partialTick, CallbackInfo ci) {
@@ -27,6 +30,9 @@ public abstract class CameraMixin {
         if (v != null) {
             setRotation(v.yaw(), v.pitch(), v.roll());
             setPosition(v.pos());
+            // "detached" makes the level renderer draw the local player, so in the helmet
+            // cam you see your own arms on the bars and legs on the pedals (head hidden)
+            detached = true;
         }
     }
 }

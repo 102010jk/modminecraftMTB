@@ -369,18 +369,66 @@ class FeelSpecTest {
         flip.sim.pos = new V3(0, 200, 0);
         flip.sim.riderPos = flip.sim.pos.add(new V3(0, flip.sim.p.riderHeight, 0));
         flip.run(0.2, Controls.NONE);
-        flip.run(0.9, ctl(0, -1, 0, 0, 0));
+        flip.sim.airBudget = 1.0;                 // as if popped hard off a lip
+        flip.run(1.15, ctl(0, -1, 0, 0, 0));
         double flipTurns = flip.sim.airPitchTravel / (2 * Math.PI);
 
         Ride spin = new Ride("spin", far).place(0, 0, 0, 0);
         spin.sim.pos = new V3(0, 200, 0);
         spin.sim.riderPos = spin.sim.pos.add(new V3(0, spin.sim.p.riderHeight, 0));
         spin.run(0.2, Controls.NONE);
-        spin.run(0.8, ctl(1, 0, 0, 0, 0));
+        spin.sim.airBudget = 1.0;
+        spin.run(1.1, ctl(1, 0, 0, 0, 0));
         double spinTurns = spin.sim.airYawTravel / (2 * Math.PI);
-        log("air: 0.9 s of backflip = %.2f turns, 0.8 s of spin = %.2f turns", flipTurns, spinTurns);
+        log("air (full pop): 1.15 s of backflip = %.2f turns, 1.1 s of spin = %.2f turns", flipTurns, spinTurns);
         assertTrue(flipTurns > 0.8 && flipTurns < 1.2, "flip " + flipTurns);
         assertTrue(spinTurns > 0.8 && spinTurns < 1.2, "spin " + spinTurns);
+    }
+
+    @Test
+    void noFreeSpinsWithoutAPop() {
+        // lazy hop on the flat (no preload) while holding a spin: must not get anywhere near a 360
+        Ride r = new Ride("lazy_spin", TestTerrains.flat(64, Terrain.Surface.DIRT)).place(0, 64, 0, 0).speed(6);
+        r.run(0.5, Controls.NONE);
+        r.run(0.3, ctl(0, 0, 0, 0, 1));
+        double[] maxYaw = {0};
+        r.run(1.2, rr -> {
+            maxYaw[0] = Math.max(maxYaw[0], Math.abs(rr.sim.airYawTravel));
+            return ctl(1, 0, 0, 0, 0);
+        });
+        log("lazy hop + spin input: %.0f° of rotation", Math.toDegrees(maxYaw[0]));
+        assertTrue(Math.toDegrees(maxYaw[0]) < 90, "spins must be earned with a pop");
+    }
+
+    @Test
+    void poppedKickerAllowsA360() {
+        Ride r = new Ride("kicker_360", kickerLine()).place(0, 64, 0, 0).speed(9.2);
+        double[] maxYaw = {0}, budget = {0};
+        r.run(3, rr -> {
+            double z = rr.sim.pos.z;
+            maxYaw[0] = Math.max(maxYaw[0], Math.abs(rr.sim.airYawTravel));
+            if (rr.sim.airborne) budget[0] = Math.max(budget[0], rr.sim.airBudget);
+            if (z > 8.0 && z < 11.6) return ctl(0, 0, 0, 0, -1);
+            if (z >= 11.6 && z < 13.5) return ctl(0, 0, 0, 0, 1);
+            if (rr.sim.airborne && Math.abs(rr.sim.airYawTravel) < 2 * Math.PI - 0.5) return ctl(1, 0, 0, 0, 0);
+            return Controls.NONE;
+        });
+        r.save();
+        log("popped kicker 360: %.0f° of rotation, air budget %.2f, bailed=%s %s",
+                Math.toDegrees(maxYaw[0]), budget[0], r.sim.bailed, r.sim.bailReason);
+        assertTrue(Math.toDegrees(maxYaw[0]) > 300, "a good pop off a kicker should allow a 360");
+    }
+
+    @Test
+    void crashedBikeStaysOnTheGround() {
+        Ride r = new Ride("crash_rest", TestTerrains.flat(64, Terrain.Surface.DIRT)).place(0, 64, 0, 0);
+        r.sim.pos = new V3(0, 66, 0);
+        r.sim.pitch = Math.toRadians(100);         // dropped nose-up on its back
+        r.sim.riderPos = r.sim.pos.add(new V3(0, 0.6, 0));
+        r.run(4, Controls.NONE);
+        log("crashed bike: frame COM y=%.2f (ground 64), rider y=%.2f", r.sim.pos.y, r.sim.riderPos.y);
+        assertTrue(r.sim.pos.y > 63.9, "frame must not sink through the ground");
+        assertTrue(r.sim.riderPos.y > 64.0, "rider must not sink through the ground");
     }
 
     // ------------------------------------------------------------------ robustness

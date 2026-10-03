@@ -21,11 +21,11 @@ import net.minecraft.world.phys.Vec3;
  * Applied by {@code CameraMixin} at the end of {@code Camera.setup}.
  */
 public final class BikeCamera {
-    public enum Mode { CHASE, CHASE_FAR, HELMET }
+    public enum Mode { HELMET, CHASE, CHASE_FAR }
 
     public record View(Vec3 pos, float yaw, float pitch, float roll) {}
 
-    private static Mode mode = Mode.CHASE;
+    private static Mode mode = Mode.HELMET;
     private static CameraType savedType;
     private static boolean init;
     private static double camYaw, camPitch, focusY, fovBoost;
@@ -99,7 +99,11 @@ public final class BikeCamera {
             V3 fH = new V3(-sy, 0, cy);
             V3 fwd = fH.mul(cp).addScaled(V3.Y, sp);
             V3 up = fH.mul(-sp).addScaled(V3.Y, cp);
-            V3 head = rider.addScaled(up, 0.62).addScaled(fwd, 0.10);
+            // eyes of the posed body: above the pedals, lower when bending
+            double riderUp = BikeRenderState.lerp(t, a.riderUp, b.riderUp);
+            double bendM = (3.0 + Math.max(-0.15, Math.min(0.35, -riderUp)) * 15.4) / 17.07;
+            V3 feet = BikeRenderState.lerp(t, a.feet(), b.feet());
+            V3 head = feet.addScaled(up, 1.62 - bendM).addScaled(fwd, 0.16);
             init = true;
             return new View(new Vec3(head.x, head.y, head.z),
                     (float) Math.toDegrees(yaw + steer * 0.3),

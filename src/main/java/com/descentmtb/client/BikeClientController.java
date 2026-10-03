@@ -22,6 +22,12 @@ public final class BikeClientController {
     private static SafePoint start;
     private static int safeTimer, bailTicks;
 
+    private static RiderPose.Trick trick = RiderPose.Trick.NONE;
+
+    public static RiderPose.Trick trick() {
+        return trick;
+    }
+
     // ---- HUD feed ----
     public static String message = "";
     public static int messageTicks;
@@ -59,6 +65,8 @@ public final class BikeClientController {
 
         bike.driveLocal(in.controls());
         sim = bike.sim();
+        trick = (sim.airborne && !sim.bailed && in.controls().trickMod)
+                ? RiderPose.trickFor(in.controls().trickX, in.controls().trickY) : RiderPose.Trick.NONE;
         handleEvents(sim);
         recordSafePoint(bike, sim);
 
