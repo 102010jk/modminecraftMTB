@@ -1,55 +1,76 @@
 package com.descentmtb.client;
 
 import com.descentmtb.DescentMtb;
-import com.descentmtb.client.model.MountainBikeModel;
+import com.descentmtb.client.model.EnduroBikeModel;
+import com.descentmtb.entity.BikeRenderState;
 import com.descentmtb.entity.MountainBikeEntity;
+import com.descentmtb.physics.BikeParams;
+import com.descentmtb.physics.V3;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 
+/**
+ * Draws the enduro bike from the interpolated physics snapshot: frame pose
+ * (yaw, pitch, lean) around the centre of mass, plus suspension travel,
+ * steering, wheel spin and cranks on the model's bones.
+ */
 public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
     private static final ResourceLocation TEXTURE =
-            ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "textures/entity/mountain_bike.png");
+            ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "textures/entity/enduro_bike.png");
 
-    /** Lifts the model so the wheels sit on the ground. Tweak if it floats/sinks. */
-    private static final float MODEL_Y = 0.44f;
-
-    private final MountainBikeModel model;
+    private final EnduroBikeModel model;
 
     public MountainBikeRenderer(EntityRendererProvider.Context ctx) {
         super(ctx);
-        this.model = new MountainBikeModel(ctx.bakeLayer(MountainBikeModel.LAYER));
-        this.shadowRadius = 0.7f;
+        this.model = new EnduroBikeModel(ctx.bakeLayer(EnduroBikeModel.LAYER));
+        this.shadowRadius = 0.6f;
     }
 
     @Override
     public void render(MountainBikeEntity bike, float entityYaw, float partialTick,
                        PoseStack pose, MultiBufferSource buffers, int light) {
+        BikeRenderState a = bike.rsPrev, b = bike.rsCur;
+        double t = partialTick;
+        BikeParams p = MountainBikeEntity.PARAMS;
+
+        // the pose stack is at the interpolated entity position; move to the interpolated COM
+        V3 com = BikeRenderState.lerp(t, a.com, b.com);
+        double ex = net.minecraft.util.Mth.lerp(t, bike.xo, bike.getX());
+        double ey = net.minecraft.util.Mth.lerp(t, bike.yo, bike.getY());
+        double ez = net.minecraft.util.Mth.lerp(t, bike.zo, bike.getZ());
+
         pose.pushPose();
+        pose.translate(com.x - ex, com.y - ey, com.z - ez);
+        pose.mulPose(Axis.YP.rotation((float) (Math.PI - BikeRenderState.lerp(t, a.yaw, b.yaw))));
+        pose.mulPose(Axis.XP.rotation((float) BikeRenderState.lerp(t, a.pitch, b.pitch)));
+        pose.mulPose(Axis.ZP.rotation((float) -BikeRenderState.lerp(t, a.lean, b.lean)));
+        // COM → model origin (ground point between the axles at full extension)
+        pose.translate(0, p.axleDrop - p.wheelRadius, 0);
+        pose.scale(-1, -1, 1);
 
-        float roll = bike.getRoll(partialTick);
-        float pitch = bike.getPitchVis(partialTick);
-        float fork = bike.getFork(partialTick);
-        float wheel = bike.getWheelRot(partialTick);
-        float steer = bike.getSteerVis(partialTick);
-
-        pose.translate(0.0, MODEL_Y, 0.0);
-        pose.mulPose(Axis.YP.rotationDegrees(180.0f - entityYaw));
-        pose.mulPose(Axis.ZP.rotation(roll));
-        pose.mulPose(Axis.XP.rotation(-pitch));
-        pose.scale(-1.0f, -1.0f, 1.0f);
-
-        this.model.setState(wheel, fork, steer);
-        VertexConsumer vc = buffers.getBuffer(this.model.renderType(TEXTURE));
-        this.model.renderToBuffer(pose, vc, light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
-
+        model.setupPose(
+                (float) BikeRenderState.lerp(t, a.steer, b.steer),
+                (float) BikeRenderState.lerp(t, a.compF, b.compF),
+                (float) BikeRenderState.lerp(t, a.compR, b.compR),
+                (float) BikeRenderState.lerp(t, a.spinF, b.spinF),
+                (float) BikeRenderState.lerp(t, a.spinR, b.spinR),
+                (float) BikeRenderState.lerp(t, a.crank, b.crank));
+        VertexConsumer vc = buffers.getBuffer(model.renderType(TEXTURE));
+        model.renderToBuffer(pose, vc, light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
         pose.popPose();
         super.render(bike, entityYaw, partialTick, pose, buffers, light);
+    }
+
+    @Override
+    public boolean shouldRender(MountainBikeEntity bike, Frustum frustum, double x, double y, double z) {
+        return super.shouldRender(bike, frustum, x, y, z) || bike.isVehicle();
     }
 
     @Override

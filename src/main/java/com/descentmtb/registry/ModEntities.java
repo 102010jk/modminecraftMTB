@@ -17,11 +17,11 @@ public final class ModEntities {
     public static final DeferredHolder<EntityType<?>, EntityType<MountainBikeEntity>> MOUNTAIN_BIKE =
             ENTITIES.register("mountain_bike", () -> EntityType.Builder
                     .<MountainBikeEntity>of(MountainBikeEntity::new, MobCategory.MISC)
-                    .sized(0.9f, 1.0f)
+                    .sized(1.0f, 1.0f)
                     // where the rider sits (x, y, z) in blocks relative to the bike origin
                     .passengerAttachments(new Vec3(0.0, 0.62, -0.12))
                     .clientTrackingRange(10)
-                    .updateInterval(2)
+                    .updateInterval(1)
                     .build("mountain_bike"));
 
     private ModEntities() {}

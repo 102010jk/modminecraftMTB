@@ -4,14 +4,18 @@ license = "MIT"
 
 [[mods]]
 modId = "descentmtb"
-version = "0.4.0"
+version = "1.0.0-alpha"
 displayName = "Descent MTB"
 authors = "jakub"
 description = '''
-Mountain biking for Minecraft with Descenders-style physics: momentum, slope/ramp
-launches, charged bunny hops, lean and air control. Full controller support (GLFW
-gamepad) plus keyboard. Right-click a Mountain Bike to deploy it, then ride.
+Descenders in Minecraft: a full-suspension enduro bike on real physics -
+spring/damper suspension, tyre grip, a rider you can pump and pop with,
+bunny hops, flips and spins, bails and a chase camera. Controller (GLFW)
+and keyboard, Descenders bindings.
 '''
+
+[[mixins]]
+config = "descentmtb.mixins.json"
 
 [[dependencies.descentmtb]]
 modId = "neoforge"

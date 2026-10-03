@@ -1,17 +1,12 @@
 package com.descentmtb.client;
 
-import com.descentmtb.DescentMtb;
-import com.descentmtb.entity.BikeInput;
-import com.descentmtb.entity.MountainBikeEntity;
+import com.descentmtb.physics.Controls;
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.logging.LogUtils;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWGamepadState;
 import org.lwjgl.system.MemoryStack;
@@ -21,170 +16,227 @@ import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 
 /**
- * Builds a {@link BikeInput} every client tick while the local player is riding
- * a bike, blending keyboard and controller. Pushed straight onto the bike the
- * player controls.
+ * Reads the controller (GLFW, no extra mods needed) and keyboard once per
+ * client tick and turns them into {@link Controls}, following the official
+ * Descenders bindings:
  *
- * <p><b>Descenders-style mapping</b><br>
- * Controller: Left stick X = steer (turns the bars), RT = pedal, LT = brake,
- * A = bunny hop (hold to charge, pull back to preload, release to pop),
- * <b>Right stick X = lean</b> (body tilt).<br>
- * Keyboard: W/S = pedal / lean back, A/D = steer, Space = bunny hop,
- * Left Ctrl = brake, Z/C = lean (all rebindable). Sneak dismounts.
- *
- * <p>Controller input is read straight from the OS via GLFW: first the mapped
- * "gamepad" API, then a raw-joystick fallback for pads GLFW has no mapping for.
- * On mounting, a one-off chat line reports what was detected.
+ * <pre>
+ *                      Controller            Keyboard
+ *  Accelerate          RT                    Z
+ *  Brake               LT                    Space
+ *  Steer / lean        Left stick            Arrow keys
+ *  Bend (attack/pump)  Right stick down      S
+ *  Stretch (counter)   Right stick up        D
+ *  Bunny hop           R down → R up         X (hold, release)
+ *  Tweak (in air)      Right stick ← →       Left Alt + ← →
+ *  Tricks              LB + right stick      C + arrows
+ *  Respawn             B                     R
+ *  Respawn at start    Back / View           Backspace
+ *  Switch camera       Y                     V
+ *  Reset camera        X                     B
+ * </pre>
  */
-@EventBusSubscriber(modid = DescentMtb.MODID, value = Dist.CLIENT)
 public final class BikeInputHandler {
     private static final Logger LOG = LogUtils.getLogger();
-    private static final float DEADZONE = 0.18f;
+    private static final float STICK_DEADZONE = 0.14f;
 
-    private static boolean wasRiding = false;
-    /** Last-known controller status string (for HUD / debugging). */
+    /** What the player asked for this tick. Button actions are edge-triggered. */
+    public record Frame(Controls controls, boolean respawn, boolean respawnStart, boolean cycleCamera,
+                        boolean resetCamera) {
+        public static final Frame NONE = new Frame(Controls.NONE, false, false, false, false);
+    }
+
     public static volatile String controllerStatus = "none";
 
-    @SubscribeEvent
-    public static void onClientTick(ClientTickEvent.Post event) {
-        Minecraft mc = Minecraft.getInstance();
-        LocalPlayer player = mc.player;
-        if (player == null) {
-            wasRiding = false;
-            return;
+    private static boolean prevRespawn, prevRespawnStart, prevCamera, prevResetCamera;
+    private static boolean prevHopKey;
+    private static int hopStretchTicks;
+
+    public static Frame poll() {
+        long win = Minecraft.getInstance().getWindow().getWindow();
+
+        // ---------------- keyboard ----------------
+        boolean trickKey = down(win, ModKeyMappings.TRICK);
+        boolean tweakKey = down(win, ModKeyMappings.TWEAK);
+        float arrowX = (down(win, ModKeyMappings.STEER_RIGHT) ? 1 : 0) - (down(win, ModKeyMappings.STEER_LEFT) ? 1 : 0);
+        float arrowY = (down(win, ModKeyMappings.LEAN_FORWARD) ? 1 : 0) - (down(win, ModKeyMappings.LEAN_BACK) ? 1 : 0);
+        float kSteer = 0, kLean = 0, kTweak = 0, kTrickX = 0, kTrickY = 0;
+        if (trickKey) {
+            kTrickX = arrowX;
+            kTrickY = arrowY;
+        } else if (tweakKey) {
+            kTweak = arrowX;
+            kLean = arrowY;
+        } else {
+            kSteer = arrowX;
+            kLean = arrowY;
         }
-        if (!(player.getVehicle() instanceof MountainBikeEntity bike)) {
-            wasRiding = false;
-            return;
+        float kPedal = down(win, ModKeyMappings.ACCELERATE) ? 1 : 0;
+        float kBrake = down(win, ModKeyMappings.BRAKE) ? 1 : 0;
+        float kBody = (down(win, ModKeyMappings.STRETCH) ? 1 : 0) - (down(win, ModKeyMappings.BEND) ? 1 : 0);
+        // X = bunny-hop macro: hold to bend, release to spring up
+        boolean hopKey = down(win, ModKeyMappings.BUNNY_HOP);
+        if (hopKey) kBody = -1;
+        else if (prevHopKey) hopStretchTicks = 6;
+        prevHopKey = hopKey;
+        if (!hopKey && hopStretchTicks > 0) {
+            hopStretchTicks--;
+            kBody = 1;
         }
-        if (mc.isPaused()) {
-            bike.setControlInput(BikeInput.NONE);
-            return;
-        }
+        boolean respawn = down(win, ModKeyMappings.RESPAWN);
+        boolean respawnStart = down(win, ModKeyMappings.RESPAWN_START);
+        boolean camera = down(win, ModKeyMappings.CAMERA);
+        boolean resetCamera = down(win, ModKeyMappings.RESET_CAMERA);
 
-        // --- keyboard base (vanilla movement impulses still populate while riding) ---
-        float throttle = player.input.forwardImpulse;          // W = +1, S = -1
-        float steer = player.input.leftImpulse;                // A = +1, D = -1
-        boolean hop = player.input.jumping;                    // Space
-        float brake = ModKeyMappings.BRAKE.isDown() ? 1f : 0f; // Left Ctrl
-        float lean = (ModKeyMappings.LEAN_LEFT.isDown() ? 1f : 0f)
-                - (ModKeyMappings.LEAN_RIGHT.isDown() ? 1f : 0f);
-
-        // --- controller overrides when actively used ---
-        Ctl c = pollController();
-        if (c != null && c.active) {
-            steer = c.steer;
-            throttle = c.throttle;
-            brake = Math.max(brake, c.brake);
-            lean = c.lean;
-            hop = hop || c.hop;
-        }
-
-        // one-off diagnostic the moment we get on the bike
-        if (!wasRiding) {
-            announce(player);
-        }
-        wasRiding = true;
-
-        bike.setControlInput(new BikeInput(
-                Mth.clamp(throttle, -1f, 1f),
-                Mth.clamp(steer, -1f, 1f),
-                Mth.clamp(brake, 0f, 1f),
-                Mth.clamp(lean, -1f, 1f),
-                hop));
-    }
-
-    // ----------------------------------------------------------------
-    //  Controller polling
-    // ----------------------------------------------------------------
-    private static final class Ctl {
-        float throttle, steer, brake, lean;
-        boolean hop, active;
-    }
-
-    private static Ctl pollController() {
-        for (int jid = GLFW.GLFW_JOYSTICK_1; jid <= GLFW.GLFW_JOYSTICK_LAST; jid++) {
-            if (!GLFW.glfwJoystickPresent(jid)) {
-                continue;
+        // ---------------- controller ----------------
+        Pad pad = pollPad();
+        float steer = kSteer, lean = kLean, pedal = kPedal, brake = kBrake, body = kBody, tweak = kTweak;
+        boolean trick = trickKey;
+        float trickX = kTrickX, trickY = kTrickY;
+        if (pad != null) {
+            steer = bigger(steer, pad.lx);
+            lean = bigger(lean, -pad.ly);
+            pedal = Math.max(pedal, pad.rt);
+            brake = Math.max(brake, pad.lt);
+            if (pad.lb) {
+                trick = true;
+                trickX = bigger(trickX, pad.rx);
+                trickY = bigger(trickY, -pad.ry);
+            } else {
+                body = bigger(body, -pad.ry);
+                tweak = bigger(tweak, pad.rx);
             }
-            // 1) mapped gamepad API
+            respawn |= pad.b;
+            respawnStart |= pad.back;
+            camera |= pad.y;
+            resetCamera |= pad.x;
+        }
+
+        Frame f = new Frame(new Controls(steer, lean, pedal, brake, body, tweak, trick, trickX, trickY),
+                respawn && !prevRespawn, respawnStart && !prevRespawnStart,
+                camera && !prevCamera, resetCamera && !prevResetCamera);
+        prevRespawn = respawn;
+        prevRespawnStart = respawnStart;
+        prevCamera = camera;
+        prevResetCamera = resetCamera;
+        return f;
+    }
+
+    private static boolean down(long win, KeyMapping k) {
+        InputConstants.Key key = k.getKey();
+        if (key.getType() == InputConstants.Type.KEYSYM && key.getValue() != InputConstants.UNKNOWN.getValue()) {
+            return InputConstants.isKeyDown(win, key.getValue());
+        }
+        if (key.getType() == InputConstants.Type.MOUSE) {
+            return GLFW.glfwGetMouseButton(win, key.getValue()) == GLFW.GLFW_PRESS;
+        }
+        return false;
+    }
+
+    private static float bigger(float a, float b) {
+        return Math.abs(b) > Math.abs(a) ? b : a;
+    }
+
+    // ------------------------------------------------------------------ gamepad
+
+    private static final class Pad {
+        float lx, ly, rx, ry, lt, rt;
+        boolean a, b, x, y, lb, back;
+    }
+
+    private static Pad pollPad() {
+        for (int jid = GLFW.GLFW_JOYSTICK_1; jid <= GLFW.GLFW_JOYSTICK_LAST; jid++) {
+            if (!GLFW.glfwJoystickPresent(jid)) continue;
             if (GLFW.glfwJoystickIsGamepad(jid)) {
                 try (MemoryStack stack = MemoryStack.stackPush()) {
                     GLFWGamepadState gp = GLFWGamepadState.malloc(stack);
                     if (GLFW.glfwGetGamepadState(jid, gp)) {
-                        Ctl c = fill(
-                                gp.axes(GLFW.GLFW_GAMEPAD_AXIS_LEFT_X),
-                                gp.axes(GLFW.GLFW_GAMEPAD_AXIS_LEFT_Y),
-                                gp.axes(GLFW.GLFW_GAMEPAD_AXIS_RIGHT_X),
-                                (gp.axes(GLFW.GLFW_GAMEPAD_AXIS_LEFT_TRIGGER) + 1f) * 0.5f,
-                                (gp.axes(GLFW.GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER) + 1f) * 0.5f,
-                                gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_A) == GLFW.GLFW_PRESS);
-                        controllerStatus = "gamepad: " + safeName(GLFW.glfwGetGamepadName(jid));
-                        return c;
+                        Pad p = new Pad();
+                        float[] l = radial(gp.axes(GLFW.GLFW_GAMEPAD_AXIS_LEFT_X), gp.axes(GLFW.GLFW_GAMEPAD_AXIS_LEFT_Y));
+                        float[] r = radial(gp.axes(GLFW.GLFW_GAMEPAD_AXIS_RIGHT_X), gp.axes(GLFW.GLFW_GAMEPAD_AXIS_RIGHT_Y));
+                        p.lx = l[0];
+                        p.ly = l[1];
+                        p.rx = r[0];
+                        p.ry = r[1];
+                        p.lt = trigger(gp.axes(GLFW.GLFW_GAMEPAD_AXIS_LEFT_TRIGGER));
+                        p.rt = trigger(gp.axes(GLFW.GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER));
+                        p.a = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_A) == GLFW.GLFW_PRESS;
+                        p.b = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_B) == GLFW.GLFW_PRESS;
+                        p.x = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_X) == GLFW.GLFW_PRESS;
+                        p.y = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_Y) == GLFW.GLFW_PRESS;
+                        p.lb = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_LEFT_BUMPER) == GLFW.GLFW_PRESS;
+                        p.back = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_BACK) == GLFW.GLFW_PRESS;
+                        controllerStatus = "gamepad: " + name(GLFW.glfwGetGamepadName(jid));
+                        return p;
                     }
                 }
             }
-            // 2) raw-joystick fallback (best-effort standard layout)
+            // raw fallback (XInput order on Windows)
             FloatBuffer axes = GLFW.glfwGetJoystickAxes(jid);
-            ByteBuffer buttons = GLFW.glfwGetJoystickButtons(jid);
-            if (axes != null && axes.limit() >= 2) {
-                float lx = axes.get(0);
-                float ly = axes.get(1);
-                float rx = axes.limit() > 2 ? axes.get(2) : 0f;
-                float lt = axes.limit() > 4 ? (axes.get(4) + 1f) * 0.5f : 0f;
-                float rt = axes.limit() > 5 ? (axes.get(5) + 1f) * 0.5f : 0f;
-                boolean a = buttons != null && buttons.limit() > 0 && buttons.get(0) == GLFW.GLFW_PRESS;
-                Ctl c = fill(lx, ly, rx, lt, rt, a);
-                controllerStatus = "joystick(raw): " + safeName(GLFW.glfwGetJoystickName(jid));
-                return c;
+            ByteBuffer btn = GLFW.glfwGetJoystickButtons(jid);
+            if (axes == null || axes.limit() < 4) continue;
+            Pad p = new Pad();
+            float[] l = radial(axes.get(0), axes.get(1));
+            float[] r = radial(axes.get(2), axes.get(3));
+            p.lx = l[0];
+            p.ly = l[1];
+            p.rx = r[0];
+            p.ry = r[1];
+            p.lt = axes.limit() > 4 ? trigger(axes.get(4)) : 0;
+            p.rt = axes.limit() > 5 ? trigger(axes.get(5)) : 0;
+            if (btn != null) {
+                p.a = pressed(btn, 0);
+                p.b = pressed(btn, 1);
+                p.x = pressed(btn, 2);
+                p.y = pressed(btn, 3);
+                p.lb = pressed(btn, 4);
+                p.back = pressed(btn, 6);
             }
+            controllerStatus = "joystick (raw): " + name(GLFW.glfwGetJoystickName(jid));
+            return p;
         }
         controllerStatus = "none";
         return null;
     }
 
-    private static Ctl fill(float lx, float ly, float rx, float lt, float rt, boolean aBtn) {
-        Ctl c = new Ctl();
-        float stickY = -dz(ly);                 // up = +1
-        c.steer = -dz(lx);                      // left = +1
-        c.lean = dz(rx);                        // right stick = body tilt
-        c.brake = lt;
-        c.throttle = stickY < 0 ? stickY : Math.max(stickY, rt); // RT pedals, stick-down leans back
-        c.hop = aBtn;
-        c.active = Math.abs(lx) > DEADZONE || Math.abs(ly) > DEADZONE || Math.abs(rx) > DEADZONE
-                || lt > 0.1f || rt > 0.1f || aBtn;
-        return c;
+    private static boolean pressed(ByteBuffer b, int i) {
+        return b.limit() > i && b.get(i) == GLFW.GLFW_PRESS;
     }
 
-    private static float dz(float v) {
-        if (Math.abs(v) < DEADZONE) {
-            return 0f;
-        }
-        return Math.signum(v) * (Math.abs(v) - DEADZONE) / (1f - DEADZONE);
+    /** Radial dead zone, rescaled so the stick still reaches 1. */
+    private static float[] radial(float x, float y) {
+        float m = (float) Math.sqrt(x * x + y * y);
+        if (m < STICK_DEADZONE) return new float[]{0, 0};
+        float s = Math.min(1f, (m - STICK_DEADZONE) / (1f - STICK_DEADZONE)) / m;
+        return new float[]{x * s, y * s};
     }
 
-    private static String safeName(String n) {
+    /** GLFW triggers rest at -1. */
+    private static float trigger(float v) {
+        float t = (v + 1f) * 0.5f;
+        return t < 0.05f ? 0f : Math.min(1f, t);
+    }
+
+    private static String name(String n) {
         return n == null ? "?" : n;
     }
 
-    /** One-off chat + log line on mount so the player can see what GLFW detected. */
-    private static void announce(LocalPlayer player) {
+    /** One chat line on mounting so the player can see what was detected. */
+    public static void announce(LocalPlayer player) {
         StringBuilder sb = new StringBuilder();
         int found = 0;
         for (int jid = GLFW.GLFW_JOYSTICK_1; jid <= GLFW.GLFW_JOYSTICK_LAST; jid++) {
             if (GLFW.glfwJoystickPresent(jid)) {
                 found++;
                 boolean pad = GLFW.glfwJoystickIsGamepad(jid);
-                String name = pad ? GLFW.glfwGetGamepadName(jid) : GLFW.glfwGetJoystickName(jid);
-                sb.append("#").append(jid).append(' ')
-                        .append(pad ? "gamepad" : "joystick").append(" \"").append(safeName(name)).append("\"  ");
+                sb.append(pad ? "gamepad \"" : "joystick \"")
+                        .append(name(pad ? GLFW.glfwGetGamepadName(jid) : GLFW.glfwGetJoystickName(jid))).append("\"  ");
             }
         }
-        Component msg = found == 0
-                ? Component.literal("§e[MTB] Žádný ovladač nenalezen – hraješ na klávesnici.")
-                : Component.literal("§a[MTB] Ovladač: §f" + sb.toString().trim());
-        player.displayClientMessage(msg, false);
-        LOG.info("[Descent MTB] controllers detected: {}", found == 0 ? "none" : sb.toString().trim());
+        player.displayClientMessage(found == 0
+                ? Component.literal("§e[MTB] Ovladač nenalezen – klávesnice: Z plyn, mezerník brzda, šipky, X bunnyhop, V kamera.")
+                : Component.literal("§a[MTB] Ovladač: §f" + sb.toString().trim() + " §7(RT plyn, LT brzda, R dolů→nahoru = hop, LB+R triky)"), false);
+        LOG.info("[Descent MTB] controllers: {}", found == 0 ? "none" : sb.toString().trim());
     }
 
     private BikeInputHandler() {}

@@ -1,0 +1,618 @@
+package com.descentmtb.client.model;
+
+import com.descentmtb.DescentMtb;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.model.Model;
+import net.minecraft.client.model.geom.ModelLayerLocation;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import org.joml.Vector3f;
+
+/**
+ * Full-suspension 29" enduro / downhill mountain bike, built from a vanilla {@link ModelPart}
+ * hierarchy (no GeckoLib) so every moving joint can be posed procedurally each frame.
+ *
+ * <p>Scale: 1 block = 1 m = 16 model units. Entity-model convention: model-space +Y points DOWN
+ * (the renderer applies {@code scale(-1,-1,1)}), forward is -Z, +X is the rider's LEFT. The model
+ * origin is on the ground midway between the two wheel contact patches.
+ *
+ * <pre>
+ * root
+ *  |- frame                 static front triangle, seatpost, saddle, shock mounts
+ *  |   |- shock_body        pivot = frame-side shock eye, aims at the swingarm-side eye
+ *  |   |   `- shock_spring  coil, z-scaled with shock length
+ *  |   |- steer_axis        pivot on the steering axis (head tube centre), xRot = -head tilt (fixed)
+ *  |   |   `- steer         yRot = steering angle (rotates about the tilted steering axis)
+ *  |   |       |- fork_upper   crown, stanchions, stem, handlebar, grips, levers
+ *  |   |       `- fork_lower   lowers + arch; local y slides along the steering axis (fork travel)
+ *  |   |           `- front_wheel   pivot = front axle, xRot = spin
+ *  |   |- cranks            pivot = bottom bracket, xRot = crank angle (arms, chainring)
+ *  |   |   |- pedal_right / pedal_left   pivot = pedal spindle, counter-rotated to stay level
+ *  |   |- chain_top / chain_bottom       thin boxes re-aimed between chainring and cassette
+ *  |- swingarm              pivot = main pivot, xRot = suspension angle (+ = rear axle goes up)
+ *      |- shock_shaft       pivot = swingarm-side shock eye, aims at the frame-side eye
+ *      `- rear_wheel        pivot = rear axle, xRot = spin (cassette included)
+ * </pre>
+ *
+ * <p>All box geometry below is a literal table (one {@code cube(...)} line per box, every box has its
+ * own UV rectangle in the {@code 128}x{@code 128} texture). {@code tools/gen_enduro_texture.py}
+ * and {@code tools/preview_enduro.py} parse this table, so keep the call format intact.
+ * The "material" string is documentation for those tools only; it is not used at runtime.
+ * After editing any box (size, position, texOffs) run {@code python tools/gen_enduro_texture.py}: it
+ * re-validates that the UV rectangles do not overlap and repaints the texture.
+ */
+public class EnduroBikeModel extends Model {
+    public static final ModelLayerLocation LAYER = new ModelLayerLocation(
+            ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "enduro_bike"), "main");
+
+    // ------------------------------------------------------------------ geometry constants (metres)
+    public static final float WHEEL_RADIUS_M = 0.375f;
+    public static final float WHEELBASE_M = 1.26f;
+    public static final float BB_HEIGHT_M = 0.35f;
+    public static final float FORK_TRAVEL_M = 0.17f;
+    public static final float REAR_TRAVEL_M = 0.16f;
+
+    /** Rider anchor points: metres, Y UP, -Z forward, +X = rider's left, origin = ground between the wheels.
+     *  Grips are at steering angle 0. */
+    public static final Vector3f GRIP_LEFT = new Vector3f(0.3312f, 1.1138f, -0.2718f);
+    public static final Vector3f GRIP_RIGHT = new Vector3f(-0.3312f, 1.1138f, -0.2718f);
+    public static final Vector3f SADDLE_TOP = new Vector3f(0.0f, 0.9719f, 0.3688f);
+    /** Bottom bracket / crank axis. */
+    public static final Vector3f PEDAL_AXIS = new Vector3f(0.0f, 0.35f, 0.19f);
+
+    // ------------------------------------------------------------------ pose constants (model units, Y down)
+    private static final float PX = 16f;
+    /** Main pivot / rear axle / shock eyes / bottom bracket (model space, rest pose). */
+    private static final float PIV_Y = -8.3f, PIV_Z = 4.2f;
+    private static final float AXLE_Y = -6.0f, AXLE_Z = 10.08f;
+    private static final float SHOCK_FRAME_Y = -12.0f, SHOCK_FRAME_Z = -0.6f;
+    private static final float SHOCK_ARM_Y = -11.4f, SHOCK_ARM_Z = 3.1f;
+    private static final float BB_Y = -5.6f, BB_Z = 3.04f;
+    private static final float SHOCK_LEN0 = 3.7483f;      // eye-to-eye length, fully extended
+    private static final float SPRING_PAD = 0.72f;     // spring inset from each eye
+    private static final float CHAIN_BASE = 10f;
+    private static final float CHAINRING_R = 1.0f, COG_R = 0.82f;
+    /** Swingarm geometry: axle sits SW_LEN away from the pivot, SW_PHI below the horizontal. */
+    private static final float SW_LEN = (float) Math.hypot(AXLE_Z - PIV_Z, AXLE_Y - PIV_Y);
+    private static final float SW_PHI = (float) Math.atan2(AXLE_Y - PIV_Y, AXLE_Z - PIV_Z);
+
+    private final ModelPart root;
+    private final ModelPart swingarm, shockBody, shockShaft, shockSpring;
+    private final ModelPart steer, forkLower, frontWheel, rearWheel;
+    private final ModelPart cranks, pedalLeft, pedalRight, chainTop, chainBottom;
+
+    public EnduroBikeModel(ModelPart root) {
+        super(RenderType::entityCutoutNoCull);
+        this.root = root;
+        ModelPart frame = root.getChild("frame");
+        this.swingarm = root.getChild("swingarm");
+        this.shockBody = frame.getChild("shock_body");
+        this.shockSpring = this.shockBody.getChild("shock_spring");
+        this.shockShaft = this.swingarm.getChild("shock_shaft");
+        this.steer = frame.getChild("steer_axis").getChild("steer");
+        this.forkLower = this.steer.getChild("fork_lower");
+        this.frontWheel = this.forkLower.getChild("front_wheel");
+        this.rearWheel = this.swingarm.getChild("rear_wheel");
+        this.cranks = frame.getChild("cranks");
+        this.pedalLeft = this.cranks.getChild("pedal_left");
+        this.pedalRight = this.cranks.getChild("pedal_right");
+        this.chainTop = frame.getChild("chain_top");
+        this.chainBottom = frame.getChild("chain_bottom");
+    }
+
+    // ------------------------------------------------------------------ pose
+    /**
+     * Pose every moving bone. All lengths in metres, all angles in radians.
+     *
+     * @param steerRad       steering angle about the steering axis; POSITIVE = steer to the rider's RIGHT
+     * @param forkTravelM    fork compression 0..0.17 (lowers slide up the steering axis)
+     * @param rearTravelM    VERTICAL rear-axle travel 0..0.16 (swingarm rotates to raise the axle by this much)
+     * @param frontWheelRad  front wheel spin; POSITIVE = rolling forward (top of the tyre moves toward -Z)
+     * @param rearWheelRad   rear wheel spin, same sign convention
+     * @param crankRad       crank angle; 0 = right crank pointing forward (horizontal), POSITIVE = pedalling forward
+     */
+    public void setupPose(float steerRad, float forkTravelM, float rearTravelM,
+                          float frontWheelRad, float rearWheelRad, float crankRad) {
+        float fork = Mth.clamp(forkTravelM, 0f, FORK_TRAVEL_M) * PX;
+        float rise = Mth.clamp(rearTravelM, 0f, REAR_TRAVEL_M) * PX;
+
+        // --- front end: yaw about the (tilted) steering axis, lowers slide up that same axis
+        this.steer.yRot = steerRad;
+        this.forkLower.y = -fork;                 // local -Y of steer_axis = up along the steering axis
+        this.frontWheel.xRot = frontWheelRad;
+
+        // --- swingarm: exact angle that lifts the rear axle by `rise` (pure rotation about the pivot)
+        float s = Mth.clamp(rise / SW_LEN - Mth.sin(SW_PHI), -1f, 1f);
+        float alpha = SW_PHI + (float) Math.asin(s);
+        this.swingarm.xRot = alpha;               // + = rear axle moves up
+        this.rearWheel.xRot = rearWheelRad;
+
+        // --- shock: swingarm-side eye in frame space, then aim both halves at each other
+        float cs = Mth.cos(alpha), sn = Mth.sin(alpha);
+        float ry = SHOCK_ARM_Y - PIV_Y, rz = SHOCK_ARM_Z - PIV_Z;
+        float eyeY = PIV_Y + ry * cs - rz * sn;
+        float eyeZ = PIV_Z + ry * sn + rz * cs;
+        float dy = eyeY - SHOCK_FRAME_Y, dz = eyeZ - SHOCK_FRAME_Z;
+        float len = Mth.sqrt(dy * dy + dz * dz);
+        this.shockBody.xRot = (float) Math.atan2(-dy, dz);
+        this.shockShaft.xRot = (float) Math.atan2(dy, -dz) - alpha;   // swingarm already rotated by alpha
+        this.shockSpring.zScale = Math.max(0.2f, (len - 2f * SPRING_PAD) / (SHOCK_LEN0 - 2f * SPRING_PAD));
+
+        // --- cranks and level pedals
+        this.cranks.xRot = crankRad;
+        this.pedalLeft.xRot = -crankRad;
+        this.pedalRight.xRot = -crankRad;
+
+        // --- chain: two boxes between chainring and rear cog (rear axle in frame space)
+        float ay = PIV_Y + (AXLE_Y - PIV_Y) * cs - (AXLE_Z - PIV_Z) * sn;
+        float az = PIV_Z + (AXLE_Y - PIV_Y) * sn + (AXLE_Z - PIV_Z) * cs;
+        aimChain(this.chainTop, BB_Y - CHAINRING_R, BB_Z, ay - COG_R, az);
+        aimChain(this.chainBottom, BB_Y + CHAINRING_R, BB_Z, ay + COG_R, az);
+    }
+
+    private static void aimChain(ModelPart chain, float y0, float z0, float y1, float z1) {
+        float dy = y1 - y0, dz = z1 - z0;
+        chain.y = (y0 + y1) * 0.5f;
+        chain.z = (z0 + z1) * 0.5f;
+        chain.xRot = (float) Math.atan2(-dy, dz);
+        chain.zScale = Mth.sqrt(dy * dy + dz * dz) / CHAIN_BASE;
+    }
+
+    @Override
+    public void renderToBuffer(PoseStack pose, VertexConsumer vc, int light, int overlay, int color) {
+        this.root.render(pose, vc, light, overlay, color);
+    }
+
+    public ModelPart root() {
+        return this.root;
+    }
+
+    // ------------------------------------------------------------------ geometry table
+    public static LayerDefinition createLayer() {
+        MeshDefinition mesh = new MeshDefinition();
+        PartDefinition root = mesh.getRoot();
+        PartDefinition frame = bone(root, "frame", 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "head_tube", "frame", 76, 24, 0.0f, -15.5319f, -4.5454f, 1.35f, 1.35f, 1.7f, 63.5f, 0.0f, 0.0f);
+        cube(frame, "headset_lo", "black", 36, 56, 0.0f, -14.7712f, -4.9246f, 1.55f, 1.55f, 0.3f, 63.5f, 0.0f, 0.0f);
+        cube(frame, "headset_hi", "black", 41, 56, 0.0f, -16.2926f, -4.1661f, 1.55f, 1.55f, 0.3f, 63.5f, 0.0f, 0.0f);
+        cube(frame, "down_tube", "frame", 0, 0, 0.0f, -10.3199f, -0.8754f, 1.05f, 1.25f, 12.965f, -50.3224f, 0.0f, 0.0f);
+        cube(frame, "top_tube", "frame", 30, 0, 0.0f, -14.2717f, 0.1775f, 0.8f, 0.95f, 10.0603f, -19.0112f, 0.0f, 0.0f);
+        cube(frame, "seat_tube", "frame", 97, 0, 0.0f, -9.4895f, 3.9738f, 0.82f, 0.82f, 8.4f, 76.5f, 0.0f, 0.0f);
+        cube(frame, "seat_collar", "black", 66, 56, 0.0f, -13.2817f, 4.8842f, 1.0f, 1.0f, 0.4f, 76.5f, 0.0f, 0.0f);
+        cube(frame, "seatpost", "black", 46, 56, 0.0f, -14.0645f, 5.0721f, 0.52f, 0.52f, 1.41f, 76.5f, 0.0f, 0.0f);
+        cube(frame, "dropper_lower", "silver", 70, 56, 0.0f, -13.8165f, 5.0126f, 0.58f, 0.58f, 0.9f, 76.5f, 0.0f, 0.0f);
+        cube(frame, "saddle_nose", "saddle", 64, 46, 0.0f, -15.3f, 4.45f, 0.95f, 0.4f, 1.6f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "saddle_mid", "saddle", 71, 46, 0.0f, -15.28f, 5.9f, 1.5f, 0.44f, 1.4f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "saddle_rear", "saddle", 12, 30, 0.0f, -15.3f, 7.4f, 2.0f, 0.55f, 1.6f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "saddle_under", "saddle", 30, 24, 0.0f, -14.98f, 6.1f, 1.2f, 0.18f, 3.1f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "saddle_rail_l", "silver", 84, 24, 0.55f, -14.86f, 6.25f, 0.1f, 0.12f, 3.3f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "saddle_rail_r", "silver", 92, 24, -0.55f, -14.86f, 6.25f, 0.1f, 0.12f, 3.3f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "saddle_clamp", "black", 51, 56, 0.0f, -14.78f, 5.2367f, 0.9f, 0.3f, 0.85f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "bb_shell", "frame", 37, 30, 0.0f, -5.6f, 3.04f, 1.5f, 1.1f, 1.1f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "bb_cup_l", "silver", 40, 59, 0.8f, -5.6f, 3.04f, 0.2f, 0.8f, 0.8f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "bb_cup_r", "silver", 43, 59, -0.8f, -5.6f, 3.04f, 0.2f, 0.8f, 0.8f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "pivot_boss", "frame", 56, 46, 0.0f, -8.3f, 4.2f, 2.3f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "pivot_gusset", "frame", 76, 42, 0.0f, -8.35f, 3.8f, 0.8f, 1.2f, 1.2f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "pivot_axle", "silver", 18, 62, 0.0f, -8.3f, 4.2f, 3.5f, 0.34f, 0.34f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "shock_mount_l", "frame", 12, 46, 0.5f, -11.3189f, -0.6f, 0.2f, 2.0621f, 0.6f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "shock_mount_r", "frame", 15, 46, -0.5f, -11.3189f, -0.6f, 0.2f, 2.0621f, 0.6f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "shock_mount_bolt", "silver", 41, 62, 0.0f, -12.0f, -0.6f, 1.3f, 0.28f, 0.28f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "shock_mount_web", "frame", 56, 56, 0.0f, -10.4379f, -0.6f, 1.0f, 0.5f, 0.6f, 0.0f, 0.0f, 0.0f);
+        PartDefinition shock_body = bone(frame, "shock_body", 0.0f, -12.0f, -0.6f, 0.0f, 0.0f, 0.0f);
+        cube(shock_body, "eye", "black", 74, 56, 0.0f, 0.0f, 0.0f, 0.82f, 0.55f, 0.55f, 0.0f, 0.0f, 0.0f);
+        cube(shock_body, "body", "black", 44, 30, 0.0f, 0.0f, 1.25f, 0.62f, 0.62f, 2.3f, 0.0f, 0.0f, 0.0f);
+        cube(shock_body, "body_cap", "silver", 120, 65, 0.0f, 0.0f, 2.5f, 0.7f, 0.7f, 0.14f, 0.0f, 0.0f, 0.0f);
+        cube(shock_body, "reservoir", "black", 78, 56, 0.0f, 0.55f, 1.0f, 0.45f, 0.4f, 0.85f, 0.0f, 0.0f, 0.0f);
+        cube(shock_body, "perch", "black", 82, 56, 0.0f, 0.0f, 0.62f, 1.2f, 1.2f, 0.1f, 0.0f, 0.0f, 0.0f);
+        PartDefinition steer_axis = bone(frame, "steer_axis", 0.0f, -15.5319f, -4.5454f, -26.5f, 0.0f, 0.0f);
+        PartDefinition steer = bone(steer_axis, "steer", 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+        PartDefinition fork_upper = bone(steer, "fork_upper", 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+        cube(fork_upper, "crown", "black", 0, 30, 0.0f, 1.375f, 0.05f, 3.75f, 0.85f, 1.7f, 0.0f, 0.0f, 0.0f);
+        cube(fork_upper, "steerer", "silver", 116, 24, 0.0f, -0.45f, 0.0f, 0.62f, 2.9f, 0.62f, 0.0f, 0.0f, 0.0f);
+        cube(fork_upper, "top_cap", "black", 78, 46, 0.0f, -1.05f, 0.0f, 1.45f, 0.4f, 1.45f, 0.0f, 0.0f, 0.0f);
+        cube(fork_upper, "stem_clamp", "black", 99, 46, 0.0f, -1.55f, 0.0f, 1.15f, 0.7f, 1.15f, 0.0f, 0.0f, 0.0f);
+        cube(fork_upper, "stem_arm", "black", 105, 46, 0.0f, -1.6f, -0.75f, 1.1f, 0.56f, 0.95f, 0.0f, 0.0f, 0.0f);
+        cube(fork_upper, "stanchion_l", "stanchion", 70, 16, 1.3f, 4.1f, 0.0f, 0.6f, 4.6f, 0.6f, 0.0f, 0.0f, 0.0f);
+        cube(fork_upper, "stem_bolt_l", "silver", 54, 69, 0.45f, -1.9f, 0.0f, 0.22f, 0.12f, 0.22f, 0.0f, 0.0f, 0.0f);
+        cube(fork_upper, "stanchion_r", "stanchion", 74, 16, -1.3f, 4.1f, 0.0f, 0.6f, 4.6f, 0.6f, 0.0f, 0.0f, 0.0f);
+        cube(fork_upper, "stem_bolt_r", "silver", 56, 69, -0.45f, -1.9f, 0.0f, 0.22f, 0.12f, 0.22f, 0.0f, 0.0f, 0.0f);
+        cube(fork_upper, "bar_clamp", "black", 61, 56, 0.0f, -1.6f, -1.25f, 1.2f, 0.8f, 0.8f, 0.0f, 0.0f, 0.0f);
+        cube(fork_upper, "bar_c_l", "silver", 28, 42, 0.75f, -1.6f, -1.25f, 0.5f, 0.5f, 1.6f, 0.0f, 90.0f, 0.0f);
+        cube(fork_upper, "bar_m_l", "silver", 40, 24, 2.95f, -1.8046f, -1.0954f, 0.5f, 0.5f, 3.045f, 7.9869f, 83.9137f, 0.0f);
+        cube(fork_upper, "grip_l", "grip", 51, 30, 5.3f, -2.1362f, -0.8448f, 0.66f, 0.66f, 2.2341f, 7.9869f, 83.9137f, 0.0f);
+        cube(fork_upper, "lever_clamp_l", "black", 86, 56, 3.7f, -1.8604f, -0.9154f, 0.5f, 0.5f, 0.55f, 0.0f, 0.0f, 0.0f);
+        cube(fork_upper, "lever_l", "silver", 34, 42, 3.925f, -1.0059f, -1.9891f, 0.16f, 0.34f, 2.2644f, -39.8684f, 164.9938f, 0.0f);
+        cube(fork_upper, "bar_c_r", "silver", 40, 42, -0.75f, -1.6f, -1.25f, 0.5f, 0.5f, 1.6f, 0.0f, -90.0f, 0.0f);
+        cube(fork_upper, "bar_m_r", "silver", 49, 24, -2.95f, -1.8046f, -1.0954f, 0.5f, 0.5f, 3.045f, 7.9869f, -83.9137f, 0.0f);
+        cube(fork_upper, "grip_r", "grip", 58, 30, -5.3f, -2.1362f, -0.8448f, 0.66f, 0.66f, 2.2341f, 7.9869f, -83.9137f, 0.0f);
+        cube(fork_upper, "lever_clamp_r", "black", 90, 56, -3.7f, -1.8604f, -0.9154f, 0.5f, 0.5f, 0.55f, 0.0f, 0.0f, 0.0f);
+        cube(fork_upper, "lever_r", "silver", 46, 42, -3.925f, -1.0059f, -1.9891f, 0.16f, 0.34f, 2.2644f, -39.8684f, -164.9938f, 0.0f);
+        PartDefinition fork_lower = bone(steer, "fork_lower", 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+        cube(fork_lower, "leg_up_l", "black", 58, 16, 1.3f, 6.76f, -0.15f, 0.95f, 4.28f, 1.1f, 0.0f, 0.0f, 0.0f);
+        cube(fork_lower, "leg_lo_l", "black", 98, 16, 1.3f, 10.05f, -0.5f, 0.95f, 2.9f, 1.2f, 0.0f, 0.0f, 0.0f);
+        cube(fork_lower, "axle_cap_l", "silver", 94, 56, 1.55f, 11.0f, -0.7f, 0.3f, 0.75f, 0.75f, 0.0f, 0.0f, 0.0f);
+        cube(fork_lower, "seal_l", "stanchion", 46, 62, 1.3f, 4.7f, 0.0f, 0.7f, 0.14f, 0.7f, 0.0f, 0.0f, 0.0f);
+        cube(fork_lower, "leg_up_r", "black", 64, 16, -1.3f, 6.76f, -0.15f, 0.95f, 4.28f, 1.1f, 0.0f, 0.0f, 0.0f);
+        cube(fork_lower, "leg_lo_r", "black", 104, 16, -1.3f, 10.05f, -0.5f, 0.95f, 2.9f, 1.2f, 0.0f, 0.0f, 0.0f);
+        cube(fork_lower, "axle_cap_r", "silver", 98, 56, -1.55f, 11.0f, -0.7f, 0.3f, 0.75f, 0.75f, 0.0f, 0.0f, 0.0f);
+        cube(fork_lower, "seal_r", "stanchion", 50, 62, -1.3f, 4.7f, 0.0f, 0.7f, 0.14f, 0.7f, 0.0f, 0.0f, 0.0f);
+        cube(fork_lower, "arch", "black", 36, 46, 0.0f, 4.77f, -0.35f, 3.65f, 0.3f, 1.0f, 0.0f, 0.0f, 0.0f);
+        cube(fork_lower, "caliper_f", "black", 81, 42, 1.3f, 9.1f, 0.0f, 0.85f, 1.25f, 1.0f, 0.0f, 0.0f, 0.0f);
+        cube(fork_lower, "caliper_f_bolt", "silver", 58, 69, 1.3f, 8.6f, 0.55f, 0.3f, 0.14f, 0.14f, 0.0f, 0.0f, 0.0f);
+        PartDefinition front_wheel = bone(fork_lower, "front_wheel", 0.0f, 11.0f, -0.7f, 0.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire", "tire", 65, 30, 0.0f, 5.43f, 0.0f, 1.0f, 0.9f, 1.6102f, 0.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire1", "tire", 72, 30, 0.0f, 5.245f, 1.4054f, 1.0f, 0.9f, 1.6102f, 15.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire2", "tire", 79, 30, 0.0f, 4.7025f, 2.715f, 1.0f, 0.9f, 1.6102f, 30.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire3", "tire", 86, 30, 0.0f, 3.8396f, 3.8396f, 1.0f, 0.9f, 1.6102f, 45.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire4", "tire", 93, 30, 0.0f, 2.715f, 4.7025f, 1.0f, 0.9f, 1.6102f, 60.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire5", "tire", 100, 30, 0.0f, 1.4054f, 5.245f, 1.0f, 0.9f, 1.6102f, 75.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire6", "tire", 107, 30, 0.0f, 0.0f, 5.43f, 1.0f, 0.9f, 1.6102f, 90.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire7", "tire", 114, 30, 0.0f, -1.4054f, 5.245f, 1.0f, 0.9f, 1.6102f, 105.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire8", "tire", 121, 30, 0.0f, -2.715f, 4.7025f, 1.0f, 0.9f, 1.6102f, 120.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire9", "tire", 0, 34, 0.0f, -3.8396f, 3.8396f, 1.0f, 0.9f, 1.6102f, 135.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire10", "tire", 7, 34, 0.0f, -4.7025f, 2.715f, 1.0f, 0.9f, 1.6102f, 150.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire11", "tire", 14, 34, 0.0f, -5.245f, 1.4054f, 1.0f, 0.9f, 1.6102f, 165.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire12", "tire", 21, 34, 0.0f, -5.43f, 0.0f, 1.0f, 0.9f, 1.6102f, 180.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire13", "tire", 28, 34, 0.0f, -5.245f, -1.4054f, 1.0f, 0.9f, 1.6102f, 195.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire14", "tire", 35, 34, 0.0f, -4.7025f, -2.715f, 1.0f, 0.9f, 1.6102f, 210.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire15", "tire", 42, 34, 0.0f, -3.8396f, -3.8396f, 1.0f, 0.9f, 1.6102f, 225.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire16", "tire", 49, 34, 0.0f, -2.715f, -4.7025f, 1.0f, 0.9f, 1.6102f, 240.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire17", "tire", 56, 34, 0.0f, -1.4054f, -5.245f, 1.0f, 0.9f, 1.6102f, 255.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire18", "tire", 63, 34, 0.0f, 0.0f, -5.43f, 1.0f, 0.9f, 1.6102f, 270.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire19", "tire", 70, 34, 0.0f, 1.4054f, -5.245f, 1.0f, 0.9f, 1.6102f, 285.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire20", "tire", 77, 34, 0.0f, 2.715f, -4.7025f, 1.0f, 0.9f, 1.6102f, 300.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire21", "tire", 84, 34, 0.0f, 3.8396f, -3.8396f, 1.0f, 0.9f, 1.6102f, 315.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire22", "tire", 91, 34, 0.0f, 4.7025f, -2.715f, 1.0f, 0.9f, 1.6102f, 330.0f, 0.0f, 0.0f);
+        cube(front_wheel, "tire23", "tire", 98, 34, 0.0f, 5.245f, -1.4054f, 1.0f, 0.9f, 1.6102f, 345.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob", "tire", 54, 62, 0.0f, 5.8495f, 0.7701f, 0.5f, 0.2f, 0.62f, 7.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob1", "tire", 123, 65, 0.34f, 5.9f, 0.0f, 0.3f, 0.2f, 0.7f, 0.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob2", "tire", 58, 62, 0.0f, 5.4509f, 2.2578f, 0.5f, 0.2f, 0.62f, 22.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob3", "tire", 0, 67, -0.34f, 5.699f, 1.527f, 0.3f, 0.2f, 0.7f, 15.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob4", "tire", 62, 62, 0.0f, 4.6808f, 3.5917f, 0.5f, 0.2f, 0.62f, 37.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob5", "tire", 3, 67, 0.34f, 5.1095f, 2.95f, 0.3f, 0.2f, 0.7f, 30.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob6", "tire", 66, 62, 0.0f, 3.5917f, 4.6808f, 0.5f, 0.2f, 0.62f, 52.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob7", "tire", 6, 67, -0.34f, 4.1719f, 4.1719f, 0.3f, 0.2f, 0.7f, 45.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob8", "tire", 70, 62, 0.0f, 2.2578f, 5.4509f, 0.5f, 0.2f, 0.62f, 67.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob9", "tire", 9, 67, 0.34f, 2.95f, 5.1095f, 0.3f, 0.2f, 0.7f, 60.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob10", "tire", 74, 62, 0.0f, 0.7701f, 5.8495f, 0.5f, 0.2f, 0.62f, 82.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob11", "tire", 12, 67, -0.34f, 1.527f, 5.699f, 0.3f, 0.2f, 0.7f, 75.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob12", "tire", 78, 62, 0.0f, -0.7701f, 5.8495f, 0.5f, 0.2f, 0.62f, 97.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob13", "tire", 15, 67, 0.34f, 0.0f, 5.9f, 0.3f, 0.2f, 0.7f, 90.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob14", "tire", 82, 62, 0.0f, -2.2578f, 5.4509f, 0.5f, 0.2f, 0.62f, 112.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob15", "tire", 18, 67, -0.34f, -1.527f, 5.699f, 0.3f, 0.2f, 0.7f, 105.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob16", "tire", 86, 62, 0.0f, -3.5917f, 4.6808f, 0.5f, 0.2f, 0.62f, 127.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob17", "tire", 21, 67, 0.34f, -2.95f, 5.1095f, 0.3f, 0.2f, 0.7f, 120.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob18", "tire", 90, 62, 0.0f, -4.6808f, 3.5917f, 0.5f, 0.2f, 0.62f, 142.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob19", "tire", 24, 67, -0.34f, -4.1719f, 4.1719f, 0.3f, 0.2f, 0.7f, 135.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob20", "tire", 94, 62, 0.0f, -5.4509f, 2.2578f, 0.5f, 0.2f, 0.62f, 157.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob21", "tire", 27, 67, 0.34f, -5.1095f, 2.95f, 0.3f, 0.2f, 0.7f, 150.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob22", "tire", 98, 62, 0.0f, -5.8495f, 0.7701f, 0.5f, 0.2f, 0.62f, 172.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob23", "tire", 30, 67, -0.34f, -5.699f, 1.527f, 0.3f, 0.2f, 0.7f, 165.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob24", "tire", 102, 62, 0.0f, -5.8495f, -0.7701f, 0.5f, 0.2f, 0.62f, 187.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob25", "tire", 33, 67, 0.34f, -5.9f, 0.0f, 0.3f, 0.2f, 0.7f, 180.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob26", "tire", 106, 62, 0.0f, -5.4509f, -2.2578f, 0.5f, 0.2f, 0.62f, 202.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob27", "tire", 36, 67, -0.34f, -5.699f, -1.527f, 0.3f, 0.2f, 0.7f, 195.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob28", "tire", 110, 62, 0.0f, -4.6808f, -3.5917f, 0.5f, 0.2f, 0.62f, 217.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob29", "tire", 39, 67, 0.34f, -5.1095f, -2.95f, 0.3f, 0.2f, 0.7f, 210.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob30", "tire", 114, 62, 0.0f, -3.5917f, -4.6808f, 0.5f, 0.2f, 0.62f, 232.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob31", "tire", 42, 67, -0.34f, -4.1719f, -4.1719f, 0.3f, 0.2f, 0.7f, 225.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob32", "tire", 118, 62, 0.0f, -2.2578f, -5.4509f, 0.5f, 0.2f, 0.62f, 247.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob33", "tire", 45, 67, 0.34f, -2.95f, -5.1095f, 0.3f, 0.2f, 0.7f, 240.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob34", "tire", 122, 62, 0.0f, -0.7701f, -5.8495f, 0.5f, 0.2f, 0.62f, 262.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob35", "tire", 48, 67, -0.34f, -1.527f, -5.699f, 0.3f, 0.2f, 0.7f, 255.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob36", "tire", 0, 65, 0.0f, 0.7701f, -5.8495f, 0.5f, 0.2f, 0.62f, 277.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob37", "tire", 51, 67, 0.34f, 0.0f, -5.9f, 0.3f, 0.2f, 0.7f, 270.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob38", "tire", 4, 65, 0.0f, 2.2578f, -5.4509f, 0.5f, 0.2f, 0.62f, 292.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob39", "tire", 54, 67, -0.34f, 1.527f, -5.699f, 0.3f, 0.2f, 0.7f, 285.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob40", "tire", 8, 65, 0.0f, 3.5917f, -4.6808f, 0.5f, 0.2f, 0.62f, 307.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob41", "tire", 57, 67, 0.34f, 2.95f, -5.1095f, 0.3f, 0.2f, 0.7f, 300.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob42", "tire", 12, 65, 0.0f, 4.6808f, -3.5917f, 0.5f, 0.2f, 0.62f, 322.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob43", "tire", 60, 67, -0.34f, 4.1719f, -4.1719f, 0.3f, 0.2f, 0.7f, 315.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob44", "tire", 16, 65, 0.0f, 5.4509f, -2.2578f, 0.5f, 0.2f, 0.62f, 337.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob45", "tire", 63, 67, 0.34f, 5.1095f, -2.95f, 0.3f, 0.2f, 0.7f, 330.0f, 0.0f, 0.0f);
+        cube(front_wheel, "knob46", "tire", 20, 65, 0.0f, 5.8495f, -0.7701f, 0.5f, 0.2f, 0.62f, 352.5f, 0.0f, 0.0f);
+        cube(front_wheel, "knob47", "tire", 66, 67, -0.34f, 5.699f, -1.527f, 0.3f, 0.2f, 0.7f, 345.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rim", "rim", 111, 46, 0.0f, 4.7589f, 0.6265f, 0.66f, 0.38f, 1.3796f, 7.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim1", "rim", 117, 46, 0.0f, 4.4346f, 1.8369f, 0.66f, 0.38f, 1.3796f, 22.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim2", "rim", 0, 50, 0.0f, 3.8081f, 2.9221f, 0.66f, 0.38f, 1.3796f, 37.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim3", "rim", 6, 50, 0.0f, 2.9221f, 3.8081f, 0.66f, 0.38f, 1.3796f, 52.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim4", "rim", 12, 50, 0.0f, 1.8369f, 4.4346f, 0.66f, 0.38f, 1.3796f, 67.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim5", "rim", 18, 50, 0.0f, 0.6265f, 4.7589f, 0.66f, 0.38f, 1.3796f, 82.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim6", "rim", 24, 50, 0.0f, -0.6265f, 4.7589f, 0.66f, 0.38f, 1.3796f, 97.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim7", "rim", 30, 50, 0.0f, -1.8369f, 4.4346f, 0.66f, 0.38f, 1.3796f, 112.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim8", "rim", 36, 50, 0.0f, -2.9221f, 3.8081f, 0.66f, 0.38f, 1.3796f, 127.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim9", "rim", 42, 50, 0.0f, -3.8081f, 2.9221f, 0.66f, 0.38f, 1.3796f, 142.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim10", "rim", 48, 50, 0.0f, -4.4346f, 1.8369f, 0.66f, 0.38f, 1.3796f, 157.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim11", "rim", 54, 50, 0.0f, -4.7589f, 0.6265f, 0.66f, 0.38f, 1.3796f, 172.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim12", "rim", 60, 50, 0.0f, -4.7589f, -0.6265f, 0.66f, 0.38f, 1.3796f, 187.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim13", "rim", 66, 50, 0.0f, -4.4346f, -1.8369f, 0.66f, 0.38f, 1.3796f, 202.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim14", "rim", 72, 50, 0.0f, -3.8081f, -2.9221f, 0.66f, 0.38f, 1.3796f, 217.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim15", "rim", 78, 50, 0.0f, -2.9221f, -3.8081f, 0.66f, 0.38f, 1.3796f, 232.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim16", "rim", 84, 50, 0.0f, -1.8369f, -4.4346f, 0.66f, 0.38f, 1.3796f, 247.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim17", "rim", 90, 50, 0.0f, -0.6265f, -4.7589f, 0.66f, 0.38f, 1.3796f, 262.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim18", "rim", 96, 50, 0.0f, 0.6265f, -4.7589f, 0.66f, 0.38f, 1.3796f, 277.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim19", "rim", 102, 50, 0.0f, 1.8369f, -4.4346f, 0.66f, 0.38f, 1.3796f, 292.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim20", "rim", 108, 50, 0.0f, 2.9221f, -3.8081f, 0.66f, 0.38f, 1.3796f, 307.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim21", "rim", 114, 50, 0.0f, 3.8081f, -2.9221f, 0.66f, 0.38f, 1.3796f, 322.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim22", "rim", 120, 50, 0.0f, 4.4346f, -1.8369f, 0.66f, 0.38f, 1.3796f, 337.5f, 0.0f, 0.0f);
+        cube(front_wheel, "rim23", "rim", 0, 53, 0.0f, 4.7589f, -0.6265f, 0.66f, 0.38f, 1.3796f, 352.5f, 0.0f, 0.0f);
+        cube(front_wheel, "spoke", "spoke", 110, 16, 0.12f, 2.6273f, 0.3459f, 0.07f, 4.1f, 0.07f, 7.5f, 0.0f, 0.0f);
+        cube(front_wheel, "spoke1", "spoke", 112, 16, -0.12f, 2.1024f, 1.6132f, 0.07f, 4.1f, 0.07f, 37.5f, 0.0f, 0.0f);
+        cube(front_wheel, "spoke2", "spoke", 114, 16, 0.12f, 1.0141f, 2.4483f, 0.07f, 4.1f, 0.07f, 67.5f, 0.0f, 0.0f);
+        cube(front_wheel, "spoke3", "spoke", 116, 16, -0.12f, -0.3459f, 2.6273f, 0.07f, 4.1f, 0.07f, 97.5f, 0.0f, 0.0f);
+        cube(front_wheel, "spoke4", "spoke", 118, 16, 0.12f, -1.6132f, 2.1024f, 0.07f, 4.1f, 0.07f, 127.5f, 0.0f, 0.0f);
+        cube(front_wheel, "spoke5", "spoke", 120, 16, -0.12f, -2.4483f, 1.0141f, 0.07f, 4.1f, 0.07f, 157.5f, 0.0f, 0.0f);
+        cube(front_wheel, "spoke6", "spoke", 122, 16, 0.12f, -2.6273f, -0.3459f, 0.07f, 4.1f, 0.07f, 187.5f, 0.0f, 0.0f);
+        cube(front_wheel, "spoke7", "spoke", 124, 16, -0.12f, -2.1024f, -1.6132f, 0.07f, 4.1f, 0.07f, 217.5f, 0.0f, 0.0f);
+        cube(front_wheel, "spoke8", "spoke", 126, 16, 0.12f, -1.0141f, -2.4483f, 0.07f, 4.1f, 0.07f, 247.5f, 0.0f, 0.0f);
+        cube(front_wheel, "spoke9", "spoke", 0, 24, -0.12f, 0.3459f, -2.6273f, 0.07f, 4.1f, 0.07f, 277.5f, 0.0f, 0.0f);
+        cube(front_wheel, "spoke10", "spoke", 2, 24, 0.12f, 1.6132f, -2.1024f, 0.07f, 4.1f, 0.07f, 307.5f, 0.0f, 0.0f);
+        cube(front_wheel, "spoke11", "spoke", 4, 24, -0.12f, 2.4483f, -1.0141f, 0.07f, 4.1f, 0.07f, 337.5f, 0.0f, 0.0f);
+        cube(front_wheel, "hub_barrel", "hub", 6, 53, 0.0f, 0.0f, 0.0f, 1.4f, 0.62f, 0.62f, 0.0f, 0.0f, 0.0f);
+        cube(front_wheel, "hub_flange", "hub", 96, 42, 0.7f, 0.0f, 0.0f, 0.12f, 1.15f, 1.15f, 0.0f, 0.0f, 0.0f);
+        cube(front_wheel, "hub_flange_x", "hub", 100, 42, 0.7f, 0.0f, 0.0f, 0.11f, 1.15f, 1.15f, 45.0f, 0.0f, 0.0f);
+        cube(front_wheel, "axle_end", "silver", 69, 67, 0.79f, 0.0f, 0.0f, 0.2f, 0.42f, 0.42f, 0.0f, 0.0f, 0.0f);
+        cube(front_wheel, "hub_flange1", "hub", 104, 42, -0.7f, 0.0f, 0.0f, 0.12f, 1.15f, 1.15f, 0.0f, 0.0f, 0.0f);
+        cube(front_wheel, "hub_flange_x1", "hub", 108, 42, -0.7f, 0.0f, 0.0f, 0.11f, 1.15f, 1.15f, 45.0f, 0.0f, 0.0f);
+        cube(front_wheel, "axle_end1", "silver", 72, 67, -0.79f, 0.0f, 0.0f, 0.2f, 0.42f, 0.42f, 0.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor", "rotor", 46, 59, 0.78f, 1.35f, 0.0f, 0.05f, 0.4f, 0.8639f, 0.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor1", "rotor", 49, 59, 0.78f, 1.1691f, 0.675f, 0.05f, 0.4f, 0.8639f, 30.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor2", "rotor", 52, 59, 0.78f, 0.675f, 1.1691f, 0.05f, 0.4f, 0.8639f, 60.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor3", "rotor", 55, 59, 0.78f, 0.0f, 1.35f, 0.05f, 0.4f, 0.8639f, 90.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor4", "rotor", 58, 59, 0.78f, -0.675f, 1.1691f, 0.05f, 0.4f, 0.8639f, 120.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor5", "rotor", 61, 59, 0.78f, -1.1691f, 0.675f, 0.05f, 0.4f, 0.8639f, 150.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor6", "rotor", 64, 59, 0.78f, -1.35f, 0.0f, 0.05f, 0.4f, 0.8639f, 180.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor7", "rotor", 67, 59, 0.78f, -1.1691f, -0.675f, 0.05f, 0.4f, 0.8639f, 210.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor8", "rotor", 70, 59, 0.78f, -0.675f, -1.1691f, 0.05f, 0.4f, 0.8639f, 240.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor9", "rotor", 73, 59, 0.78f, 0.0f, -1.35f, 0.05f, 0.4f, 0.8639f, 270.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor10", "rotor", 76, 59, 0.78f, 0.675f, -1.1691f, 0.05f, 0.4f, 0.8639f, 300.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor11", "rotor", 79, 59, 0.78f, 1.1691f, -0.675f, 0.05f, 0.4f, 0.8639f, 330.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor_arm", "rotor", 6, 62, 0.78f, 0.5834f, 0.5834f, 0.056f, 0.85f, 0.22f, 45.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor_arm1", "rotor", 8, 62, 0.78f, -0.5834f, 0.5834f, 0.056f, 0.85f, 0.22f, 135.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor_arm2", "rotor", 10, 62, 0.78f, -0.5834f, -0.5834f, 0.056f, 0.85f, 0.22f, 225.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor_arm3", "rotor", 12, 62, 0.78f, 0.5834f, -0.5834f, 0.056f, 0.85f, 0.22f, 315.0f, 0.0f, 0.0f);
+        cube(front_wheel, "rotor_bolts", "silver", 82, 59, 0.84f, 0.0f, 0.0f, 0.07f, 0.9f, 0.9f, 0.0f, 0.0f, 0.0f);
+        PartDefinition cranks = bone(frame, "cranks", 0.0f, -5.6f, 3.04f, 0.0f, 0.0f, 0.0f);
+        cube(cranks, "spindle", "silver", 27, 62, 0.0f, 0.0f, 0.0f, 2.5f, 0.5f, 0.5f, 0.0f, 0.0f, 0.0f);
+        cube(cranks, "arm_r", "black", 58, 24, -1.15f, 0.0f, -1.36f, 0.4f, 0.66f, 3.34f, 0.0f, 0.0f, 0.0f);
+        cube(cranks, "arm_l", "black", 67, 24, 1.15f, 0.0f, 1.36f, 0.4f, 0.66f, 3.34f, 0.0f, 0.0f, 0.0f);
+        cube(cranks, "arm_r_bolt", "silver", 75, 67, -1.38f, 0.0f, 0.0f, 0.08f, 0.5f, 0.5f, 0.0f, 0.0f, 0.0f);
+        cube(cranks, "arm_l_bolt", "silver", 78, 67, 1.38f, 0.0f, 0.0f, 0.08f, 0.5f, 0.5f, 0.0f, 0.0f, 0.0f);
+        cube(cranks, "chainring", "silver", 52, 42, -0.86f, 0.0f, 0.0f, 0.1f, 0.8036f, 1.9401f, 0.0f, 0.0f, 0.0f);
+        cube(cranks, "chainring1", "silver", 18, 46, -0.86f, 0.0f, 0.0f, 0.088f, 1.9401f, 0.8036f, 0.0f, 0.0f, 0.0f);
+        cube(cranks, "chainring2", "silver", 58, 42, -0.86f, 0.0f, 0.0f, 0.076f, 0.8036f, 1.9401f, 45.0f, 0.0f, 0.0f);
+        cube(cranks, "chainring3", "silver", 21, 46, -0.86f, 0.0f, 0.0f, 0.064f, 1.9401f, 0.8036f, 45.0f, 0.0f, 0.0f);
+        cube(cranks, "spider", "black", 60, 69, -1.0f, 0.3536f, 0.3536f, 0.3f, 0.5f, 0.18f, 45.0f, 0.0f, 0.0f);
+        cube(cranks, "spider1", "black", 62, 69, -1.0f, -0.3536f, 0.3536f, 0.3f, 0.5f, 0.18f, 135.0f, 0.0f, 0.0f);
+        cube(cranks, "spider2", "black", 64, 69, -1.0f, -0.3536f, -0.3536f, 0.3f, 0.5f, 0.18f, 225.0f, 0.0f, 0.0f);
+        cube(cranks, "spider3", "black", 66, 69, -1.0f, 0.3536f, -0.3536f, 0.3f, 0.5f, 0.18f, 315.0f, 0.0f, 0.0f);
+        PartDefinition pedal_right = bone(cranks, "pedal_right", -2.18f, 0.0f, -2.72f, 0.0f, 0.0f, 0.0f);
+        cube(pedal_right, "platform", "pedal", 21, 30, 0.0f, 0.0f, 0.0f, 1.55f, 0.34f, 1.7f, 0.0f, 0.0f, 0.0f);
+        cube(pedal_right, "pins", "silver", 85, 46, 0.0f, 0.0f, 0.0f, 1.4f, 0.44f, 1.5f, 0.0f, 0.0f, 0.0f);
+        cube(pedal_right, "spindle", "silver", 81, 67, 0.82f, 0.0f, 0.0f, 0.55f, 0.22f, 0.22f, 0.0f, 0.0f, 0.0f);
+        cube(pedal_right, "end_cap", "black", 84, 67, -0.7f, 0.0f, 0.0f, 0.18f, 0.4f, 0.5f, 0.0f, 0.0f, 0.0f);
+        PartDefinition pedal_left = bone(cranks, "pedal_left", 2.18f, 0.0f, 2.72f, 0.0f, 0.0f, 0.0f);
+        cube(pedal_left, "platform", "pedal", 29, 30, 0.0f, 0.0f, 0.0f, 1.55f, 0.34f, 1.7f, 0.0f, 0.0f, 0.0f);
+        cube(pedal_left, "pins", "silver", 92, 46, 0.0f, 0.0f, 0.0f, 1.4f, 0.44f, 1.5f, 0.0f, 0.0f, 0.0f);
+        cube(pedal_left, "spindle", "silver", 87, 67, -0.82f, 0.0f, 0.0f, 0.55f, 0.22f, 0.22f, 0.0f, 0.0f, 0.0f);
+        cube(pedal_left, "end_cap", "black", 90, 67, 0.7f, 0.0f, 0.0f, 0.18f, 0.4f, 0.5f, 0.0f, 0.0f, 0.0f);
+        PartDefinition chain_top = bone(frame, "chain_top", -0.8f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+        cube(chain_top, "chain", "chain", 53, 0, 0.0f, 0.0f, 0.0f, 0.1f, 0.2f, 10.0f, 0.0f, 0.0f, 0.0f);
+        PartDefinition chain_bottom = bone(frame, "chain_bottom", -0.8f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+        cube(chain_bottom, "chain", "chain", 75, 0, 0.0f, 0.0f, 0.0f, 0.1f, 0.2f, 10.0f, 0.0f, 0.0f, 0.0f);
+        PartDefinition swingarm = bone(root, "swingarm", 0.0f, -8.3f, 4.2f, 0.0f, 0.0f, 0.0f);
+        cube(swingarm, "yoke_l", "frame", 100, 24, 1.05f, 1.125f, 0.3f, 0.5f, 0.62f, 2.6633f, -71.7946f, -45.0f, 0.0f);
+        cube(swingarm, "chainstay_l", "frame", 30, 16, 1.0f, 2.275f, 3.175f, 0.46f, 0.62f, 5.6655f, -0.5441f, 4.357f, 0.0f);
+        cube(swingarm, "seatstay_l", "frame", 0, 16, 1.26f, 0.95f, 3.0f, 0.46f, 0.56f, 6.2529f, -16.8852f, -0.8185f, 0.0f);
+        cube(swingarm, "rocker_l", "frame", 78, 16, 1.3f, -1.55f, -0.55f, 0.42f, 0.7f, 3.8894f, 70.4633f, 180.0f, 0.0f);
+        cube(swingarm, "dropout_l", "black", 112, 42, 1.2f, 2.2f, 5.88f, 0.42f, 1.3f, 1.0f, 0.0f, 0.0f, 0.0f);
+        cube(swingarm, "pivot_cap_l", "silver", 102, 56, 1.62f, 0.0f, 0.0f, 0.22f, 0.8f, 0.8f, 0.0f, 0.0f, 0.0f);
+        cube(swingarm, "rocker_bolt_l", "silver", 93, 67, 1.0f, -3.1f, -1.1f, 0.5f, 0.3f, 0.3f, 0.0f, 0.0f, 0.0f);
+        cube(swingarm, "yoke_r", "frame", 108, 24, -1.05f, 1.125f, 0.3f, 0.5f, 0.62f, 2.6633f, -71.7946f, 45.0f, 0.0f);
+        cube(swingarm, "chainstay_r", "frame", 44, 16, -1.0f, 2.275f, 3.175f, 0.46f, 0.62f, 5.6655f, -0.5441f, -4.357f, 0.0f);
+        cube(swingarm, "seatstay_r", "frame", 15, 16, -1.26f, 0.95f, 3.0f, 0.46f, 0.56f, 6.2529f, -16.8852f, 0.8185f, 0.0f);
+        cube(swingarm, "rocker_r", "frame", 88, 16, -1.3f, -1.55f, -0.55f, 0.42f, 0.7f, 3.8894f, 70.4633f, 180.0f, 0.0f);
+        cube(swingarm, "dropout_r", "black", 116, 42, -1.2f, 2.2f, 5.88f, 0.42f, 1.3f, 1.0f, 0.0f, 0.0f, 0.0f);
+        cube(swingarm, "pivot_cap_r", "silver", 106, 56, -1.62f, 0.0f, 0.0f, 0.22f, 0.8f, 0.8f, 0.0f, 0.0f, 0.0f);
+        cube(swingarm, "rocker_bolt_r", "silver", 96, 67, -1.0f, -3.1f, -1.1f, 0.5f, 0.3f, 0.3f, 0.0f, 0.0f, 0.0f);
+        cube(swingarm, "rocker_bar", "frame", 47, 46, 0.0f, -3.1f, -1.1f, 2.9f, 0.62f, 0.62f, 0.0f, 0.0f, 0.0f);
+        cube(swingarm, "caliper_r", "black", 120, 42, 0.85f, 1.05f, 4.9f, 0.4f, 1.15f, 0.9f, 0.0f, 0.0f, 0.0f);
+        cube(swingarm, "stay_brace", "frame", 34, 62, 0.0f, 1.0f, 2.5f, 2.4f, 0.45f, 0.5f, 0.0f, 0.0f, 0.0f);
+        PartDefinition shock_shaft = bone(swingarm, "shock_shaft", 0.0f, -3.1f, -1.1f, 0.0f, 0.0f, 0.0f);
+        cube(shock_shaft, "eye", "black", 110, 56, 0.0f, 0.0f, 0.0f, 0.82f, 0.55f, 0.55f, 0.0f, 0.0f, 0.0f);
+        cube(shock_shaft, "shaft", "silver", 105, 34, 0.0f, 0.0f, 1.3f, 0.3f, 0.3f, 2.6f, 0.0f, 0.0f, 0.0f);
+        cube(shock_shaft, "perch", "black", 114, 56, 0.0f, 0.0f, 0.62f, 1.2f, 1.2f, 0.1f, 0.0f, 0.0f, 0.0f);
+        PartDefinition rear_wheel = bone(swingarm, "rear_wheel", 0.0f, 2.3f, 5.88f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire", "tire", 112, 34, 0.0f, 5.43f, 0.0f, 1.0f, 0.9f, 1.6102f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire1", "tire", 119, 34, 0.0f, 5.245f, 1.4054f, 1.0f, 0.9f, 1.6102f, 15.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire2", "tire", 0, 38, 0.0f, 4.7025f, 2.715f, 1.0f, 0.9f, 1.6102f, 30.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire3", "tire", 7, 38, 0.0f, 3.8396f, 3.8396f, 1.0f, 0.9f, 1.6102f, 45.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire4", "tire", 14, 38, 0.0f, 2.715f, 4.7025f, 1.0f, 0.9f, 1.6102f, 60.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire5", "tire", 21, 38, 0.0f, 1.4054f, 5.245f, 1.0f, 0.9f, 1.6102f, 75.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire6", "tire", 28, 38, 0.0f, 0.0f, 5.43f, 1.0f, 0.9f, 1.6102f, 90.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire7", "tire", 35, 38, 0.0f, -1.4054f, 5.245f, 1.0f, 0.9f, 1.6102f, 105.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire8", "tire", 42, 38, 0.0f, -2.715f, 4.7025f, 1.0f, 0.9f, 1.6102f, 120.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire9", "tire", 49, 38, 0.0f, -3.8396f, 3.8396f, 1.0f, 0.9f, 1.6102f, 135.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire10", "tire", 56, 38, 0.0f, -4.7025f, 2.715f, 1.0f, 0.9f, 1.6102f, 150.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire11", "tire", 63, 38, 0.0f, -5.245f, 1.4054f, 1.0f, 0.9f, 1.6102f, 165.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire12", "tire", 70, 38, 0.0f, -5.43f, 0.0f, 1.0f, 0.9f, 1.6102f, 180.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire13", "tire", 77, 38, 0.0f, -5.245f, -1.4054f, 1.0f, 0.9f, 1.6102f, 195.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire14", "tire", 84, 38, 0.0f, -4.7025f, -2.715f, 1.0f, 0.9f, 1.6102f, 210.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire15", "tire", 91, 38, 0.0f, -3.8396f, -3.8396f, 1.0f, 0.9f, 1.6102f, 225.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire16", "tire", 98, 38, 0.0f, -2.715f, -4.7025f, 1.0f, 0.9f, 1.6102f, 240.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire17", "tire", 105, 38, 0.0f, -1.4054f, -5.245f, 1.0f, 0.9f, 1.6102f, 255.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire18", "tire", 112, 38, 0.0f, 0.0f, -5.43f, 1.0f, 0.9f, 1.6102f, 270.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire19", "tire", 119, 38, 0.0f, 1.4054f, -5.245f, 1.0f, 0.9f, 1.6102f, 285.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire20", "tire", 0, 42, 0.0f, 2.715f, -4.7025f, 1.0f, 0.9f, 1.6102f, 300.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire21", "tire", 7, 42, 0.0f, 3.8396f, -3.8396f, 1.0f, 0.9f, 1.6102f, 315.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire22", "tire", 14, 42, 0.0f, 4.7025f, -2.715f, 1.0f, 0.9f, 1.6102f, 330.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "tire23", "tire", 21, 42, 0.0f, 5.245f, -1.4054f, 1.0f, 0.9f, 1.6102f, 345.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob", "tire", 24, 65, 0.0f, 5.8495f, 0.7701f, 0.5f, 0.2f, 0.62f, 7.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob1", "tire", 99, 67, 0.34f, 5.9f, 0.0f, 0.3f, 0.2f, 0.7f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob2", "tire", 28, 65, 0.0f, 5.4509f, 2.2578f, 0.5f, 0.2f, 0.62f, 22.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob3", "tire", 102, 67, -0.34f, 5.699f, 1.527f, 0.3f, 0.2f, 0.7f, 15.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob4", "tire", 32, 65, 0.0f, 4.6808f, 3.5917f, 0.5f, 0.2f, 0.62f, 37.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob5", "tire", 105, 67, 0.34f, 5.1095f, 2.95f, 0.3f, 0.2f, 0.7f, 30.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob6", "tire", 36, 65, 0.0f, 3.5917f, 4.6808f, 0.5f, 0.2f, 0.62f, 52.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob7", "tire", 108, 67, -0.34f, 4.1719f, 4.1719f, 0.3f, 0.2f, 0.7f, 45.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob8", "tire", 40, 65, 0.0f, 2.2578f, 5.4509f, 0.5f, 0.2f, 0.62f, 67.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob9", "tire", 111, 67, 0.34f, 2.95f, 5.1095f, 0.3f, 0.2f, 0.7f, 60.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob10", "tire", 44, 65, 0.0f, 0.7701f, 5.8495f, 0.5f, 0.2f, 0.62f, 82.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob11", "tire", 114, 67, -0.34f, 1.527f, 5.699f, 0.3f, 0.2f, 0.7f, 75.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob12", "tire", 48, 65, 0.0f, -0.7701f, 5.8495f, 0.5f, 0.2f, 0.62f, 97.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob13", "tire", 117, 67, 0.34f, 0.0f, 5.9f, 0.3f, 0.2f, 0.7f, 90.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob14", "tire", 52, 65, 0.0f, -2.2578f, 5.4509f, 0.5f, 0.2f, 0.62f, 112.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob15", "tire", 120, 67, -0.34f, -1.527f, 5.699f, 0.3f, 0.2f, 0.7f, 105.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob16", "tire", 56, 65, 0.0f, -3.5917f, 4.6808f, 0.5f, 0.2f, 0.62f, 127.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob17", "tire", 123, 67, 0.34f, -2.95f, 5.1095f, 0.3f, 0.2f, 0.7f, 120.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob18", "tire", 60, 65, 0.0f, -4.6808f, 3.5917f, 0.5f, 0.2f, 0.62f, 142.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob19", "tire", 0, 69, -0.34f, -4.1719f, 4.1719f, 0.3f, 0.2f, 0.7f, 135.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob20", "tire", 64, 65, 0.0f, -5.4509f, 2.2578f, 0.5f, 0.2f, 0.62f, 157.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob21", "tire", 3, 69, 0.34f, -5.1095f, 2.95f, 0.3f, 0.2f, 0.7f, 150.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob22", "tire", 68, 65, 0.0f, -5.8495f, 0.7701f, 0.5f, 0.2f, 0.62f, 172.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob23", "tire", 6, 69, -0.34f, -5.699f, 1.527f, 0.3f, 0.2f, 0.7f, 165.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob24", "tire", 72, 65, 0.0f, -5.8495f, -0.7701f, 0.5f, 0.2f, 0.62f, 187.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob25", "tire", 9, 69, 0.34f, -5.9f, 0.0f, 0.3f, 0.2f, 0.7f, 180.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob26", "tire", 76, 65, 0.0f, -5.4509f, -2.2578f, 0.5f, 0.2f, 0.62f, 202.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob27", "tire", 12, 69, -0.34f, -5.699f, -1.527f, 0.3f, 0.2f, 0.7f, 195.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob28", "tire", 80, 65, 0.0f, -4.6808f, -3.5917f, 0.5f, 0.2f, 0.62f, 217.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob29", "tire", 15, 69, 0.34f, -5.1095f, -2.95f, 0.3f, 0.2f, 0.7f, 210.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob30", "tire", 84, 65, 0.0f, -3.5917f, -4.6808f, 0.5f, 0.2f, 0.62f, 232.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob31", "tire", 18, 69, -0.34f, -4.1719f, -4.1719f, 0.3f, 0.2f, 0.7f, 225.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob32", "tire", 88, 65, 0.0f, -2.2578f, -5.4509f, 0.5f, 0.2f, 0.62f, 247.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob33", "tire", 21, 69, 0.34f, -2.95f, -5.1095f, 0.3f, 0.2f, 0.7f, 240.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob34", "tire", 92, 65, 0.0f, -0.7701f, -5.8495f, 0.5f, 0.2f, 0.62f, 262.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob35", "tire", 24, 69, -0.34f, -1.527f, -5.699f, 0.3f, 0.2f, 0.7f, 255.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob36", "tire", 96, 65, 0.0f, 0.7701f, -5.8495f, 0.5f, 0.2f, 0.62f, 277.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob37", "tire", 27, 69, 0.34f, 0.0f, -5.9f, 0.3f, 0.2f, 0.7f, 270.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob38", "tire", 100, 65, 0.0f, 2.2578f, -5.4509f, 0.5f, 0.2f, 0.62f, 292.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob39", "tire", 30, 69, -0.34f, 1.527f, -5.699f, 0.3f, 0.2f, 0.7f, 285.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob40", "tire", 104, 65, 0.0f, 3.5917f, -4.6808f, 0.5f, 0.2f, 0.62f, 307.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob41", "tire", 33, 69, 0.34f, 2.95f, -5.1095f, 0.3f, 0.2f, 0.7f, 300.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob42", "tire", 108, 65, 0.0f, 4.6808f, -3.5917f, 0.5f, 0.2f, 0.62f, 322.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob43", "tire", 36, 69, -0.34f, 4.1719f, -4.1719f, 0.3f, 0.2f, 0.7f, 315.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob44", "tire", 112, 65, 0.0f, 5.4509f, -2.2578f, 0.5f, 0.2f, 0.62f, 337.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob45", "tire", 39, 69, 0.34f, 5.1095f, -2.95f, 0.3f, 0.2f, 0.7f, 330.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob46", "tire", 116, 65, 0.0f, 5.8495f, -0.7701f, 0.5f, 0.2f, 0.62f, 352.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "knob47", "tire", 42, 69, -0.34f, 5.699f, -1.527f, 0.3f, 0.2f, 0.7f, 345.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim", "rim", 12, 53, 0.0f, 4.7589f, 0.6265f, 0.66f, 0.38f, 1.3796f, 7.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim1", "rim", 18, 53, 0.0f, 4.4346f, 1.8369f, 0.66f, 0.38f, 1.3796f, 22.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim2", "rim", 24, 53, 0.0f, 3.8081f, 2.9221f, 0.66f, 0.38f, 1.3796f, 37.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim3", "rim", 30, 53, 0.0f, 2.9221f, 3.8081f, 0.66f, 0.38f, 1.3796f, 52.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim4", "rim", 36, 53, 0.0f, 1.8369f, 4.4346f, 0.66f, 0.38f, 1.3796f, 67.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim5", "rim", 42, 53, 0.0f, 0.6265f, 4.7589f, 0.66f, 0.38f, 1.3796f, 82.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim6", "rim", 48, 53, 0.0f, -0.6265f, 4.7589f, 0.66f, 0.38f, 1.3796f, 97.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim7", "rim", 54, 53, 0.0f, -1.8369f, 4.4346f, 0.66f, 0.38f, 1.3796f, 112.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim8", "rim", 60, 53, 0.0f, -2.9221f, 3.8081f, 0.66f, 0.38f, 1.3796f, 127.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim9", "rim", 66, 53, 0.0f, -3.8081f, 2.9221f, 0.66f, 0.38f, 1.3796f, 142.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim10", "rim", 72, 53, 0.0f, -4.4346f, 1.8369f, 0.66f, 0.38f, 1.3796f, 157.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim11", "rim", 78, 53, 0.0f, -4.7589f, 0.6265f, 0.66f, 0.38f, 1.3796f, 172.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim12", "rim", 84, 53, 0.0f, -4.7589f, -0.6265f, 0.66f, 0.38f, 1.3796f, 187.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim13", "rim", 90, 53, 0.0f, -4.4346f, -1.8369f, 0.66f, 0.38f, 1.3796f, 202.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim14", "rim", 96, 53, 0.0f, -3.8081f, -2.9221f, 0.66f, 0.38f, 1.3796f, 217.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim15", "rim", 102, 53, 0.0f, -2.9221f, -3.8081f, 0.66f, 0.38f, 1.3796f, 232.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim16", "rim", 108, 53, 0.0f, -1.8369f, -4.4346f, 0.66f, 0.38f, 1.3796f, 247.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim17", "rim", 114, 53, 0.0f, -0.6265f, -4.7589f, 0.66f, 0.38f, 1.3796f, 262.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim18", "rim", 120, 53, 0.0f, 0.6265f, -4.7589f, 0.66f, 0.38f, 1.3796f, 277.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim19", "rim", 0, 56, 0.0f, 1.8369f, -4.4346f, 0.66f, 0.38f, 1.3796f, 292.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim20", "rim", 6, 56, 0.0f, 2.9221f, -3.8081f, 0.66f, 0.38f, 1.3796f, 307.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim21", "rim", 12, 56, 0.0f, 3.8081f, -2.9221f, 0.66f, 0.38f, 1.3796f, 322.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim22", "rim", 18, 56, 0.0f, 4.4346f, -1.8369f, 0.66f, 0.38f, 1.3796f, 337.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "rim23", "rim", 24, 56, 0.0f, 4.7589f, -0.6265f, 0.66f, 0.38f, 1.3796f, 352.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "spoke", "spoke", 6, 24, 0.12f, 2.6273f, 0.3459f, 0.07f, 4.1f, 0.07f, 7.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "spoke1", "spoke", 8, 24, -0.12f, 2.1024f, 1.6132f, 0.07f, 4.1f, 0.07f, 37.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "spoke2", "spoke", 10, 24, 0.12f, 1.0141f, 2.4483f, 0.07f, 4.1f, 0.07f, 67.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "spoke3", "spoke", 12, 24, -0.12f, -0.3459f, 2.6273f, 0.07f, 4.1f, 0.07f, 97.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "spoke4", "spoke", 14, 24, 0.12f, -1.6132f, 2.1024f, 0.07f, 4.1f, 0.07f, 127.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "spoke5", "spoke", 16, 24, -0.12f, -2.4483f, 1.0141f, 0.07f, 4.1f, 0.07f, 157.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "spoke6", "spoke", 18, 24, 0.12f, -2.6273f, -0.3459f, 0.07f, 4.1f, 0.07f, 187.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "spoke7", "spoke", 20, 24, -0.12f, -2.1024f, -1.6132f, 0.07f, 4.1f, 0.07f, 217.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "spoke8", "spoke", 22, 24, 0.12f, -1.0141f, -2.4483f, 0.07f, 4.1f, 0.07f, 247.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "spoke9", "spoke", 24, 24, -0.12f, 0.3459f, -2.6273f, 0.07f, 4.1f, 0.07f, 277.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "spoke10", "spoke", 26, 24, 0.12f, 1.6132f, -2.1024f, 0.07f, 4.1f, 0.07f, 307.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "spoke11", "spoke", 28, 24, -0.12f, 2.4483f, -1.0141f, 0.07f, 4.1f, 0.07f, 337.5f, 0.0f, 0.0f);
+        cube(rear_wheel, "hub_barrel", "hub", 30, 56, 0.0f, 0.0f, 0.0f, 1.7f, 0.62f, 0.62f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "hub_flange", "hub", 124, 42, 0.85f, 0.0f, 0.0f, 0.12f, 1.15f, 1.15f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "hub_flange_x", "hub", 0, 46, 0.85f, 0.0f, 0.0f, 0.11f, 1.15f, 1.15f, 45.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "axle_end", "silver", 45, 69, 1.13f, 0.0f, 0.0f, 0.2f, 0.42f, 0.42f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "hub_flange1", "hub", 4, 46, -0.85f, 0.0f, 0.0f, 0.12f, 1.15f, 1.15f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "hub_flange_x1", "hub", 8, 46, -0.85f, 0.0f, 0.0f, 0.11f, 1.15f, 1.15f, 45.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "axle_end1", "silver", 48, 69, -1.13f, 0.0f, 0.0f, 0.2f, 0.42f, 0.42f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor", "rotor", 85, 59, 0.92f, 1.2f, 0.0f, 0.05f, 0.4f, 0.7803f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor1", "rotor", 88, 59, 0.92f, 1.0392f, 0.6f, 0.05f, 0.4f, 0.7803f, 30.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor2", "rotor", 91, 59, 0.92f, 0.6f, 1.0392f, 0.05f, 0.4f, 0.7803f, 60.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor3", "rotor", 94, 59, 0.92f, 0.0f, 1.2f, 0.05f, 0.4f, 0.7803f, 90.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor4", "rotor", 97, 59, 0.92f, -0.6f, 1.0392f, 0.05f, 0.4f, 0.7803f, 120.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor5", "rotor", 100, 59, 0.92f, -1.0392f, 0.6f, 0.05f, 0.4f, 0.7803f, 150.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor6", "rotor", 103, 59, 0.92f, -1.2f, 0.0f, 0.05f, 0.4f, 0.7803f, 180.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor7", "rotor", 106, 59, 0.92f, -1.0392f, -0.6f, 0.05f, 0.4f, 0.7803f, 210.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor8", "rotor", 109, 59, 0.92f, -0.6f, -1.0392f, 0.05f, 0.4f, 0.7803f, 240.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor9", "rotor", 112, 59, 0.92f, 0.0f, -1.2f, 0.05f, 0.4f, 0.7803f, 270.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor10", "rotor", 115, 59, 0.92f, 0.6f, -1.0392f, 0.05f, 0.4f, 0.7803f, 300.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor11", "rotor", 118, 59, 0.92f, 1.0392f, -0.6f, 0.05f, 0.4f, 0.7803f, 330.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor_arm", "rotor", 68, 69, 0.92f, 0.5303f, 0.5303f, 0.056f, 0.7f, 0.22f, 45.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor_arm1", "rotor", 70, 69, 0.92f, -0.5303f, 0.5303f, 0.056f, 0.7f, 0.22f, 135.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor_arm2", "rotor", 72, 69, 0.92f, -0.5303f, -0.5303f, 0.056f, 0.7f, 0.22f, 225.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor_arm3", "rotor", 74, 69, 0.92f, 0.5303f, -0.5303f, 0.056f, 0.7f, 0.22f, 315.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "rotor_bolts", "silver", 121, 59, 0.98f, 0.0f, 0.0f, 0.07f, 0.9f, 0.9f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog", "silver", 64, 42, -0.6f, 0.0f, 0.0f, 0.1f, 0.8036f, 1.9401f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog1", "silver", 24, 46, -0.6f, 0.0f, 0.0f, 0.088f, 1.9401f, 0.8036f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog2", "silver", 70, 42, -0.6f, 0.0f, 0.0f, 0.076f, 0.8036f, 1.9401f, 45.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog3", "silver", 27, 46, -0.6f, 0.0f, 0.0f, 0.064f, 1.9401f, 0.8036f, 45.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog4", "silver", 86, 42, -0.72f, 0.0f, 0.0f, 0.1f, 0.6506f, 1.5706f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog5", "silver", 30, 46, -0.72f, 0.0f, 0.0f, 0.088f, 1.5706f, 0.6506f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog6", "silver", 91, 42, -0.72f, 0.0f, 0.0f, 0.076f, 0.6506f, 1.5706f, 45.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog7", "silver", 33, 46, -0.72f, 0.0f, 0.0f, 0.064f, 1.5706f, 0.6506f, 45.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog8", "silver", 118, 56, -0.83f, 0.0f, 0.0f, 0.1f, 0.5051f, 1.2195f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog9", "silver", 124, 59, -0.83f, 0.0f, 0.0f, 0.088f, 1.2195f, 0.5051f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog10", "silver", 122, 56, -0.83f, 0.0f, 0.0f, 0.076f, 0.5051f, 1.2195f, 45.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog11", "silver", 0, 62, -0.83f, 0.0f, 0.0f, 0.064f, 1.2195f, 0.5051f, 45.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog12", "silver", 0, 59, -0.93f, 0.0f, 0.0f, 0.1f, 0.3827f, 0.9239f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog13", "silver", 14, 62, -0.93f, 0.0f, 0.0f, 0.088f, 0.9239f, 0.3827f, 0.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog14", "silver", 3, 62, -0.93f, 0.0f, 0.0f, 0.076f, 0.3827f, 0.9239f, 45.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cog15", "silver", 16, 62, -0.93f, 0.0f, 0.0f, 0.064f, 0.9239f, 0.3827f, 45.0f, 0.0f, 0.0f);
+        cube(rear_wheel, "cassette_lock", "black", 51, 69, -1.0f, 0.0f, 0.0f, 0.1f, 0.5f, 0.5f, 0.0f, 0.0f, 0.0f);
+        PartDefinition shock_spring = bone(shock_body, "shock_spring", 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+        cube(shock_spring, "coil", "spring", 4, 59, 0.0f, 0.0f, 0.8482f, 1.0f, 1.0f, 0.15f, 0.0f, 0.0f, 0.0f);
+        cube(shock_spring, "coil1", "spring", 8, 59, 0.0f, 0.0f, 1.1047f, 1.0f, 1.0f, 0.15f, 0.0f, 0.0f, 45.0f);
+        cube(shock_spring, "coil2", "spring", 12, 59, 0.0f, 0.0f, 1.3612f, 1.0f, 1.0f, 0.15f, 0.0f, 0.0f, 0.0f);
+        cube(shock_spring, "coil3", "spring", 16, 59, 0.0f, 0.0f, 1.6177f, 1.0f, 1.0f, 0.15f, 0.0f, 0.0f, 45.0f);
+        cube(shock_spring, "coil4", "spring", 20, 59, 0.0f, 0.0f, 1.8742f, 1.0f, 1.0f, 0.15f, 0.0f, 0.0f, 0.0f);
+        cube(shock_spring, "coil5", "spring", 24, 59, 0.0f, 0.0f, 2.1306f, 1.0f, 1.0f, 0.15f, 0.0f, 0.0f, 45.0f);
+        cube(shock_spring, "coil6", "spring", 28, 59, 0.0f, 0.0f, 2.3871f, 1.0f, 1.0f, 0.15f, 0.0f, 0.0f, 0.0f);
+        cube(shock_spring, "coil7", "spring", 32, 59, 0.0f, 0.0f, 2.6436f, 1.0f, 1.0f, 0.15f, 0.0f, 0.0f, 45.0f);
+        cube(shock_spring, "coil8", "spring", 36, 59, 0.0f, 0.0f, 2.9001f, 1.0f, 1.0f, 0.15f, 0.0f, 0.0f, 0.0f);
+        return LayerDefinition.create(mesh, 128, 128);
+    }
+
+    /** Bone: pivot (x,y,z) relative to the parent, rest rotation in degrees. */
+    private static PartDefinition bone(PartDefinition parent, String name, float x, float y, float z,
+                                       float rxDeg, float ryDeg, float rzDeg) {
+        return parent.addOrReplaceChild(name, CubeListBuilder.create(),
+                PartPose.offsetAndRotation(x, y, z, rad(rxDeg), rad(ryDeg), rad(rzDeg)));
+    }
+
+    /**
+     * Box centred at (cx,cy,cz) in the bone's local space with size (sx,sy,sz) and rotation in degrees
+     * (vanilla Z-Y-X order). {@code mat} is the texture material tag (see tools/gen_enduro_texture.py).
+     */
+    private static void cube(PartDefinition bone, String name, String mat, int u, int v,
+                             float cx, float cy, float cz, float sx, float sy, float sz,
+                             float rxDeg, float ryDeg, float rzDeg) {
+        bone.addOrReplaceChild(name, CubeListBuilder.create().texOffs(u, v)
+                        .addBox(-sx / 2f, -sy / 2f, -sz / 2f, sx, sy, sz),
+                PartPose.offsetAndRotation(cx, cy, cz, rad(rxDeg), rad(ryDeg), rad(rzDeg)));
+    }
+
+    private static float rad(float deg) {
+        return deg * ((float) Math.PI / 180f);
+    }
+}

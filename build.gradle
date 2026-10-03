@@ -4,7 +4,7 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.141'
 }
 
-version = '0.4.0'
+version = '1.0.0-alpha'
 group = 'com.descentmtb'
 base.archivesName = 'descentmtb'
 
@@ -35,6 +35,11 @@ neoForge {
     runs {
         client {
             client()
+        }
+        // .\gradlew.bat runClientQuick - straight into the 'New World' test save
+        clientQuick {
+            client()
+            programArguments.addAll('--quickPlaySingleplayer', 'New World')
         }
         server {
             server()

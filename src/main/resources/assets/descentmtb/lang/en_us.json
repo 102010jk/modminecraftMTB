@@ -1,9 +1,21 @@
 {
   "itemGroup.descentmtb": "Descent MTB",
-  "item.descentmtb.mountain_bike": "Mountain Bike",
-  "entity.descentmtb.mountain_bike": "Mountain Bike",
-  "key.categories.descentmtb": "Descent MTB",
+  "item.descentmtb.mountain_bike": "Enduro Bike",
+  "entity.descentmtb.mountain_bike": "Enduro Bike",
+  "key.categories.descentmtb": "Descent MTB (Descenders controls)",
+  "key.descentmtb.accelerate": "Accelerate",
   "key.descentmtb.brake": "Brake",
-  "key.descentmtb.lean_left": "Lean left",
-  "key.descentmtb.lean_right": "Lean right"
+  "key.descentmtb.tweak": "Tweak (in air)",
+  "key.descentmtb.steer_left": "Steer left",
+  "key.descentmtb.steer_right": "Steer right",
+  "key.descentmtb.lean_forward": "Lean forward",
+  "key.descentmtb.lean_back": "Lean back",
+  "key.descentmtb.bunny_hop": "Bunny hop",
+  "key.descentmtb.bend": "Bend down (attack / pump)",
+  "key.descentmtb.stretch": "Stretch up (counter-pump)",
+  "key.descentmtb.trick": "Tricks (+ arrows)",
+  "key.descentmtb.respawn": "Respawn",
+  "key.descentmtb.respawn_start": "Respawn at start",
+  "key.descentmtb.camera": "Switch camera",
+  "key.descentmtb.reset_camera": "Reset camera"
 }
