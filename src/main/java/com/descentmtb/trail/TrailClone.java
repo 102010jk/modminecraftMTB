@@ -15,18 +15,16 @@ import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
 import java.util.*;
 
-/** Two corners capture a section, subsequent clicks stamp copies. Sneak-use rotates or starts a new selection. */
-public final class TrailCloneItem extends Item {
+/** Clone mode of the Trail Builder: two corners capture a section, later clicks stamp copies (as a preview). */
+public final class TrailClone {
     private record Cell(BlockPos offset,BlockState state,CompoundTag data) {}
     private record Clipboard(int x,int z,List<Cell> cells) {}
     private static final Map<UUID,Clipboard> COPIES=new HashMap<>();
     public static void clearSession() { COPIES.clear(); }
-    public TrailCloneItem(Properties p){super(p);}
-    @Override public InteractionResult useOn(UseOnContext c){return handleClone(c);}
     public static InteractionResult handleClone(UseOnContext c){
         Player p=c.getPlayer();if(p==null)return InteractionResult.PASS;
         Level l=c.getLevel();if(l.isClientSide)return InteractionResult.SUCCESS;
-        if(!TrackBuilderItem.allowed(p))return InteractionResult.FAIL;
+        if(!TrailPermissions.allowed(p))return InteractionResult.FAIL;
         ItemStack stack=c.getItemInHand();CompoundTag tag=stack.getOrDefault(DataComponents.CUSTOM_DATA,CustomData.EMPTY).copyTag();
         Clipboard clip=COPIES.get(p.getUUID());
         if(p.isShiftKeyDown()){COPIES.remove(p.getUUID());clip=null;tag.remove("cloneFirst");}
@@ -34,7 +32,7 @@ public final class TrailCloneItem extends Item {
             if(clip!=null){
                 BlockPos start=c.getClickedPos().relative(c.getClickedFace());Map<BlockPos,TrailEdit.Change> plan=new LinkedHashMap<>();
                 for(Cell cell:clip.cells)plan.put(start.offset(cell.offset),new TrailEdit.Change(cell.state,cell.data,null,null,false));
-                if(stack.getItem() instanceof TrailWandItem && p instanceof net.minecraft.server.level.ServerPlayer sp) TrailDraft.preview(sp,plan,start);
+                if(p instanceof net.minecraft.server.level.ServerPlayer sp) TrailDraft.preview(sp,plan,start);
                 else p.displayClientMessage(Component.translatable("descentmtb.clone.pasted",TrailEdit.apply(l,p,plan)),true);
                 return InteractionResult.CONSUME;
             }
@@ -59,25 +57,5 @@ public final class TrailCloneItem extends Item {
         }catch(IllegalArgumentException e){p.displayClientMessage(Component.literal(e.getMessage()),true);return InteractionResult.FAIL;}
         return InteractionResult.CONSUME;
     }
-    @Override public InteractionResultHolder<ItemStack> use(Level l,Player p,InteractionHand hand){
-        ItemStack s=p.getItemInHand(hand);if(!p.isShiftKeyDown())return InteractionResultHolder.pass(s);
-        if(!l.isClientSide&&TrackBuilderItem.allowed(p)){
-            Clipboard clip=COPIES.get(p.getUUID());
-            if(clip!=null){
-                List<Cell> cells=new ArrayList<>();
-                for(Cell c:clip.cells){
-                    CompoundTag t=c.data==null?null:c.data.copy();
-                    if(t!=null&&t.contains("Corner0")){
-                        double[] h={t.getDouble("Corner2"),t.getDouble("Corner0"),t.getDouble("Corner3"),t.getDouble("Corner1")};
-                        for(int i=0;i<4;i++)t.putDouble("Corner"+i,h[i]);
-                    }
-                    cells.add(new Cell(new BlockPos(clip.z-1-c.offset.getZ(),c.offset.getY(),c.offset.getX()),c.state.rotate(Rotation.CLOCKWISE_90),t));
-                }
-                COPIES.put(p.getUUID(),new Clipboard(clip.z,clip.x,cells));
-                p.displayClientMessage(Component.translatable("descentmtb.clone.rotated"),true);
-            }
-        }
-        return InteractionResultHolder.sidedSuccess(s,l.isClientSide);
-    }
-    @Override public void appendHoverText(ItemStack s,TooltipContext c,List<Component> lines,TooltipFlag f){lines.add(Component.translatable("descentmtb.clone.hint"));}
+    private TrailClone() {}
 }

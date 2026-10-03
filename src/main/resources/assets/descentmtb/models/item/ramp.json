@@ -1,3 +1,4 @@
 {
-  "parent": "descentmtb:block/ramp"
+  "parent": "minecraft:item/generated",
+  "textures": { "layer0": "descentmtb:item/ramp" }
 }

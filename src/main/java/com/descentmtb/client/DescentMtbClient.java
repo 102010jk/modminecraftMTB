@@ -68,6 +68,19 @@ public final class DescentMtbClient {
         NeoForge.EVENT_BUS.addListener((RenderHandEvent e) -> {
             if (BikeCamera.helmet()) e.setCanceled(true);
         });
+        // Shift + mouse wheel with the Trail Builder in "Ladit rampu" mode picks the sub-action
+        NeoForge.EVENT_BUS.addListener((InputEvent.MouseScrollingEvent e) -> {
+            var mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc.player == null || mc.screen != null || !net.minecraft.client.gui.screens.Screen.hasShiftDown()) return;
+            var held = mc.player.getMainHandItem();
+            if (held.getItem() instanceof com.descentmtb.trail.TrailWandItem
+                    && com.descentmtb.trail.WandSettings.read(held).mode() == com.descentmtb.trail.WandMode.RAMP_TUNE) {
+                e.setCanceled(true);
+                net.neoforged.neoforge.network.PacketDistributor.sendToServer(new com.descentmtb.network.TrailActionPayload(
+                        com.descentmtb.network.TrailActionPayload.TUNE_SUB, new net.minecraft.nbt.CompoundTag(), "",
+                        e.getScrollDeltaY() > 0 ? -1 : 1, 0, 0));
+            }
+        });
         // no digging / placing while riding (Steam Input maps the triggers to mouse clicks!)
         NeoForge.EVENT_BUS.addListener((InputEvent.InteractionKeyMappingTriggered e) -> {
             if (BikeClientController.riding() != null) {

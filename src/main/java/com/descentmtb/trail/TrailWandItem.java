@@ -1,51 +1,197 @@
 package com.descentmtb.trail;
-import net.minecraft.core.*;
+
+import com.descentmtb.network.TrailActionPayload;
+import com.descentmtb.registry.ModBlocks;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.*;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.*;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
-import java.util.*;
-import static com.descentmtb.trail.TrailMath.*;
-/** One mechanical trail wand; modes selected in the configurable radial menu. */
+import net.minecraft.world.level.block.Blocks;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+import static com.descentmtb.trail.TrailMath.Point;
+
+/**
+ * Trail Builder (tool 1): one item, every construction mode. The mode is picked in the radial menu
+ * (hold G), guide points are clicked on the ground, the result is a ghost preview that is confirmed
+ * with Enter / click (see {@link TrailDraft}).
+ */
 public final class TrailWandItem extends Item {
- public TrailWandItem(Properties p){super(p);}
- private static Point read(CompoundTag t,String k){return new Point(t.getDouble(k+"x"),t.getDouble(k+"y"),t.getDouble(k+"z"));}
- @Override public InteractionResult useOn(UseOnContext c){
-  if(!(c.getPlayer() instanceof ServerPlayer p))return InteractionResult.SUCCESS;
-  if(!TrackBuilderItem.allowed(p))return InteractionResult.FAIL;
-  var stack=c.getItemInHand();var s=WandSettings.read(stack);var l=p.serverLevel();
-  if(s.mode()==WandMode.CLONE)return TrailCloneItem.handleClone(c);
-  if(s.mode()==WandMode.UNDO){TrailDraft.action(p,new com.descentmtb.network.TrailActionPayload(5,new CompoundTag(),"",0,0,0));return InteractionResult.CONSUME;}
-  if(p.isShiftKeyDown()){CustomData.update(DataComponents.CUSTOM_DATA,stack,t->t.remove("WandGuides"));p.displayClientMessage(Component.translatable("descentmtb.builder.cleared"),true);return InteractionResult.CONSUME;}
-  var v=c.getClickLocation();Point q=l.getBlockState(c.getClickedPos()).is(com.descentmtb.registry.ModBlocks.TRAIL_STAKE.get())?new Point(c.getClickedPos().getX()+.5,c.getClickedPos().getY(),c.getClickedPos().getZ()+.5):new Point(v.x,v.y+.01,v.z);
-  var t=stack.getOrDefault(DataComponents.CUSTOM_DATA,CustomData.EMPTY).copyTag();var guides=t.getCompound("WandGuides");
-  int required=switch(s.mode()){case RAISE,LOWER,SMOOTH,FLATTEN,SUPPORT,ROOTS,ROCKS,ROCK_GARDEN,AIRBAG,SIGN,TEMPLATE->1;case PUMP_LOOP,BOARDWALK,WOOD_KICKER,WOOD_DROP,DROP_EDGE,BARRIER,MEASURE->2;default->3;};
-  int count=guides.getInt("Mode")==s.mode().ordinal()&&guides.getString("Dimension").equals(l.dimension().location().toString())?guides.getInt("Count"):0;
-  if(count<required-1){final int index=count;CustomData.update(DataComponents.CUSTOM_DATA,stack,data->{var g=data.getCompound("WandGuides");g.putDouble("p"+index+"x",q.x());g.putDouble("p"+index+"y",q.y());g.putDouble("p"+index+"z",q.z());g.putInt("Count",index+1);g.putInt("Mode",s.mode().ordinal());g.putString("Dimension",l.dimension().location().toString());data.put("WandGuides",g);});p.displayClientMessage(Component.translatable("descentmtb.builder.guide",count+1,required),true);return InteractionResult.CONSUME;}
-  Point a=required>1?read(guides,"p0"):q,b=required>2?read(guides,"p1"):TrailBuilder.middle(a,q);
-  try{
-   if(s.mode()==WandMode.MEASURE){double dist=Math.hypot(q.x()-a.x(),q.z()-a.z());p.displayClientMessage(Component.literal(String.format(Locale.ROOT,"%.1f m • Δ %.1f m • %.1f°",dist,q.y()-a.y(),Math.toDegrees(Math.atan2(q.y()-a.y(),dist)))),false);}
-   else {
-    Map<BlockPos,TrailEdit.Change> plan=switch(s.mode()){
-     case RAISE,LOWER,SMOOTH,FLATTEN->SurfacePlans.brush(l,q,s);
-     case PUMP_LINE,PUMP_LOOP->SurfacePlans.pump(l,a,b,q,s);
-     case SUPPORT,ROOTS,ROCKS,ROCK_GARDEN,BARRIER,AIRBAG,SIGN,DROP_EDGE->EquipmentPlans.plan(l,a,q,s,p.getDirection());
-     case TEMPLATE->TrailLibrary.get(l).recall(l,p.getUUID(),"trail",BlockPos.containing(q.x(),q.y(),q.z()));
-     default->TrailBuilder.plan(l,a,b,q,switch(s.mode()){case BERM->TrailBuilder.Shape.BERM;case ENDURO->TrailBuilder.Shape.ENDURO;case SHARKFIN->TrailBuilder.Shape.SHARKFIN;case BOARDWALK->TrailBuilder.Shape.BOARDWALK;case WOOD_KICKER->TrailBuilder.Shape.KICKER;case DIRT_JUMP->TrailBuilder.Shape.DIRT_JUMP;case WOOD_DROP->TrailBuilder.Shape.DROP;default->TrailBuilder.Shape.FLOW;},s);
-    };
-    // Dirt kicker uses the same continuous profile, filled to the ground instead of a thin deck.
-    if(s.mode()==WandMode.DIRT_JUMP){var dirt=new LinkedHashMap<BlockPos,TrailEdit.Change>();plan.forEach((pos,change)->dirt.put(pos,new TrailEdit.Change(change.state(),change.tag(),change.heights(),net.minecraft.world.level.block.Blocks.COARSE_DIRT.defaultBlockState(),false)));plan=dirt;}
-    TrailDraft.preview(p,plan,BlockPos.containing(a.x(),a.y(),a.z()));
-   }
-   CustomData.update(DataComponents.CUSTOM_DATA,stack,data->data.remove("WandGuides"));
-  }catch(IllegalArgumentException e){p.displayClientMessage(Component.literal(e.getMessage()),true);return InteractionResult.FAIL;}
-  return InteractionResult.CONSUME;
- }
- @Override public void appendHoverText(ItemStack s,TooltipContext c,List<Component> lines,TooltipFlag f){lines.add(Component.translatable(WandSettings.read(s).mode().key()));lines.add(Component.translatable("descentmtb.wand.hint"));}
+    private static final String GUIDES = "WandGuides";
+    private static final String RAMP_SUB = "RampSub";
+
+    public TrailWandItem(Properties properties) {
+        super(properties);
+    }
+
+    /** How many clicked points a mode needs before it can produce a preview. */
+    static int requiredPoints(WandMode mode) {
+        return switch (mode) {
+            case SUPPORT, ROOTS, ROCKS, ROCK_GARDEN, AIRBAG, SIGN, TEMPLATE -> 1;
+            case PUMP_LOOP, BOARDWALK, WOOD_KICKER, WOOD_DROP, DROP_EDGE, BARRIER, MEASURE -> 2;
+            default -> 3;
+        };
+    }
+
+    // ------------------------------------------------------------------ ramp tuning sub-action
+
+    public static RampTuning.SubAction rampSubAction(ItemStack stack) {
+        int stored = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag().getInt(RAMP_SUB);
+        return RampTuning.SubAction.values()[Math.floorMod(stored, RampTuning.SubAction.values().length)];
+    }
+
+    public static RampTuning.SubAction cycleRampSubAction(ItemStack stack, int step) {
+        RampTuning.SubAction next = rampSubAction(stack).next(step);
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.putInt(RAMP_SUB, next.ordinal()));
+        return next;
+    }
+
+    // ------------------------------------------------------------------ use
+
+    @Override
+    public InteractionResult useOn(UseOnContext context) {
+        if (!(context.getPlayer() instanceof ServerPlayer player)) {
+            return InteractionResult.SUCCESS;
+        }
+        if (!TrailPermissions.allowed(player)) {
+            return InteractionResult.FAIL;
+        }
+        ItemStack stack = context.getItemInHand();
+        WandSettings settings = WandSettings.read(stack);
+        Level level = player.serverLevel();
+
+        switch (settings.mode()) {
+            case CLONE:
+                return TrailClone.handleClone(context);
+            case UNDO:
+                TrailDraft.action(player, new TrailActionPayload(TrailActionPayload.UNDO, new CompoundTag(), "", 0, 0, 0));
+                return InteractionResult.CONSUME;
+            case RAMP_TUNE:
+                RampTuning.tune(level, player, context.getClickedPos(), rampSubAction(stack), player.isShiftKeyDown());
+                return InteractionResult.CONSUME;
+            default:
+                break;
+        }
+
+        if (player.isShiftKeyDown()) {
+            CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.remove(GUIDES));
+            player.displayClientMessage(Component.translatable("descentmtb.builder.cleared"), true);
+            return InteractionResult.CONSUME;
+        }
+
+        Point clicked = clickedPoint(context, level);
+        int required = requiredPoints(settings.mode());
+        CompoundTag guides = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag().getCompound(GUIDES);
+        boolean sameSession = guides.getString("Mode").equals(settings.mode().name())
+                && guides.getString("Dimension").equals(level.dimension().location().toString());
+        int count = sameSession ? guides.getInt("Count") : 0;
+
+        if (count < required - 1) {
+            storeGuide(stack, settings, level, count, clicked);
+            player.displayClientMessage(Component.translatable("descentmtb.builder.guide", count + 1, required), true);
+            return InteractionResult.CONSUME;
+        }
+
+        Point first = required > 1 ? readPoint(guides, "p0") : clicked;
+        Point middle = required > 2 ? readPoint(guides, "p1") : TrailBuilder.middle(first, clicked);
+        try {
+            if (settings.mode() == WandMode.MEASURE) {
+                player.displayClientMessage(Component.literal(measure(first, clicked)), false);
+            } else {
+                Map<BlockPos, TrailEdit.Change> plan = plan(level, player, settings, first, middle, clicked);
+                TrailDraft.preview(player, plan, BlockPos.containing(first.x(), first.y(), first.z()));
+            }
+            CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> tag.remove(GUIDES));
+        } catch (IllegalArgumentException e) {
+            player.displayClientMessage(Component.literal(e.getMessage()), true);
+            return InteractionResult.FAIL;
+        }
+        return InteractionResult.CONSUME;
+    }
+
+    private static Point clickedPoint(UseOnContext context, Level level) {
+        BlockPos pos = context.getClickedPos();
+        if (level.getBlockState(pos).is(ModBlocks.TRAIL_STAKE.get())) {
+            return new Point(pos.getX() + .5, pos.getY(), pos.getZ() + .5);   // snap to a stake
+        }
+        var hit = context.getClickLocation();
+        return new Point(hit.x, hit.y + .01, hit.z);
+    }
+
+    private static void storeGuide(ItemStack stack, WandSettings settings, Level level, int index, Point p) {
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, data -> {
+            CompoundTag guides = data.getCompound(GUIDES);
+            guides.putDouble("p" + index + "x", p.x());
+            guides.putDouble("p" + index + "y", p.y());
+            guides.putDouble("p" + index + "z", p.z());
+            guides.putInt("Count", index + 1);
+            guides.putString("Mode", settings.mode().name());
+            guides.putString("Dimension", level.dimension().location().toString());
+            data.put(GUIDES, guides);
+        });
+    }
+
+    private static Point readPoint(CompoundTag tag, String key) {
+        return new Point(tag.getDouble(key + "x"), tag.getDouble(key + "y"), tag.getDouble(key + "z"));
+    }
+
+    private static String measure(Point a, Point b) {
+        double distance = Math.hypot(b.x() - a.x(), b.z() - a.z());
+        double rise = b.y() - a.y();
+        return String.format(Locale.ROOT, "%.1f m • Δ %.1f m • %.1f°", distance, rise, Math.toDegrees(Math.atan2(rise, distance)));
+    }
+
+    private static Map<BlockPos, TrailEdit.Change> plan(Level level, ServerPlayer player, WandSettings s,
+                                                        Point a, Point b, Point c) {
+        Map<BlockPos, TrailEdit.Change> plan = switch (s.mode()) {
+            case PUMP_LINE, PUMP_LOOP -> SurfacePlans.pump(level, a, b, c, s);
+            case SUPPORT, ROOTS, ROCKS, ROCK_GARDEN, BARRIER, AIRBAG, SIGN, DROP_EDGE ->
+                    EquipmentPlans.plan(level, a, c, s, player.getDirection());
+            case TEMPLATE -> TrailLibrary.get(player.serverLevel()).recall(player.serverLevel(), player.getUUID(), "trail",
+                    BlockPos.containing(c.x(), c.y(), c.z()));
+            default -> TrailBuilder.plan(level, a, b, c, shapeOf(s.mode()), s);
+        };
+        if (s.mode() == WandMode.DIRT_JUMP) {
+            plan = filledWithDirt(plan);   // a dirt jump is solid dirt, not a thin deck
+        }
+        return plan;
+    }
+
+    private static TrailBuilder.Shape shapeOf(WandMode mode) {
+        return switch (mode) {
+            case BERM -> TrailBuilder.Shape.BERM;
+            case ENDURO -> TrailBuilder.Shape.ENDURO;
+            case SHARKFIN -> TrailBuilder.Shape.SHARKFIN;
+            case BOARDWALK -> TrailBuilder.Shape.BOARDWALK;
+            case WOOD_KICKER -> TrailBuilder.Shape.KICKER;
+            case DIRT_JUMP -> TrailBuilder.Shape.DIRT_JUMP;
+            case WOOD_DROP -> TrailBuilder.Shape.DROP;
+            default -> TrailBuilder.Shape.FLOW;
+        };
+    }
+
+    private static Map<BlockPos, TrailEdit.Change> filledWithDirt(Map<BlockPos, TrailEdit.Change> plan) {
+        Map<BlockPos, TrailEdit.Change> dirt = new LinkedHashMap<>();
+        plan.forEach((pos, change) -> dirt.put(pos, new TrailEdit.Change(change.state(), change.tag(), change.heights(),
+                Blocks.COARSE_DIRT.defaultBlockState(), false)));
+        return dirt;
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
+        lines.add(Component.translatable(WandSettings.read(stack).mode().key()));
+        lines.add(Component.translatable("descentmtb.wand.hint"));
+    }
 }

@@ -3,7 +3,6 @@ package com.descentmtb.registry;
 import com.descentmtb.DescentMtb;
 import com.descentmtb.ramp.RampBlock;
 import com.descentmtb.ramp.RampBlockEntity;
-import com.descentmtb.ramp.TrailToolItem;
 import java.util.List;
 import java.util.function.Supplier;
 import net.minecraft.core.registries.Registries;
@@ -14,6 +13,7 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -55,20 +55,7 @@ public final class ModBlocks {
     public static final DeferredItem<BlockItem> AIRBAG_ITEM=ITEMS.registerSimpleBlockItem("airbag",AIRBAG);
     public static final DeferredItem<BlockItem> BARRIER_ITEM=ITEMS.registerSimpleBlockItem("cloth_barrier",CLOTH_BARRIER);
     public static final DeferredItem<BlockItem> SIGN_ITEM=ITEMS.registerSimpleBlockItem("trail_sign",TRAIL_SIGN);
-    public static final DeferredItem<TrailToolItem> TRAIL_TOOL =
-            ITEMS.registerItem("trail_tool", TrailToolItem::new, new Item.Properties().stacksTo(1));
 
-    /** Items to show in the creative tab. */
-    private static DeferredItem<com.descentmtb.trail.TrackBuilderItem> tool(String name,com.descentmtb.trail.TrackBuilderItem.Kind kind) {
-        return ITEMS.registerItem(name,p->new com.descentmtb.trail.TrackBuilderItem(p,kind),new Item.Properties().stacksTo(1));
-    }
-    public static final DeferredItem<com.descentmtb.trail.TrackBuilderItem> BERM_TOOL=tool("berm_tool",com.descentmtb.trail.TrackBuilderItem.Kind.BERM);
-    public static final DeferredItem<com.descentmtb.trail.TrackBuilderItem> ROUTE_TOOL=tool("route_tool",com.descentmtb.trail.TrackBuilderItem.Kind.ROUTE);
-    public static final DeferredItem<com.descentmtb.trail.TrackBuilderItem> BOARDWALK_TOOL=tool("boardwalk_tool",com.descentmtb.trail.TrackBuilderItem.Kind.WOOD);
-    public static final DeferredItem<com.descentmtb.trail.TrackBuilderItem> ROLLER_TOOL=tool("roller_tool",com.descentmtb.trail.TrackBuilderItem.Kind.ROLLERS);
-    public static final DeferredItem<com.descentmtb.trail.TrackBuilderItem> UNDO_TOOL=tool("undo_tool",com.descentmtb.trail.TrackBuilderItem.Kind.UNDO);
-    public static final DeferredItem<com.descentmtb.trail.TrailCloneItem> CLONE_TOOL=ITEMS.registerItem("clone_tool",com.descentmtb.trail.TrailCloneItem::new,new Item.Properties().stacksTo(1));
-    public static final DeferredItem<com.descentmtb.trail.ObstacleToolItem> OBSTACLE_TOOL=ITEMS.registerItem("obstacle_tool",com.descentmtb.trail.ObstacleToolItem::new,new Item.Properties().stacksTo(1));
     public static final DeferredBlock<com.descentmtb.trail.TrailObstacleBlock> TRAIL_ROOTS=BLOCKS.registerBlock("trail_roots",p->new com.descentmtb.trail.TrailObstacleBlock(p,false),BlockBehaviour.Properties.of().strength(.3f).sound(SoundType.WOOD).noOcclusion());
     public static final DeferredBlock<com.descentmtb.trail.TrailObstacleBlock> TRAIL_ROCK=BLOCKS.registerBlock("trail_rock",p->new com.descentmtb.trail.TrailObstacleBlock(p,true),BlockBehaviour.Properties.of().strength(.8f).sound(SoundType.STONE).noOcclusion());
     public static final DeferredItem<BlockItem> ROOT_ITEM=ITEMS.registerSimpleBlockItem("trail_roots",TRAIL_ROOTS);
@@ -76,12 +63,20 @@ public final class ModBlocks {
     public static final DeferredBlock<net.minecraft.world.level.block.Block> TRAIL_STAKE=BLOCKS.registerBlock("trail_stake",net.minecraft.world.level.block.Block::new,
             BlockBehaviour.Properties.of().strength(.2f).sound(SoundType.WOOD).noOcclusion().noCollission());
     public static final DeferredItem<BlockItem> STAKE_ITEM=ITEMS.registerSimpleBlockItem("trail_stake",TRAIL_STAKE);
-    public static final DeferredItem<com.descentmtb.trail.TrackBuilderItem> MEASURE_TOOL=tool("measure_tool",com.descentmtb.trail.TrackBuilderItem.Kind.MEASURE);
-    public static final List<Supplier<? extends ItemLike>> TAB_ITEMS = List.of(TRAIL_WAND, RAMP_ITEM, TRAIL_TOOL, STAKE_ITEM, ROOT_ITEM, ROCK_ITEM, SUPPORT_ITEM, AIRBAG_ITEM, BARRIER_ITEM, SIGN_ITEM);
+    public static final List<Supplier<? extends ItemLike>> TAB_ITEMS = List.of(TRAIL_WAND, RAMP_ITEM, STAKE_ITEM, ROOT_ITEM, ROCK_ITEM, SUPPORT_ITEM, AIRBAG_ITEM, BARRIER_ITEM, SIGN_ITEM);
 
     private ModBlocks() {}
 
+    /** Items of v1.0 that were merged into the Trail Builder; old inventories and chests still load. */
+    private static final String[] RETIRED_TOOLS = {
+            "berm_tool", "route_tool", "boardwalk_tool", "roller_tool", "undo_tool", "measure_tool",
+            "clone_tool", "obstacle_tool", "trail_tool"};
+
     public static void register(IEventBus bus) {
+        for (String retired : RETIRED_TOOLS) {
+            ITEMS.addAlias(ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, retired),
+                    ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "trail_wand"));
+        }
         BLOCKS.register(bus);
         BLOCK_ENTITIES.register(bus);
         ITEMS.register(bus);

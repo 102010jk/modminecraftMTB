@@ -35,7 +35,7 @@ public class DescentMtb {
         NeoForge.EVENT_BUS.addListener(Ragdolls::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(Ragdolls::onFall);
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppedEvent e)->{
-            com.descentmtb.network.Ragdolls.clearSession();com.descentmtb.trail.TrailEdit.clearSession();com.descentmtb.trail.TrailCloneItem.clearSession();com.descentmtb.trail.TrailDraft.clearSession();
+            com.descentmtb.network.Ragdolls.clearSession();com.descentmtb.trail.TrailEdit.clearSession();com.descentmtb.trail.RampTuning.clearSession();com.descentmtb.trail.TrailClone.clearSession();com.descentmtb.trail.TrailDraft.clearSession();
         });
     }
 }

@@ -41,19 +41,31 @@ public final class SurfacePlans {
   }
   return out;
  }
- public static Map<BlockPos,TrailEdit.Change> brush(Level l,Point centre,WandSettings s){
-  double r=s.radius();var cache=new HashMap<Long,Double>();
+ /**
+  * Light terrain smoothing (machete): averages the heights inside a soft-edged circle. It never moves the
+  * ground more than one block and leaves columns that would barely change untouched.
+  */
+ public static Map<BlockPos,TrailEdit.Change> smooth(Level l,Point centre,double radius,double strength,double softness){
+  var cache=new HashMap<Long,Double>();
   DoubleBinaryOperator old=(x,z)->cache.computeIfAbsent(BlockPos.asLong((int)x,0,(int)z),k->terrain(l,x,z,centre.y()));
-  double target=terrain(l,centre.x(),centre.z(),centre.y());
   DoubleBinaryOperator height=(x,z)->{
-   double base=old.applyAsDouble(x,z),f=PumpMath.edge(Math.hypot(x-centre.x(),z-centre.z()),r,s.softness());
-   return switch(s.mode()){
-    case RAISE->base+s.strength()*f;case LOWER->base-s.strength()*f;
-    case FLATTEN->base+(target-base)*Math.min(1,s.strength())*f;
-    default->{double sum=0;for(int dx=-1;dx<=1;dx++)for(int dz=-1;dz<=1;dz++)sum+=old.applyAsDouble(x+dx,z+dz);yield base+(sum/9-base)*Math.min(1,s.strength())*f;}
-   };
+   double base=old.applyAsDouble(x,z);
+   double falloff=PumpMath.edge(Math.hypot(x-centre.x(),z-centre.z()),radius,softness);
+   double sum=0;
+   for(int dx=-1;dx<=1;dx++)for(int dz=-1;dz<=1;dz++)sum+=old.applyAsDouble(x+dx,z+dz);
+   double delta=(sum/9-base)*Math.min(1,strength)*falloff;
+   return base+Math.max(-1,Math.min(1,delta));
   };
-  return surface(l,(int)Math.floor(centre.x()-r),(int)Math.floor(centre.z()-r),(int)Math.ceil(centre.x()+r),(int)Math.ceil(centre.z()+r),centre.y(),height,(x,z)->Math.hypot(x-centre.x(),z-centre.z())<r,false,true);
+  java.util.function.BiPredicate<Double,Double> changes=(x,z)->{
+   if(Math.hypot(x-centre.x(),z-centre.z())>=radius)return false;
+   int bx=(int)Math.floor(x),bz=(int)Math.floor(z);
+   for(int i=0;i<4;i++){
+    double px=bx+(i%2),pz=bz+(i/2);
+    if(Math.abs(height.applyAsDouble(px,pz)-old.applyAsDouble(px,pz))>.04)return true;
+   }
+   return false;
+  };
+  return surface(l,(int)Math.floor(centre.x()-radius),(int)Math.floor(centre.z()-radius),(int)Math.ceil(centre.x()+radius),(int)Math.ceil(centre.z()+radius),centre.y(),height,changes,false,true);
  }
  public static Map<BlockPos,TrailEdit.Change> pump(Level l,Point a,Point b,Point c,WandSettings s){
   validate(a);validate(b);validate(c);

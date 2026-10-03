@@ -16,8 +16,13 @@ public final class TrailDraft {
  private static void send(ServerPlayer p,Map<BlockPos,TrailEdit.Change> plan){var cells=new ArrayList<TrailPreviewPayload.Cell>();plan.forEach((pos,c)->{double[] h=c.heights();if(h==null&&c.tag()!=null&&c.tag().contains("Corner0")){h=new double[]{c.tag().getDouble("Corner0"),c.tag().getDouble("Corner1"),c.tag().getDouble("Corner2"),c.tag().getDouble("Corner3")};}if(h==null)h=new double[]{1,1,1,1};cells.add(new TrailPreviewPayload.Cell(pos,(float)clamp(h[0]),(float)clamp(h[1]),(float)clamp(h[2]),(float)clamp(h[3]),c.state().isAir()));});PacketDistributor.sendToPlayer(p,new TrailPreviewPayload(cells));}
  private static double clamp(double v){return Math.max(-16,Math.min(16,v));}
  public static void action(ServerPlayer p,TrailActionPayload m){
-  if(!(p.getMainHandItem().getItem() instanceof TrailWandItem)||!TrackBuilderItem.allowed(p))return;
+  if(!(p.getMainHandItem().getItem() instanceof TrailWandItem)||!TrailPermissions.allowed(p))return;
   try{
+   if(m.action()==TrailActionPayload.TUNE_SUB){
+    var next=TrailWandItem.cycleRampSubAction(p.getMainHandItem(),Integer.signum(m.dx()));
+    p.displayClientMessage(Component.translatable("descentmtb.ramp_tune.sub",next.displayName()),true);
+    return;
+   }
    if(m.action()==TrailActionPayload.CONFIGURE){WandSettings.read(m.settings()==null?new net.minecraft.nbt.CompoundTag():m.settings()).store(p.getMainHandItem());return;}
    if(m.action()==TrailActionPayload.UNDO){p.displayClientMessage(Component.translatable("descentmtb.builder.undone",TrailEdit.undo(p.level(),p)),true);return;}
    if(m.action()==TrailActionPayload.CANCEL){DRAFTS.remove(p.getUUID());send(p,Map.of());return;}

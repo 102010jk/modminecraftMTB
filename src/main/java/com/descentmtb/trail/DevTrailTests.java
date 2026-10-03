@@ -32,7 +32,7 @@ public final class DevTrailTests {
    check(deck.containsKey(origin),"boardwalk starts at its first guide");TrailEdit.apply(l,p,deck);
    var columns=new McColumns(l);double h1=columns.collisionTop(x+.5,z+2.4,y+3,y-1),h2=columns.collisionTop(x+.5,z+2.6,y+3,y-1);
    check(Math.abs(h1-(y+.995))<.005&&Math.abs(h2-(y+1.005))<.005,"continuous surface crosses an integer block height without phantom step");
-   var brush=SurfacePlans.brush(l,new Point(x+.5,y+1,z+2.5),new WandSettings(WandMode.SMOOTH,5,.75,5,5,2,.2,.8));
+   var brush=SurfacePlans.smooth(l,new Point(x+.5,y+1,z+2.5),2,.2,.8);
    check(brush.values().stream().filter(v->v.heights()!=null).anyMatch(v->v.deck()&&v.material().is(Blocks.OAK_PLANKS)),"brush preserves deck and wood material");
    // Real three-click wand, ghost remains separate until confirmation.
    new WandSettings(WandMode.PUMP_LINE,4,.8,4,4,3,.3,.8).store(wand);
