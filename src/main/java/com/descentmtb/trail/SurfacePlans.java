@@ -25,10 +25,9 @@ public final class SurfacePlans {
    double old=terrain(l,x+.5,z+.5,reference);
    if(preserve && l.getBlockEntity(new BlockPos(x,(int)Math.floor(old-.0001),z)) instanceof com.descentmtb.ramp.RampBlockEntity be){material=be.getMaterial();deck=be instanceof TrailSurfaceEntity shaped&&shaped.deck();}
    double[] h={sampled.applyAsDouble(x,z),sampled.applyAsDouble(x+1,z),sampled.applyAsDouble(x,z+1),sampled.applyAsDouble(x+1,z+1)};
-   double min=Arrays.stream(h).min().orElse(reference),max=Arrays.stream(h).max().orElse(reference);
-   int bottom=(int)Math.floor(min-(deck?.14:0)-.001),top=(int)Math.ceil(max)-1;
-   if(top-bottom>8)throw new IllegalArgumentException("Příliš prudký přechod; zmenši sílu nebo nejprve vyhlaď terén");
-   for(int y=bottom;y<=top;y++){double[] local=h.clone();for(int i=0;i<4;i++)local[i]-=y;out.put(new BlockPos(x,y,z),new TrailEdit.Change(ModBlocks.TRAIL_SURFACE.get().defaultBlockState(),null,local,material,deck));}
+   var stack=ColumnShaper.layers(h,deck);
+   int bottom=stack.bottom(),top=stack.top();
+   for(var layer:stack.layers())out.put(new BlockPos(x,layer.y(),z),new TrailEdit.Change(ModBlocks.TRAIL_SURFACE.get().defaultBlockState(),null,layer.heights(),material,deck));
    if(deck){
     // Remove obsolete layers when a wooden wave is moved up/down, retaining the empty underside.
     for(int y=(int)Math.floor(old-.15);y<=(int)Math.ceil(old);y++)if(y<bottom||y>top){var p=new BlockPos(x,y,z);if(l.getBlockEntity(p) instanceof TrailSurfaceEntity oldDeck&&oldDeck.deck())out.put(p,TrailEdit.Change.block(Blocks.AIR.defaultBlockState()));}
