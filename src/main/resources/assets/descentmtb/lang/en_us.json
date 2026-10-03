@@ -121,7 +121,7 @@
   "descentmtb.wand.setting.radius": "Radius: %s m",
   "descentmtb.wand.setting.strength": "Strength: %s",
   "descentmtb.wand.setting.softness": "Soft edge: %s",
-  "key.descentmtb.trail_menu": "Trail wand radial menu",
+  "key.descentmtb.trail_menu": "Builder: radial menu (hold)",
   "item.descentmtb.trail_wand": "Trail Builder",
   "block.descentmtb.airbag": "Landing airbag",
   "block.descentmtb.cloth_barrier": "Fabric trail barrier",
@@ -159,5 +159,10 @@
   "descentmtb.shaping.hint.raise": "Right-click a shaping block: raises the corner / edge / whole block under the cursor (Shift = lower)",
   "descentmtb.shaping.hint.lower": "Left-click: lowers (turns plain ground into a sculptable block)",
   "descentmtb.shaping.height": "Height: %s",
-  "descentmtb.shaping.empty": "Out of dirt"
+  "descentmtb.shaping.empty": "Out of dirt",
+  "key.descentmtb.trail_confirm": "Builder: confirm preview",
+  "key.descentmtb.trail_cancel": "Builder: cancel preview",
+  "key.descentmtb.trail_rotate": "Builder: rotate preview",
+  "descentmtb.wand.hud.points": "[%s] modes • right-click: place points • Shift: clear points",
+  "descentmtb.wand.hud.preview": "[%s] confirm • [%s] cancel • [%s] rotate • arrows, PgUp/PgDn: move"
 }

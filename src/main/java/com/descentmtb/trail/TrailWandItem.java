@@ -37,7 +37,7 @@ public final class TrailWandItem extends Item {
     }
 
     /** How many clicked points a mode needs before it can produce a preview. */
-    static int requiredPoints(WandMode mode) {
+    public static int requiredPoints(WandMode mode) {
         return switch (mode) {
             case SUPPORT, ROOTS, ROCKS, ROCK_GARDEN, AIRBAG, SIGN, TEMPLATE -> 1;
             case PUMP_LOOP, BOARDWALK, WOOD_KICKER, WOOD_DROP, DROP_EDGE, BARRIER, MEASURE -> 2;

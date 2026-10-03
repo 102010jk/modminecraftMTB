@@ -121,7 +121,7 @@
   "descentmtb.wand.setting.radius": "Poloměr: %s m",
   "descentmtb.wand.setting.strength": "Síla: %s",
   "descentmtb.wand.setting.softness": "Měkkost: %s",
-  "key.descentmtb.trail_menu": "Radiální nabídka trailové hůlky",
+  "key.descentmtb.trail_menu": "Stavitel: radiální menu (podržet)",
   "item.descentmtb.trail_wand": "Stavitel tratí",
   "block.descentmtb.airbag": "Dopadový airbag",
   "block.descentmtb.cloth_barrier": "Látková bariéra",
@@ -159,5 +159,10 @@
   "descentmtb.shaping.hint.raise": "Pravý klik na tvarovací blok: zvedne roh / hranu / celý blok podle místa kliknutí (Shift = sníží)",
   "descentmtb.shaping.hint.lower": "Levý klik: sníží (z pozemního bloku udělá tvarovatelný)",
   "descentmtb.shaping.height": "Výška: %s",
-  "descentmtb.shaping.empty": "Došla hlína"
+  "descentmtb.shaping.empty": "Došla hlína",
+  "key.descentmtb.trail_confirm": "Stavitel: potvrdit náhled",
+  "key.descentmtb.trail_cancel": "Stavitel: zrušit náhled",
+  "key.descentmtb.trail_rotate": "Stavitel: otočit náhled",
+  "descentmtb.wand.hud.points": "[%s] režimy • pravý klik: vytyč body • Shift: zrušit body",
+  "descentmtb.wand.hud.preview": "[%s] potvrdit • [%s] zrušit • [%s] otočit • šipky, PgUp/PgDn: posun"
 }

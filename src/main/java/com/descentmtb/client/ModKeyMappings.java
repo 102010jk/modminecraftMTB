@@ -19,6 +19,9 @@ public final class ModKeyMappings {
     public static final String CATEGORY = "key.categories.descentmtb";
 
     public static final KeyMapping TRAIL_MENU = key("trail_menu", GLFW.GLFW_KEY_G);
+    public static final KeyMapping TRAIL_CONFIRM = key("trail_confirm", GLFW.GLFW_KEY_ENTER);
+    public static final KeyMapping TRAIL_CANCEL = key("trail_cancel", GLFW.GLFW_KEY_BACKSPACE);
+    public static final KeyMapping TRAIL_ROTATE = key("trail_rotate", GLFW.GLFW_KEY_Y);
     public static final KeyMapping ACCELERATE = key("accelerate", GLFW.GLFW_KEY_Z);
     public static final KeyMapping BRAKE = key("brake", GLFW.GLFW_KEY_SPACE);
     public static final KeyMapping TWEAK = key("tweak", GLFW.GLFW_KEY_LEFT_ALT);
@@ -36,7 +39,8 @@ public final class ModKeyMappings {
     public static final KeyMapping RESET_CAMERA = key("reset_camera", GLFW.GLFW_KEY_B);
 
     public static final List<KeyMapping> ALL = List.of(ACCELERATE, BRAKE, TWEAK, STEER_LEFT, STEER_RIGHT,
-            LEAN_FORWARD, LEAN_BACK, BUNNY_HOP, BEND, STRETCH, TRICK, RESPAWN, RESPAWN_START, CAMERA, RESET_CAMERA, TRAIL_MENU);
+            LEAN_FORWARD, LEAN_BACK, BUNNY_HOP, BEND, STRETCH, TRICK, RESPAWN, RESPAWN_START, CAMERA, RESET_CAMERA, TRAIL_MENU,
+            TRAIL_CONFIRM, TRAIL_CANCEL, TRAIL_ROTATE);
 
     private static KeyMapping key(String name, int glfwKey) {
         return new KeyMapping("key.descentmtb." + name, InputConstants.Type.KEYSYM, glfwKey, CATEGORY);
