@@ -52,6 +52,7 @@ public final class BikeInputHandler {
     private static boolean prevRespawn, prevRespawnStart, prevCamera, prevResetCamera;
     private static boolean prevHopKey;
     private static float tableSide = 1;
+    private static boolean tweakArmed;
     private static int hopStretchTicks;
 
     public static Frame poll() {
@@ -62,7 +63,12 @@ public final class BikeInputHandler {
         var ridden = BikeClientController.riding();
         boolean inAir = ridden != null && ridden.sim() != null && ridden.sim().airborne;
         // Space is the brake on the ground and the tweak (table) in the air, as in Descenders
-        boolean tweakKey = inAir && down(win, ModKeyMappings.TWEAK);
+        // ... but only a fresh press in the air: Space still held from braking before the lip must not table
+        boolean spaceDown = down(win, ModKeyMappings.TWEAK);
+        if (!inAir || !spaceDown) {
+            tweakArmed = inAir && !spaceDown;
+        }
+        boolean tweakKey = inAir && spaceDown && tweakArmed;
         float arrowX = (down(win, ModKeyMappings.STEER_RIGHT) ? 1 : 0) - (down(win, ModKeyMappings.STEER_LEFT) ? 1 : 0);
         float arrowY = (down(win, ModKeyMappings.LEAN_FORWARD) ? 1 : 0) - (down(win, ModKeyMappings.LEAN_BACK) ? 1 : 0);
         float kSteer = 0, kLean = 0, kTweak = 0, kTrickX = 0, kTrickY = 0;
