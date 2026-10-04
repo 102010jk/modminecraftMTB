@@ -643,6 +643,195 @@ def item_bike(frame, hardtail):
     return c
 
 
+# ================================================================== trail sign: board, post and symbols
+
+RAMP['ink'] = ['#141418', '#26262c', '#3b3b44']
+RAMP['orange'] = ['#4a1c06', '#8f3e0e', '#d06a18', '#f39a2e', '#ffc86a']
+RAMP['signgreen'] = ['#0f3317', '#1d6b2c', '#2e9a3f', '#4fc35b', '#9be79a']
+RAMP['signblue'] = ['#0d1f4d', '#1a3d8f', '#2a5fc4', '#4a86e6', '#8fbaf6']
+
+
+def sign_board():
+    """Oak signboard: three horizontal planks, a darker frame, two brass screws."""
+    c = Canvas()
+    for y in range(16):
+        for x in range(16):
+            frame = x == 0 or x == 15 or y == 0 or y == 15
+            if frame:
+                c.set(x, y, shade('wood', 1 if (y == 15 or x == 15) else 2), 'wood')
+                continue
+            plank = (y - 1) // 5
+            seam = (y - 1) % 5 == 4
+            if seam:
+                c.set(x, y, shade('wood', 2), 'wood')
+                continue
+            grain = noise(x // 3, y + plank * 7, 31) > .72
+            top = (y - 1) % 5 == 0
+            i = 5 if top else (3 if grain else 4)
+            c.set(x, y, shade('wood', i), 'wood')
+    for x, y in ((2, 2), (13, 2), (2, 13), (13, 13)):
+        c.set(x, y, shade('brass', 3), 'brass')
+    return c
+
+
+def sign_post():
+    """Squared oak post, vertical grain, lit from the left."""
+    c = Canvas()
+    for y in range(16):
+        for x in range(16):
+            band = x // 4
+            i = [4, 3, 3, 2][band]
+            if noise(x, y // 3, 33) > .78:
+                i -= 1
+            if x % 4 == 0:
+                i = max(1, i - 1)
+            c.set(x, y, shade('wood', i), 'wood')
+    return c
+
+
+def sym(draw):
+    c = Canvas()
+    draw(c)
+    c.material_outline()
+    return c
+
+
+def disc(c, cx, cy, r, mat, lit=True):
+    for y in range(16):
+        for x in range(16):
+            dx, dy = x + .5 - cx, y + .5 - cy
+            d = math.hypot(dx, dy)
+            if d <= r:
+                l = -(dx + dy) / (r * 1.4)
+                i = 4 if lit and l > .45 else 3 if l > -.2 else 2
+                c.set(x, y, shade(mat, i), mat)
+
+
+def diamond(c, cx, cy, r, mat, lo=1, hi=3):
+    for y in range(16):
+        for x in range(16):
+            dx, dy = x + .5 - cx, y + .5 - cy
+            if abs(dx) + abs(dy) <= r:
+                c.set(x, y, shade(mat, hi if dx + dy < -r * .3 else (hi - 1 if dx + dy < r * .3 else lo)), mat)
+
+
+def sign_symbols():
+    out = {}
+
+    out['diff_green'] = sym(lambda c: disc(c, 8, 8, 6.2, 'signgreen'))
+
+    def blue(c):
+        for y in range(2, 14):
+            for x in range(2, 14):
+                l = (13 - x) + (13 - y)
+                c.set(x, y, shade('signblue', 4 if l > 17 else 3 if l > 8 else 2), 'signblue')
+    out['diff_blue'] = sym(blue)
+
+    out['diff_black'] = sym(lambda c: diamond(c, 8, 8, 7, 'ink', 0, 2))
+
+    def double(c):
+        diamond(c, 4.6, 8, 4.4, 'ink', 0, 2)
+        diamond(c, 11.4, 8, 4.4, 'ink', 0, 2)
+    out['diff_double_black'] = sym(double)
+
+    def pro(c):
+        for y in range(2, 14):
+            for x in range(1, 15):
+                dx, dy = abs(x + .5 - 8), y + .5 - 2
+                if dy < 12 - dx * .55 and dx < 7:      # shield
+                    l = (8 - x) + (8 - y)
+                    c.set(x, y, shade('orange', 4 if l > 6 else 3 if l > -3 else 2), 'orange')
+        for x, y in ((6, 6), (7, 6), (8, 6), (9, 6), (6, 7), (9, 7), (6, 8), (7, 8), (8, 8), (6, 9), (6, 10)):
+            c.set(x, y, shade('cloth', 4), 'orange')     # P
+    out['diff_pro'] = sym(pro)
+
+    def arrow_shape(c, direction):
+        pts = []
+        for y in range(16):
+            for x in range(16):
+                u, v = x + .5 - 8, y + .5 - 8           # arrow pointing +u (right)
+                if direction == 'left':
+                    u = -u
+                if direction == 'up':
+                    u, v = -(y + .5 - 8), x + .5 - 8
+                head = u >= 0.5 and abs(v) <= 6.5 - u
+                shaft = -6.5 <= u < 1 and abs(v) <= 2
+                if head or shaft:
+                    lit = v < -.5 if direction != 'up' else (x + .5 - 8) < -.5
+                    c.set(x, y, shade('ink', 2 if lit else 1), 'ink')
+    for d in ('left', 'right', 'up'):
+        out['arrow_' + d] = sym(lambda c, d=d: arrow_shape(c, d))
+
+    def warning(glyph):
+        def draw(c):
+            diamond(c, 8, 8, 7.6, 'yellow', 2, 4)
+            for x, y in glyph:
+                c.set(x, y, shade('ink', 1), 'yellow')
+        return draw
+
+    def mask(rows):
+        return [(x, y) for y, row in enumerate(rows) for x, ch in enumerate(row) if ch == '#']
+
+    jump = mask([
+        "................", "................", "................", "................",
+        "........###.....", ".......#...#....", "......#.....#...", "................",
+        "......#.........", ".....##.........", "....###.........", "..#####.........",
+    ])
+    drop = mask([
+        "................", "................", "................", "................",
+        "..........#.....", "...####...#.....", "......#...#.....", "......#..###....",
+        "......#...#.....", "......#.........", "......#######...", "................",
+    ])
+    gap = mask([
+        "................", "................", "................", "................",
+        "......##........", ".....#..##......", "..........#.....", ".....#....#.....",
+        "....##....##....", "...###....###...", "..####....####..", "................",
+    ])
+    rocks = mask([
+        "................", "................", "................", "................",
+        "................", "................", "......##........", ".....####.......",
+        "...#.#####.##...", "..#########.##..", "..#############.", "................",
+    ])
+    slow = mask([
+        "................", "................", "................", "................",
+        "......#.#.#.....", "......#.#.#.#...", "......#######...", "...#..#######...",
+        "...##.#######...", "....#########...", ".....#######....", "......#####.....",
+    ])
+    caution = mask([
+        "................", "................", "................", "................",
+        ".......##.......", ".......##.......", ".......##.......", ".......##.......",
+        ".......##.......", "................", ".......##.......", ".......##.......",
+    ])
+    for name, glyph in (('jump', jump), ('drop', drop), ('gap', gap), ('rocks', rocks), ('slow', slow), ('caution', caution)):
+        out['warn_' + name] = sym(warning(glyph))
+
+    def flag(chequered):
+        def draw(c):
+            for y in range(1, 16):
+                c.set(2, y, shade('steel', 4), 'steel')
+                c.set(3, y, shade('steel', 2), 'steel')
+            for y in range(2, 10):
+                for x in range(4, 15):
+                    wave = int(round(math.sin((x - 4) / 3.2) * 1.0))
+                    yy = y + wave
+                    if chequered:
+                        black = ((x - 4) // 2 + (y - 2) // 2) % 2 == 0
+                        c.set(x, yy, shade('ink', 2) if black else shade('cloth', 4 if wave <= 0 else 3), 'ink' if black else 'cloth')
+                    else:
+                        c.set(x, yy, shade('signgreen', 4 if wave < 0 else 3 if wave == 0 else 2), 'signgreen')
+        return draw
+    out['start'] = sym(flag(False))
+    out['finish'] = sym(flag(True))
+    return out
+
+
+def sign_outputs():
+    files = {'block/trail_sign.png': sign_board().image(), 'block/trail_sign_post.png': sign_post().image()}
+    for name, c in sign_symbols().items():
+        files[f'sign/{name}.png'] = c.image()
+    return files
+
+
 # ================================================================== write
 
 def outputs():
@@ -663,6 +852,7 @@ def outputs():
     }
     for name, im in shape_icons().items():
         out[f'gui/shape/{name}.png'] = im
+    out.update(sign_outputs())
     return out
 
 
@@ -680,6 +870,8 @@ def main():
     install = '--install' in sys.argv
     root = ASSETS if install else STAGE
     files = outputs()
+    if '--only-sign' in sys.argv:
+        files = sign_outputs()
     for rel, im in files.items():
         path = os.path.join(root, rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)
