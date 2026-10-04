@@ -59,7 +59,11 @@ public final class ModBlocks {
     public static final DeferredBlock<com.descentmtb.trail.TrailSignBlock> TRAIL_SIGN=BLOCKS.registerBlock("trail_sign",com.descentmtb.trail.TrailSignBlock::new,BlockBehaviour.Properties.of().strength(.5f).sound(SoundType.WOOD).noOcclusion());
     public static final DeferredHolder<BlockEntityType<?>,BlockEntityType<com.descentmtb.trail.TrailSignEntity>> SIGN_BE=BLOCK_ENTITIES.register("trail_sign",()->BlockEntityType.Builder.of(com.descentmtb.trail.TrailSignEntity::new,TRAIL_SIGN.get()).build(null));
     public static final DeferredItem<BlockItem> AIRBAG_ITEM=ITEMS.registerSimpleBlockItem("airbag",AIRBAG);
-    public static final DeferredItem<BlockItem> BARRIER_ITEM=ITEMS.registerSimpleBlockItem("cloth_barrier",CLOTH_BARRIER);
+    /** The trail tape roll (it kept the id of the old cloth barrier item, so old inventories still load); see {@link com.descentmtb.tape.TrailTapeItem}. */
+    public static final DeferredItem<com.descentmtb.tape.TrailTapeItem> BARRIER_ITEM=ITEMS.registerItem("cloth_barrier",com.descentmtb.tape.TrailTapeItem::new,new Item.Properties());
+    /** The stake trail tape is strung between; it has no item of its own. The old {@link #CLOTH_BARRIER} block stays registered so worlds load. */
+    public static final DeferredBlock<com.descentmtb.tape.BarrierPostBlock> BARRIER_POST=BLOCKS.registerBlock("barrier_post",com.descentmtb.tape.BarrierPostBlock::new,BlockBehaviour.Properties.of().strength(.3f).sound(SoundType.WOOD).noOcclusion().noCollission());
+    public static final DeferredHolder<BlockEntityType<?>,BlockEntityType<com.descentmtb.tape.BarrierPostEntity>> POST_BE=BLOCK_ENTITIES.register("barrier_post",()->BlockEntityType.Builder.of(com.descentmtb.tape.BarrierPostEntity::new,BARRIER_POST.get()).build(null));
     public static final DeferredItem<BlockItem> SIGN_ITEM=ITEMS.registerSimpleBlockItem("trail_sign",TRAIL_SIGN);
 
     public static final DeferredBlock<com.descentmtb.trail.TrailObstacleBlock> TRAIL_ROOTS=BLOCKS.registerBlock("trail_roots",p->new com.descentmtb.trail.TrailObstacleBlock(p,false),BlockBehaviour.Properties.of().strength(.3f).sound(SoundType.WOOD).noOcclusion());

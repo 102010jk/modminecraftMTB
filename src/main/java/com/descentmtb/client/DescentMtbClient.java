@@ -108,6 +108,7 @@ public final class DescentMtbClient {
     private void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(ModEntities.MOUNTAIN_BIKE.get(), MountainBikeRenderer::new);
         event.registerBlockEntityRenderer(com.descentmtb.registry.ModBlocks.SIGN_BE.get(),com.descentmtb.client.trail.TrailSignRenderer::new);
+        event.registerBlockEntityRenderer(com.descentmtb.registry.ModBlocks.POST_BE.get(),com.descentmtb.client.tape.BarrierPostRenderer::new);
     }
 
     private void registerLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {

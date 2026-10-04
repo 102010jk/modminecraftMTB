@@ -192,5 +192,17 @@
   "descentmtb.timer.ready": "PŘIPRAVEN",
   "descentmtb.timer.best": "Rekord %s",
   "descentmtb.timer.new_best": "NOVÝ REKORD!",
-  "descentmtb.config.steeringGripDemand": "Ostrost zatáčení (podíl gripu)"
+  "descentmtb.config.steeringGripDemand": "Ostrost zatáčení (podíl gripu)",
+  "item.descentmtb.cloth_barrier": "Páska na trať",
+  "block.descentmtb.barrier_post": "Kolík s páskou",
+  "descentmtb.tape.hint": "Pravý klik: kolík • druhý klik: napne mezi nimi pásku • Shift + vzduch: zrušit",
+  "descentmtb.tape.first": "Kolík 1/2 – klikni na druhé místo",
+  "descentmtb.tape.linked": "Kolík 2/2 – páska natažena (%s m)",
+  "descentmtb.tape.cancelled": "Páska zrušena",
+  "descentmtb.tape.too_far": "Příliš daleko (nejvýš %s bloků)",
+  "descentmtb.tape.same": "To je tentýž kolík",
+  "descentmtb.tape.full": "Tento kolík už drží dvě pásky",
+  "descentmtb.tape.exists": "Tyto kolíky už jsou spojené",
+  "descentmtb.tape.blocked": "Tady kolík nejde postavit",
+  "descentmtb.tape.need_more": "Na nový kolík potřebuješ aspoň dvě pásky"
 }

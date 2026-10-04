@@ -192,5 +192,17 @@
   "descentmtb.timer.ready": "READY",
   "descentmtb.timer.best": "PB %s",
   "descentmtb.timer.new_best": "NEW PB!",
-  "descentmtb.config.steeringGripDemand": "Steering sharpness (grip used)"
+  "descentmtb.config.steeringGripDemand": "Steering sharpness (grip used)",
+  "item.descentmtb.cloth_barrier": "Trail Tape",
+  "block.descentmtb.barrier_post": "Barrier Post",
+  "descentmtb.tape.hint": "Right-click: post • second click strings tape between them • Shift + air: cancel",
+  "descentmtb.tape.first": "Post 1/2 - click the second spot",
+  "descentmtb.tape.linked": "Post 2/2 - tape strung (%s m)",
+  "descentmtb.tape.cancelled": "Tape cancelled",
+  "descentmtb.tape.too_far": "Too far (at most %s blocks)",
+  "descentmtb.tape.same": "That is the same post",
+  "descentmtb.tape.full": "This post already holds two tapes",
+  "descentmtb.tape.exists": "These posts are already connected",
+  "descentmtb.tape.blocked": "A post cannot be placed here",
+  "descentmtb.tape.need_more": "You need at least two rolls for a new post"
 }

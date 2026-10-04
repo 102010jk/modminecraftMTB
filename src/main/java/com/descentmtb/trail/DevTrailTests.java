@@ -140,6 +140,7 @@ public final class DevTrailTests {
         TrailEdit.apply(l, p, support);
 
         DevSignTests.run(p, l, x, y, z);
+        com.descentmtb.tape.DevTapeTests.run(p, l, x, y, z);
 
         var bag = EquipmentPlans.plan(l, new Point(x + 5, y, z + 12), a, settings(WandMode.AIRBAG, 5, .75, 5, 6), Direction.SOUTH);
         TrailEdit.apply(l, p, bag);
