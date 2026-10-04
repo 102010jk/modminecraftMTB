@@ -832,6 +832,96 @@ def sign_outputs():
     return files
 
 
+# ================================================================== trail obstacle blocks
+
+def block_rock_side():
+    """Granite: mottled greys with warm and cool flecks, a couple of dark cracks."""
+    c = Canvas()
+    for y in range(16):
+        for x in range(16):
+            n = noise(x // 2, y // 2, 41) * .6 + noise(x, y, 42) * .4
+            i = 4 if n > .78 else 3 if n > .5 else 2 if n > .22 else 1
+            if y < 2:
+                i = min(5, i + 1)          # the upper edge catches the light
+            c.set(x, y, shade('stone', i), 'stone')
+            if noise(x, y, 43) > .93:
+                c.set(x, y, rgb('#a08a78'), 'stone')   # warm feldspar fleck
+    for x0, y0, x1, y1 in ((3, 3, 6, 8), (6, 8, 5, 12), (11, 1, 13, 6), (12, 9, 14, 13)):
+        line(c, (x0, y0), (x1, y1), shade('stone', 0), 'stone')
+    return c
+
+
+def block_rock_top():
+    """Top of the boulders: weathered granite with moss patches."""
+    c = block_rock_side()
+    for y in range(16):
+        for x in range(16):
+            m = noise(x // 3, y // 3, 44) * .7 + noise(x, y, 45) * .3
+            if m > .62:
+                c.set(x, y, shade('grass', 3 if noise(x, y, 46) > .5 else 2), 'grass')
+            elif m > .56:
+                c.set(x, y, shade('grass', 1), 'grass')
+    return c
+
+
+def block_support_side():
+    """Squared oak beam: vertical grain, darker edges, two iron bands with bolts."""
+    c = Canvas()
+    for y in range(16):
+        for x in range(16):
+            i = 4 if x < 3 else 3
+            if noise(x, y // 4, 51) > .7:
+                i -= 1
+            if x in (0, 15):
+                i = 1
+            c.set(x, y, shade('wood', i), 'wood')
+    for y0 in (2, 12):
+        for x in range(16):
+            c.set(x, y0, shade('steel', 4), 'steel')
+            c.set(x, y0 + 1, shade('steel', 2), 'steel')
+        for x in (3, 12):
+            c.set(x, y0, shade('steel', 5), 'steel')
+            c.set(x, y0 + 1, shade('steel', 1), 'steel')
+    return c
+
+
+def block_support_top():
+    """End grain of the beam: growth rings around an off-centre heart."""
+    c = Canvas()
+    for y in range(16):
+        for x in range(16):
+            d = math.hypot(x + .5 - 7, y + .5 - 9)
+            ring = int(d * 1.3) % 2
+            i = 4 if ring else 3
+            if x in (0, 15) or y in (0, 15):
+                i = 1
+            c.set(x, y, shade('wood', i), 'wood')
+    return c
+
+
+def block_root_bark():
+    """Root bark: twisted dark-brown fibres with lighter worn ridges."""
+    c = Canvas()
+    for y in range(16):
+        for x in range(16):
+            twist = (x + y * .35) % 4
+            i = 3 if twist < 1 else 2 if twist < 2.6 else 1
+            if noise(x // 2, y, 61) > .8:
+                i += 1
+            c.set(x, y, shade('wood', i), 'wood')
+    return c
+
+
+def block_outputs():
+    return {
+        'block/trail_rock.png': block_rock_side().image(),
+        'block/trail_rock_top.png': block_rock_top().image(),
+        'block/wood_support.png': block_support_side().image(),
+        'block/wood_support_top.png': block_support_top().image(),
+        'block/trail_roots.png': block_root_bark().image(),
+    }
+
+
 # ================================================================== write
 
 def outputs():
@@ -853,6 +943,7 @@ def outputs():
     for name, im in shape_icons().items():
         out[f'gui/shape/{name}.png'] = im
     out.update(sign_outputs())
+    out.update(block_outputs())
     return out
 
 
@@ -872,6 +963,8 @@ def main():
     files = outputs()
     if '--only-sign' in sys.argv:
         files = sign_outputs()
+    if '--only-blocks' in sys.argv:
+        files = block_outputs()
     for rel, im in files.items():
         path = os.path.join(root, rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)

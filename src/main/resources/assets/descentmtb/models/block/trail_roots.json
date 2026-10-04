@@ -1,7 +1,7 @@
 {
   "textures": {
-    "all": "minecraft:block/oak_log",
-    "particle": "minecraft:block/oak_log"
+    "all": "descentmtb:block/trail_roots",
+    "particle": "descentmtb:block/trail_roots"
   },
   "elements": [
     {
