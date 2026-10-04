@@ -104,7 +104,6 @@ public final class ColumnEditor {
                 break;
             }
         }
-        if(column.deck())DeckSupports.add(level,new Column(column.x(),column.z(),newAbs,column.material(),true,column.decoration()),changes);
         return changes;
     }
 

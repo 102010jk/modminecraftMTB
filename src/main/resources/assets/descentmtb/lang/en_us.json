@@ -204,5 +204,6 @@
   "descentmtb.tape.full": "This post already holds two tapes",
   "descentmtb.tape.exists": "These posts are already connected",
   "descentmtb.tape.blocked": "A post cannot be placed here",
-  "descentmtb.tape.need_more": "You need at least two rolls for a new post"
+  "descentmtb.tape.need_more": "You need at least two rolls for a new post",
+  "descentmtb.shaping.hint.deck": "Wood: hold planks in the off-hand when placing (right-click a deck with planks to change it) • no supports, add Wooden supports yourself"
 }

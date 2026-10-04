@@ -319,18 +319,36 @@ final class DevSculptTests {
         shape(p, ShapeMode.AUTO, x + 24, y, bz, .9, .9, true);
         check(((TrailSurfaceEntity) l.getBlockEntity(sloped)).overlay() == 1, "shaping preserves roots");
 
-        // a deck placed against an elevated anchor gets real posts down to the field
+        // a deck placed against an elevated anchor stands on its own: no posts are built, the wood is the off-hand planks
         var anchor = new BlockPos(x + 30, y + 3, bz);
         l.setBlock(anchor, Blocks.STONE.defaultBlockState(), 3);
         ItemStack deck = new ItemStack(ModBlocks.TRAIL_DECK.get());
         p.setItemInHand(InteractionHand.MAIN_HAND, deck);
+        p.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Blocks.SPRUCE_PLANKS));
         deck.getItem().useOn(new UseOnContext(p, InteractionHand.MAIN_HAND,
                 new BlockHitResult(Vec3.atCenterOf(anchor).add(.5, 0, 0), Direction.EAST, anchor, false)));
         var deckPos = anchor.east();
         check(l.getBlockEntity(deckPos) instanceof TrailSurfaceEntity, "elevated deck is placed");
         assertCorners(l, deckPos.getX(), deckPos.getY(), deckPos.getZ(), 1, 1, 1, 1);
-        check(l.getBlockState(deckPos.below()).is(ModBlocks.WOOD_SUPPORT.get()), "automatic post sits under elevated deck");
-        check(l.getBlockState(new BlockPos(deckPos.getX(), y, deckPos.getZ())).is(ModBlocks.WOOD_SUPPORT.get()), "automatic post reaches the ground");
+        check(((TrailSurfaceEntity) l.getBlockEntity(deckPos)).getMaterial().is(Blocks.SPRUCE_PLANKS), "the deck takes the wood of the off-hand planks");
+        check(l.getBlockState(deckPos.below()).isAir() && l.getBlockState(new BlockPos(deckPos.getX(), y, deckPos.getZ())).isAir(),
+                "no automatic posts under the deck");
+
+        // shaping the deck builds no posts either, and a ramp made from it keeps the spruce
+        p.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+        shape(p, ShapeMode.WHOLE, deckPos.getX(), deckPos.getY(), deckPos.getZ(), .5, .5, true);
+        check(l.getBlockState(deckPos.below()).isAir(), "shaping a deck does not add posts");
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModBlocks.TRAIL_SHOVEL.get()));
+        ShapeToolItem.mode(p.getMainHandItem(), ShapeMode.RAMP_MAKE);
+        ShapeToolItem.shape(p, deckPos, Vec3.atCenterOf(deckPos), Direction.EAST, false);
+        check(l.getBlockEntity(deckPos) instanceof com.descentmtb.ramp.RampBlockEntity ramp && ramp.getMaterial().is(Blocks.SPRUCE_PLANKS),
+                "Make ramp keeps the wood of a deck");
+        // an unrelated plank block works too, and a plain oak default needs no off-hand
+        var planksPos = deckPos.south();
+        l.setBlock(planksPos, Blocks.BIRCH_PLANKS.defaultBlockState(), 3);
+        ShapeToolItem.shape(p, planksPos, Vec3.atCenterOf(planksPos), Direction.EAST, false);
+        check(l.getBlockEntity(planksPos) instanceof com.descentmtb.ramp.RampBlockEntity ramp && ramp.getMaterial().is(Blocks.BIRCH_PLANKS),
+                "Make ramp keeps the wood of a planks block");
     }
 
     private DevSculptTests() {}

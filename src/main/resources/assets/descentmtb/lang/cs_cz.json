@@ -204,5 +204,6 @@
   "descentmtb.tape.full": "Tento kolík už drží dvě pásky",
   "descentmtb.tape.exists": "Tyto kolíky už jsou spojené",
   "descentmtb.tape.blocked": "Tady kolík nejde postavit",
-  "descentmtb.tape.need_more": "Na nový kolík potřebuješ aspoň dvě pásky"
+  "descentmtb.tape.need_more": "Na nový kolík potřebuješ aspoň dvě pásky",
+  "descentmtb.shaping.hint.deck": "Dřevo: při pokládání drž prkna ve druhé ruce (pravý klik prknem na desku ho změní) • bez podpěr, Dřevěné podpěry si přidej sám"
 }
