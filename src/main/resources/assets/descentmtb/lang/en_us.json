@@ -139,5 +139,19 @@
   "descentmtb.copy.too_big": "Selection too large (at most %s × %s × %s)",
   "descentmtb.copy.unsupported": "Chests and other blocks with data cannot be copied",
   "descentmtb.copy.not_loaded": "The selection is not loaded",
-  "descentmtb.copy.empty": "Nothing copied yet"
+  "descentmtb.copy.empty": "Nothing copied yet",
+  "descentmtb.shape.mode.berm_build": "Build berm",
+  "descentmtb.shape.desc.berm_build": "Click entry, apex and exit: the berm is built through them",
+  "descentmtb.shape.hud.hint.berm_build": "[%s] menu • click: point • Shift + click: clear • Shift + wheel: steepness • Ctrl + Shift + wheel: width",
+  "descentmtb.berm.hud": "Bank: %s (%s°) • Width %s m • Points %s/%s",
+  "descentmtb.berm.steepness.gentle": "Gentle",
+  "descentmtb.berm.steepness.medium": "Medium",
+  "descentmtb.berm.steepness.steep": "Steep",
+  "descentmtb.berm.steepness.wallride": "Wallride",
+  "descentmtb.berm.point": "Point %s/%s",
+  "descentmtb.berm.cleared": "Points cleared",
+  "descentmtb.berm.built": "Berm built (%s blocks)",
+  "descentmtb.berm.straight": "The three points are almost in a line - put the apex to the side",
+  "descentmtb.berm.too_close": "The points are too close together",
+  "descentmtb.berm.too_long": "The berm is too long (at most %s m)"
 }

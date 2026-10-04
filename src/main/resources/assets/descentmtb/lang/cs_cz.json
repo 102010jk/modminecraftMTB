@@ -139,5 +139,19 @@
   "descentmtb.copy.too_big": "Výběr je příliš velký (nejvýš %s × %s × %s)",
   "descentmtb.copy.unsupported": "Truhly a jiné bloky s daty se kopírovat nedají",
   "descentmtb.copy.not_loaded": "Výběr není načtený",
-  "descentmtb.copy.empty": "Zatím nic není zkopírováno"
+  "descentmtb.copy.empty": "Zatím nic není zkopírováno",
+  "descentmtb.shape.mode.berm_build": "Postavit klopenku",
+  "descentmtb.shape.desc.berm_build": "Klikni na vjezd, vrchol a výjezd: klopenka se postaví skrz ně",
+  "descentmtb.shape.hud.hint.berm_build": "[%s] menu • klik: bod • Shift + klik: smazat • Shift + kolečko: sklon • Ctrl + Shift + kolečko: šířka",
+  "descentmtb.berm.hud": "Sklon: %s (%s°) • Šířka %s m • Body %s/%s",
+  "descentmtb.berm.steepness.gentle": "Mírná",
+  "descentmtb.berm.steepness.medium": "Střední",
+  "descentmtb.berm.steepness.steep": "Strmá",
+  "descentmtb.berm.steepness.wallride": "Wallride",
+  "descentmtb.berm.point": "Bod %s/%s",
+  "descentmtb.berm.cleared": "Body smazány",
+  "descentmtb.berm.built": "Klopenka postavena (%s bloků)",
+  "descentmtb.berm.straight": "Tři body jsou skoro v řadě - dej vrchol stranou",
+  "descentmtb.berm.too_close": "Body jsou příliš blízko u sebe",
+  "descentmtb.berm.too_long": "Klopenka je příliš dlouhá (nejvýš %s m)"
 }
