@@ -62,6 +62,12 @@ public final class BikeParams {
     /** Rear brake + full lock multiplies the cornering demand by this (a controlled drift). */
     public double driftDemandBoost = 1.25;
     public double steerResponse = 0.09;       // s, stick → bar smoothing
+    /** Visible lean = this × the physical lean angle atan(a/g); 1 = fully realistic. */
+    public double leanFactor = 0.75;
+    /** Visible lean limit on the ground (rad). */
+    public double leanMax = 0.85;
+    /** Lean forward + hard steering: rear tyre grip is multiplied by this (the rear steps out = drift). */
+    public double driftRearGrip = 0.55;
     public double minSteerAngle = 0.03;
 
     // ---------------- rider (pop / pump / hop) ----------------
@@ -81,7 +87,7 @@ public final class BikeParams {
     // ---------------- air ----------------
     public double flipRate = 6.4;             // rad/s at full stick and full pop (backflip ≈ 1.15 s)
     public double spinRate = 6.6;             // rad/s at full pop (360 ≈ 1.1 s)
-    public double airControlResponse = 0.18;  // s
+    public double airControlResponse = 0.09;  // s
     /** Rotation authority with no pop at all (a lazy roll-off can only twitch). */
     public double airBudgetBase = 0.32;
     /** Rotation authority ramps in over this long after take-off. */

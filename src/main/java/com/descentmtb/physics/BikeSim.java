@@ -74,6 +74,8 @@ public final class BikeSim {
 
     // ---------------- air / landing ----------------
     public boolean airborne;
+    /** Rear deliberately stepping out (lean forward + hard steer). */
+    public boolean leanDrift;
     public double airTime;
     private double landAssistTimer;
     /** Accumulated rotation in the current air session (rad) - for trick scoring. */
@@ -183,6 +185,11 @@ public final class BikeSim {
         double demand = p.steerGripDemand * g * Math.max(avgGrip, 0.1);
         // rear brake + full lock asks for more than the tyres give: a deliberate, controlled slide
         if (c.brake > 0.5 && Math.abs(c.steer) > 0.8) {
+            demand *= p.driftDemandBoost;
+        }
+        // Weight forward + hard steering unloads the rear: it steps out into a drift that the bars can hold.
+        leanDrift = c.lean > 0.5 && Math.abs(c.steer) > 0.6 && Math.abs(vFwd) > 3;
+        if (leanDrift) {
             demand *= p.driftDemandBoost;
         }
         double v2 = Math.max(vFwd * vFwd, 0.25);
@@ -542,6 +549,9 @@ public final class BikeSim {
         double ks = invMass(P, w.tL);
         double fLong = Math.abs(w.accL) / h + (w == rear ? rear.driveForce : 0);
         double muEff = w.sliding ? mu * p.slideFriction : mu;
+        if (leanDrift && w == rear) {
+            muEff *= p.driftRearGrip;
+        }
         double budget = Math.sqrt(Math.max(0, sq(muEff * nLoad) - sq(fLong)));
         double limS = budget * h;
         double js = -vs / ks * p.lateralStiffness;
@@ -734,7 +744,7 @@ public final class BikeSim {
         } else {
             bT = b;                                     // mid-flip: keep rotating
         }
-        double aT = Math.abs(c.steer) > 0.15 ? -c.steer * p.spinRate * authority : a * Math.exp(-h / 0.35);
+        double aT = Math.abs(c.steer) > 0.15 ? -c.steer * p.spinRate * authority : a * Math.exp(-h / 0.18);
 
         double na = a + (aT - a) * k;
         double nb = b + (bT - b) * k;
@@ -942,11 +952,9 @@ public final class BikeSim {
             return;
         } else if (!airborne) {
             double latAcc = -omega.dot(V3.Y) * vel.horizontalLength();
-            V3 normal = rear.contact ? rear.normal : front.normal;
-            double bank = Math.atan2(normal.dot(right), normal.y);
-            leanT = clamp(Math.atan2(latAcc, p.gravity) + bank, -1.25, 1.25);
+            leanT = clamp(Math.atan2(latAcc, p.gravity) * p.leanFactor, -p.leanMax, p.leanMax);
         } else {
-            leanT = wallRide ? -wallSide * 1.38 : c.tweak * 1.2;
+            leanT = wallRide ? -wallSide * 1.38 : c.tweak * 1.05;
         }
         lean += (leanT - lean) * (1 - Math.exp(-h / 0.09));
     }

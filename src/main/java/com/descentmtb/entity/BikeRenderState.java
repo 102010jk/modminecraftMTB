@@ -15,6 +15,8 @@ public final class BikeRenderState {
     public V3 com = V3.ZERO, riderPos = V3.ZERO, vel = V3.ZERO;
     /** Unwrapped yaw (rad) - safe to interpolate. */
     public double yaw, pitch, lean, steer;
+    /** Roll of the rider's body: the bike's lean on the ground, much less of it in the air (table / tweak). */
+    public double riderLean;
     public double compF, compR, spinF, spinR, crank;
     public double riderUp, riderFwd;
     public double brake;
@@ -31,6 +33,7 @@ public final class BikeRenderState {
         yaw = o.yaw;
         pitch = o.pitch;
         lean = o.lean;
+        riderLean = o.riderLean;
         steer = o.steer;
         compF = o.compF;
         compR = o.compR;
@@ -72,6 +75,13 @@ public final class BikeRenderState {
         trickAmount = s.tricks.amount;
         trickProgress = s.tricks.progress;
         trickSide = s.tricks.side;
+        riderLean = followRider(prev, lean, airborne);
+    }
+
+    /** In the air the rider counter-leans: the bike lays over under them, the body stays nearly upright. */
+    private static double followRider(BikeRenderState prev, double lean, boolean airborne) {
+        double target = airborne ? lean * 0.3 : lean;
+        return prev == null ? target : prev.riderLean + (target - prev.riderLean) * 0.45;
     }
 
     void fromSynced(MountainBikeEntity e, BikeRenderState prev) {
@@ -118,6 +128,7 @@ public final class BikeRenderState {
         V3 fwd = fH.mul(cp).addScaled(V3.Y, sp);
         V3 up = fH.mul(-sp).addScaled(V3.Y, cp);
         riderPos = com.addScaled(up, p.riderHeight + riderUp).addScaled(fwd, p.riderForward + riderFwd);
+        riderLean = followRider(prev, lean, airborne);
     }
 
     /** Rider's feet: on the pedals (bottom-bracket height), fixed to the frame. */

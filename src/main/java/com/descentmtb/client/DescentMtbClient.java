@@ -93,7 +93,7 @@ public final class DescentMtbClient {
                 pose.pushPose();
                 pose.mulPose(Axis.YP.rotation((float) (Math.PI - yaw)));
                 pose.mulPose(Axis.XP.rotation((float) BikeRenderState.lerp(t, a.pitch, b.pitch)));
-                pose.mulPose(Axis.ZP.rotation((float) -BikeRenderState.lerp(t, a.lean, b.lean)));
+                pose.mulPose(Axis.ZP.rotation((float) -BikeRenderState.lerp(t, a.riderLean, b.riderLean)));
                 pose.mulPose(Axis.YP.rotation((float) -(Math.PI - yaw)));
             }
         });

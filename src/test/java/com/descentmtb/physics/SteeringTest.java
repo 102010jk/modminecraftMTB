@@ -79,4 +79,35 @@ class SteeringTest {
         Turn dirt = turn(Terrain.Surface.DIRT, 9, 2, keyboardRamp(.22), 0);
         assertTrue(ice.latG < .3 && ice.latG < dirt.latG * .4, "ice " + ice.latG + " g vs dirt " + dirt.latG + " g");
     }
+
+    @Test void leaningForwardWhileSteeringDriftsTheRear() {
+        BikeSim sim = new BikeSim(new BikeParams(), TestTerrains.flat(64, Terrain.Surface.DIRT));
+        sim.place(0, 64, 0, 0);
+        sim.vel = sim.forward().mul(9);
+        sim.riderVel = sim.vel;
+        int rear = 0, n = 40;
+        for (int i = 0; i < n && !sim.bailed; i++) {
+            sim.tick(new Controls(1, 1, 0, 0, 0, 0, false, 0, 0), DT);
+            sim.events.clear();
+            if (sim.rear.sliding) rear++;
+        }
+        System.out.printf(Locale.ROOT, "[steer] lean-forward drift: rear sliding %.0f%%, bail=%s%n", rear * 100.0 / n, sim.bailed);
+        assertFalse(sim.bailed, sim.bailReason);
+        assertTrue(rear >= n * .3, "lean forward + full lock should slide the rear (" + rear + "/" + n + ")");
+    }
+
+    @Test void visibleLeanStaysModest() {
+        BikeSim sim = new BikeSim(new BikeParams(), TestTerrains.flat(64, Terrain.Surface.DIRT));
+        sim.place(0, 64, 0, 0);
+        sim.vel = sim.forward().mul(10);
+        sim.riderVel = sim.vel;
+        double max = 0;
+        for (int i = 0; i < 60 && !sim.bailed; i++) {
+            sim.tick(new Controls(1, 0, 0, 0, 0, 0, false, 0, 0), DT);
+            sim.events.clear();
+            max = Math.max(max, Math.abs(sim.lean));
+        }
+        System.out.printf(Locale.ROOT, "[steer] full-lock visible lean max %.0f°%n", Math.toDegrees(max));
+        assertTrue(max <= new BikeParams().leanMax + 1e-9, "lean " + Math.toDegrees(max));
+    }
 }

@@ -22,7 +22,7 @@ public final class ModKeyMappings {
     public static final KeyMapping TRAIL_UNDO = key("trail_undo", GLFW.GLFW_KEY_Z);
     public static final KeyMapping ACCELERATE = key("accelerate", GLFW.GLFW_KEY_Z);
     public static final KeyMapping BRAKE = key("brake", GLFW.GLFW_KEY_SPACE);
-    public static final KeyMapping TWEAK = key("tweak", GLFW.GLFW_KEY_LEFT_ALT);
+    public static final KeyMapping TWEAK = key("tweak", GLFW.GLFW_KEY_SPACE);
     public static final KeyMapping STEER_LEFT = key("steer_left", GLFW.GLFW_KEY_LEFT);
     public static final KeyMapping STEER_RIGHT = key("steer_right", GLFW.GLFW_KEY_RIGHT);
     public static final KeyMapping LEAN_FORWARD = key("lean_forward", GLFW.GLFW_KEY_UP);

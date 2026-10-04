@@ -60,7 +60,7 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
         pose.mulPose(Axis.XP.rotation((float) BikeRenderState.lerp(t, a.pitch, b.pitch)));
         pose.mulPose(Axis.ZP.rotation((float) -BikeRenderState.lerp(t, a.lean, b.lean)));
         if (b.trick == Trick.TABLETOP) {
-            pose.mulPose(Axis.ZP.rotation((float) (b.trickSide * 0.9
+            pose.mulPose(Axis.ZP.rotation((float) (b.trickSide * 0.45
                     * TrickAnimation.ease(BikeRenderState.lerp(t, a.trickAmount, b.trickAmount)))));
         }
         // COM → model origin (ground point between the axles at full extension)

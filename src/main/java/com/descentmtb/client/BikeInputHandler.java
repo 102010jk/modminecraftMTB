@@ -28,7 +28,7 @@ import java.nio.FloatBuffer;
  *  Bend (attack/pump)  Right stick down      S
  *  Stretch (counter)   Right stick up        D
  *  Bunny hop           R down → R up         X (hold, release)
- *  Tweak (in air)      Right stick ← →       Left Alt + ← →
+ *  Tweak / table (air) Right stick ← →       Space (+ ← → picks the side)
  *  Tricks              LB + right stick      C + arrows
  *  Respawn             B                     R
  *  Respawn at start    Back / View           Backspace
@@ -51,6 +51,7 @@ public final class BikeInputHandler {
 
     private static boolean prevRespawn, prevRespawnStart, prevCamera, prevResetCamera;
     private static boolean prevHopKey;
+    private static float tableSide = 1;
     private static int hopStretchTicks;
 
     public static Frame poll() {
@@ -58,7 +59,10 @@ public final class BikeInputHandler {
 
         // ---------------- keyboard ----------------
         boolean trickKey = down(win, ModKeyMappings.TRICK);
-        boolean tweakKey = down(win, ModKeyMappings.TWEAK);
+        var ridden = BikeClientController.riding();
+        boolean inAir = ridden != null && ridden.sim() != null && ridden.sim().airborne;
+        // Space is the brake on the ground and the tweak (table) in the air, as in Descenders
+        boolean tweakKey = inAir && down(win, ModKeyMappings.TWEAK);
         float arrowX = (down(win, ModKeyMappings.STEER_RIGHT) ? 1 : 0) - (down(win, ModKeyMappings.STEER_LEFT) ? 1 : 0);
         float arrowY = (down(win, ModKeyMappings.LEAN_FORWARD) ? 1 : 0) - (down(win, ModKeyMappings.LEAN_BACK) ? 1 : 0);
         float kSteer = 0, kLean = 0, kTweak = 0, kTrickX = 0, kTrickY = 0;
@@ -66,7 +70,10 @@ public final class BikeInputHandler {
             kTrickX = arrowX;
             kTrickY = arrowY;
         } else if (tweakKey) {
-            kTweak = arrowX;
+            if (arrowX != 0) {
+                tableSide = arrowX;
+            }
+            kTweak = tableSide;          // Space alone = table to the last chosen side
             kLean = arrowY;
         } else {
             kSteer = arrowX;
@@ -74,7 +81,7 @@ public final class BikeInputHandler {
         }
         kSteer = rampKeyboardSteer(kSteer);
         float kPedal = down(win, ModKeyMappings.ACCELERATE) ? 1 : 0;
-        float kBrake = down(win, ModKeyMappings.BRAKE) ? 1 : 0;
+        float kBrake = !tweakKey && down(win, ModKeyMappings.BRAKE) ? 1 : 0;
         float kBody = (down(win, ModKeyMappings.STRETCH) ? 1 : 0) - (down(win, ModKeyMappings.BEND) ? 1 : 0);
         // X = bunny-hop macro: hold to bend, release to spring up
         boolean hopKey = down(win, ModKeyMappings.BUNNY_HOP);
