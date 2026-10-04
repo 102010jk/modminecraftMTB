@@ -20,6 +20,8 @@ public final class BikeClientController {
     private static MountainBikeEntity riding;
     private static final ArrayDeque<SafePoint> safe = new ArrayDeque<>();
     private static SafePoint start;
+    /** Start point set by riding through a trail START sign; wins over the automatic one until cleared. */
+    private static SafePoint signStart;
     private static int safeTimer, bailTicks, idleTicks;
     private static String airLabel = "";
 
@@ -172,7 +174,8 @@ public final class BikeClientController {
     private static void respawn(MountainBikeEntity bike, boolean atStart) {
         SafePoint p = null;
         if (atStart) {
-            p = start;
+            p = signStart != null ? signStart : start;
+            com.descentmtb.client.trail.TrailTimer.onRespawnAtStart(signStart != null);
         } else {
             // a few seconds back so you do not re-crash immediately
             int back = Math.min(safe.size(), 6);
@@ -185,6 +188,15 @@ public final class BikeClientController {
         bailTicks = 0;
         BikeCamera.snapBehind();
         show(atStart ? "Back to the start" : "Respawned", 0xAAAAAA, 25);
+    }
+
+    /** Makes "respawn at start" (Backspace) return to this point; called by the trail timer at a START sign. */
+    public static void setStartPoint(double x, double y, double z, double yaw) {
+        signStart = new SafePoint(x, y, z, yaw);
+    }
+
+    public static void clearStartPoint() {
+        signStart = null;
     }
 
     public static void toast(String text) {

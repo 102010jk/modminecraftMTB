@@ -1,17 +1,101 @@
 package com.descentmtb.trail;
+
 import com.descentmtb.registry.ModBlocks;
-import net.minecraft.core.*;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.*;
-import net.minecraft.network.protocol.game.*;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+
+/**
+ * The data of one trail sign: its {@link SignContent}, saved as NBT and synchronised to every viewer.
+ * On the client, loaded signs also register themselves in {@link TrailSignRegistry} so the trail timer can
+ * find START and FINISH signs near the rider.
+ */
 public final class TrailSignEntity extends BlockEntity {
- private byte[] pixels=new byte[256];public byte[] pixels(){return pixels.clone();}
- public TrailSignEntity(BlockPos p,BlockState s){super(ModBlocks.SIGN_BE.get(),p,s);}
- public void setPixels(byte[] p){if(p.length!=256)throw new IllegalArgumentException("canvas size");pixels=p.clone();for(int i=0;i<256;i++)pixels[i]&=15;setChanged();if(level!=null)level.sendBlockUpdated(worldPosition,getBlockState(),getBlockState(),3);}
- @Override protected void saveAdditional(CompoundTag t,HolderLookup.Provider r){super.saveAdditional(t,r);t.putByteArray("Pixels",pixels);}
- @Override protected void loadAdditional(CompoundTag t,HolderLookup.Provider r){super.loadAdditional(t,r);byte[] p=t.getByteArray("Pixels");if(p.length==256){pixels=p;for(int i=0;i<256;i++)pixels[i]&=15;}}
- @Override public CompoundTag getUpdateTag(HolderLookup.Provider r){return saveWithoutMetadata(r);}
- @Override public Packet<ClientGamePacketListener> getUpdatePacket(){return ClientboundBlockEntityDataPacket.create(this);}
+    private static final String TYPE = "Type";
+    private static final String NAME = "Name";
+    private static final String DIFFICULTY = "Difficulty";
+    private static final String ARROW = "Arrow";
+    private static final String WARNING = "Warning";
+    private static final String TEXT = "Text";
+    private static final String PIXELS = "Pixels";
+
+    private SignContent content = SignContent.blank();
+
+    public TrailSignEntity(BlockPos pos, BlockState state) {
+        super(ModBlocks.SIGN_BE.get(), pos, state);
+    }
+
+    public SignContent content() {
+        return content;
+    }
+
+    /** Replaces the content and tells every viewer. */
+    public void setContent(SignContent newContent) {
+        content = newContent;
+        setChanged();
+        if (level != null) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+        }
+    }
+
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        if (level != null && level.isClientSide) {
+            TrailSignRegistry.add(this);
+        }
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        TrailSignRegistry.remove(this);
+    }
+
+    @Override
+    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        super.saveAdditional(tag, registries);
+        tag.putString(TYPE, content.type().name());
+        tag.putString(NAME, content.name());
+        tag.putString(DIFFICULTY, content.difficulty().name());
+        tag.putString(ARROW, content.arrow().name());
+        tag.putString(WARNING, content.warning().name());
+        tag.putString(TEXT, content.text());
+        tag.putByteArray(PIXELS, content.pixels());
+    }
+
+    @Override
+    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        super.loadAdditional(tag, registries);
+        byte[] pixels = tag.getByteArray(PIXELS);
+        if (!tag.contains(TYPE, Tag.TAG_STRING)) {
+            // saved before sign types existed: it was only pixel art
+            content = pixels.length == SignContent.PIXELS ? SignContent.legacy(pixels) : SignContent.blank();
+            return;
+        }
+        content = new SignContent(
+                SignContent.parse(SignContent.Type.class, tag.getString(TYPE), SignContent.Type.TRAIL),
+                tag.getString(NAME),
+                SignContent.parse(SignContent.Difficulty.class, tag.getString(DIFFICULTY), SignContent.Difficulty.BLUE),
+                SignContent.parse(SignContent.Arrow.class, tag.getString(ARROW), SignContent.Arrow.NONE),
+                SignContent.parse(SignContent.Warning.class, tag.getString(WARNING), SignContent.Warning.CAUTION),
+                tag.getString(TEXT),
+                pixels);
+    }
+
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return saveWithoutMetadata(registries);
+    }
+
+    @Override
+    public Packet<ClientGamePacketListener> getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
+    }
 }

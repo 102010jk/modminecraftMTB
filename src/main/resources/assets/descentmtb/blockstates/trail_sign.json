@@ -1,19 +1,35 @@
 {
   "variants": {
-    "facing=north": {
+    "facing=north,wall=false": {
       "model": "descentmtb:block/trail_sign",
       "y": 0
     },
-    "facing=east": {
+    "facing=north,wall=true": {
+      "model": "descentmtb:block/trail_sign_wall",
+      "y": 0
+    },
+    "facing=east,wall=false": {
       "model": "descentmtb:block/trail_sign",
       "y": 90
     },
-    "facing=south": {
+    "facing=east,wall=true": {
+      "model": "descentmtb:block/trail_sign_wall",
+      "y": 90
+    },
+    "facing=south,wall=false": {
       "model": "descentmtb:block/trail_sign",
       "y": 180
     },
-    "facing=west": {
+    "facing=south,wall=true": {
+      "model": "descentmtb:block/trail_sign_wall",
+      "y": 180
+    },
+    "facing=west,wall=false": {
       "model": "descentmtb:block/trail_sign",
+      "y": 270
+    },
+    "facing=west,wall=true": {
+      "model": "descentmtb:block/trail_sign_wall",
       "y": 270
     }
   }

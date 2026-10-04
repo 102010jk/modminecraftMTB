@@ -49,6 +49,7 @@ public final class DescentMtbClient {
         modBus.addListener(this::registerGuiLayers);
 
         com.descentmtb.client.trail.TrailClient.setup();
+        com.descentmtb.client.trail.SignClient.setup(modBus);
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e)->com.descentmtb.client.trail.TrailClient.tick());
         NeoForge.EVENT_BUS.addListener(com.descentmtb.client.trail.ShapingHighlight::render);
         MountainBikeEntity.clientTicker = BikeClientController::tick;

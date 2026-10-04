@@ -14,7 +14,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -140,16 +139,7 @@ public final class DevTrailTests {
         check(!support.isEmpty(), "support starts below a partial wooden deck");
         TrailEdit.apply(l, p, support);
 
-        BlockPos signPos = new BlockPos(x + 4, y, z + 5);
-        l.setBlock(signPos, ModBlocks.TRAIL_SIGN.get().defaultBlockState(), 3);
-        var sign = (TrailSignEntity) l.getBlockEntity(signPos);
-        var canvas = new SignArt(new byte[256]);
-        canvas.template(0);
-        sign.setPixels(canvas.pixels());
-        var tag = sign.saveWithoutMetadata(l.registryAccess());
-        var second = new TrailSignEntity(signPos, sign.getBlockState());
-        second.loadWithComponents(tag, l.registryAccess());
-        check(Arrays.equals(sign.pixels(), second.pixels()), "16x16 sign artwork survives block entity serialization");
+        DevSignTests.run(p, l, x, y, z);
 
         var bag = EquipmentPlans.plan(l, new Point(x + 5, y, z + 12), a, settings(WandMode.AIRBAG, 5, .75, 5, 6), Direction.SOUTH);
         TrailEdit.apply(l, p, bag);

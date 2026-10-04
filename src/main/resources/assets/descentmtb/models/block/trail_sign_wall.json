@@ -2,26 +2,22 @@
   "textures": {
     "board": "descentmtb:block/trail_sign",
     "frame": "descentmtb:block/trail_sign_post",
-    "post": "descentmtb:block/trail_sign_post",
     "particle": "descentmtb:block/trail_sign"
   },
   "elements": [
     {
       "from": [
         1,
-        6,
-        7
+        3,
+        14
       ],
       "to": [
         15,
-        16,
-        9
+        13,
+        16
       ],
       "faces": {
         "north": {
-          "texture": "#board"
-        },
-        "south": {
           "texture": "#board"
         }
       }
@@ -29,13 +25,13 @@
     {
       "from": [
         1,
-        15,
-        6.5
+        12,
+        13.5
       ],
       "to": [
         15,
-        16,
-        9
+        13,
+        16
       ],
       "faces": {
         "north": {
@@ -58,13 +54,13 @@
     {
       "from": [
         1,
-        6,
-        6.5
+        3,
+        13.5
       ],
       "to": [
         15,
-        7,
-        9
+        4,
+        16
       ],
       "faces": {
         "north": {
@@ -87,13 +83,13 @@
     {
       "from": [
         1,
-        7,
-        6.5
+        4,
+        13.5
       ],
       "to": [
         2,
-        15,
-        9
+        12,
+        16
       ],
       "faces": {
         "north": {
@@ -110,13 +106,13 @@
     {
       "from": [
         14,
-        7,
-        6.5
+        4,
+        13.5
       ],
       "to": [
         15,
-        15,
-        9
+        12,
+        16
       ],
       "faces": {
         "north": {
@@ -127,35 +123,6 @@
         },
         "west": {
           "texture": "#frame"
-        }
-      }
-    },
-    {
-      "from": [
-        7,
-        0,
-        9
-      ],
-      "to": [
-        9,
-        16,
-        11
-      ],
-      "faces": {
-        "south": {
-          "texture": "#post"
-        },
-        "east": {
-          "texture": "#post"
-        },
-        "west": {
-          "texture": "#post"
-        },
-        "up": {
-          "texture": "#post"
-        },
-        "down": {
-          "texture": "#post"
         }
       }
     }
