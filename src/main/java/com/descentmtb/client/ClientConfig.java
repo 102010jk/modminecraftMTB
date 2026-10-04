@@ -48,7 +48,7 @@ public final class ClientConfig {
         FLIP_RATE = number(b, "flipRate", "Flip speed multiplier.", 1, .5, 1.6);
         SPIN_RATE = number(b, "spinRate", "Spin speed multiplier.", 1, .5, 1.6);
         PRESSURE_EFFECT = number(b, "pressureEffect", "How strongly tyre pressure affects rolling resistance and grip.", 1, 0, 2);
-        STEERING_GRIP = number(b, "steeringGrip", "How much of the tyre grip full steering asks for (0.88 = planted, above 1 the bike drifts by itself).", 0.88, 0.6, 1.2);
+        STEERING_GRIP = number(b, "steeringGripDemand", "How much of the cornering grip full steering asks for (0.78 = planted; above ~0.95 the rear starts sliding by itself).", 0.78, 0.5, 1.1);
         KEYBOARD_STEER_RAMP = number(b, "keyboardSteerRamp", "Optional keyboard steering ramp in seconds. Default 0 reacts immediately.", 0, 0, 0.5);
         WALL_RIDES = b.translation("descentmtb.config.wallRides").define("wallRides", true);
         WALL_RIDE_SPEED = number(b, "wallRideMinSpeedKmh", "Minimum speed along the wall needed to start a wallride after a jump.", 28.8, 18, 60);

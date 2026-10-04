@@ -182,7 +182,7 @@ public final class BikeSim {
 
         // ---------- steering: angle limit shrinks with speed (grip-limited carve) ----------
         double avgGrip = 0.5 * (front.grip + rear.grip);
-        double demand = p.steerGripDemand * g * Math.max(avgGrip, 0.1);
+        double demand = p.steerGripDemand * p.corneringGrip * g * Math.max(avgGrip, 0.1);
         // rear brake + full lock asks for more than the tyres give: a deliberate, controlled slide
         if (c.brake > 0.5 && Math.abs(c.steer) > 0.8) {
             demand *= p.driftDemandBoost;
@@ -552,7 +552,7 @@ public final class BikeSim {
         if (leanDrift && w == rear) {
             muEff *= p.driftRearGrip;
         }
-        double budget = Math.sqrt(Math.max(0, sq(muEff * nLoad) - sq(fLong)));
+        double budget = Math.sqrt(Math.max(0, sq(muEff * p.corneringGrip * nLoad) - sq(fLong)));
         double limS = budget * h;
         double js = -vs / ks * p.lateralStiffness;
         double oldS = w.accS;
@@ -744,9 +744,22 @@ public final class BikeSim {
         } else {
             bT = b;                                     // mid-flip: keep rotating
         }
-        double aT = Math.abs(c.steer) > 0.15 ? -c.steer * p.spinRate * authority : a * Math.exp(-h / 0.18);
-
-        double na = a + (aT - a) * k;
+        double na;
+        if (Math.abs(c.steer) > 0.15) {
+            double aT = -c.steer * p.spinRate * authority;
+            na = a + (aT - a) * k;
+        } else {
+            // no spin input: stop turning, and ease the nose toward the direction of flight (yaw error < 60°)
+            na = a * Math.exp(-h / p.airSpinDamping);
+            double hs = vel.horizontalLength();
+            if (hs > 2) {
+                double err = wrap(Math.atan2(-vel.x, vel.z) - yaw);
+                if (Math.abs(err) < Math.toRadians(60)) {
+                    double align = -err * p.airYawAlignRate * p.airAlignAssist;   // omega.Y is -yaw rate
+                    na += (align - na) * (1 - Math.exp(-h / 0.12));
+                }
+            }
+        }
         double nb = b + (bT - b) * k;
         V3 old = omega;
         setOmega(na, nb);

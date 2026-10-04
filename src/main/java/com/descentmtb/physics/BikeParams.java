@@ -36,6 +36,8 @@ public final class BikeParams {
     /** Fraction of the lateral slip velocity removed per substep while gripping. */
     public double lateralStiffness = 0.65;
     public double tyreGrip = 1, tyreRolling = 1;
+    /** Extra lateral (cornering) grip of the tyres over the surface friction: arcade-planted corners. */
+    public double corneringGrip = 1.3;
     public boolean wallRides = true;
     public double wallRideMinSpeed = 8;       // m/s along the wall, not into it
 
@@ -58,7 +60,7 @@ public final class BikeParams {
     /** Steering angle limit at walking pace (rad). */
     public double maxSteerAngle = 0.60;
     /** Full stick asks for this many g of cornering (× surface grip); >1 lets you slide. */
-    public double steerGripDemand = 0.88;
+    public double steerGripDemand = 0.78;
     /** Rear brake + full lock multiplies the cornering demand by this (a controlled drift). */
     public double driftDemandBoost = 1.25;
     public double steerResponse = 0.09;       // s, stick → bar smoothing
@@ -95,6 +97,10 @@ public final class BikeParams {
     /** 0..1: how strongly the bike noses toward its flight path with no input (feel F8). */
     public double airAlignAssist = 0.85;
     public double airAlignRate = 3.5;         // 1/s
+    /** With no spin input the yaw rate dies with this time constant (s) ... */
+    public double airSpinDamping = 0.15;
+    /** ... and the bike turns toward its flight direction at this rate (1/s), Descenders-style. */
+    public double airYawAlignRate = 2.2;
 
     // ---------------- landing / bails ----------------
     public double bailPitchError = Math.toRadians(100);   // only landing on your back / nose

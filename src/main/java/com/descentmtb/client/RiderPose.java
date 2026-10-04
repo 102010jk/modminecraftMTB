@@ -82,9 +82,15 @@ public final class RiderPose {
         // ---------------- arms to the grips ----------------
         float shoulderY = bend + 2f;
         float gz = -type.gripFwd * PX, gy = 24f - type.gripUp * PX, gx = type.gripHalf * PX;
-        float swing = (float) Math.sin(steer) * type.gripHalf * PX;
-        armTo(m.rightArm, -5f, shoulderY, sz, -gx, gy, gz - swing);
-        armTo(m.leftArm, 5f, shoulderY, sz, gx, gy, gz + swing);
+        // grips turn about the raked head tube; when the rider rolls less than the bike (table) follow the bike
+        float bikeLean = (float) BikeRenderState.lerp(pt, a.lean, b.lean);
+        float riderLean = (float) BikeRenderState.lerp(pt, a.riderLean, b.riderLean);
+        org.joml.Vector3f right = new org.joml.Vector3f(-gx, gy, gz).add(GripGeometry.gripOffset(type, false, steer));
+        org.joml.Vector3f left = new org.joml.Vector3f(gx, gy, gz).add(GripGeometry.gripOffset(type, true, steer));
+        right = GripGeometry.intoRiderRoll(right, riderLean, bikeLean);
+        left = GripGeometry.intoRiderRoll(left, riderLean, bikeLean);
+        armTo(m.rightArm, -5f, shoulderY, sz, right.x, right.y, right.z);
+        armTo(m.leftArm, 5f, shoulderY, sz, left.x, left.y, left.z);
 
         // ---------------- tricks ----------------
         ModelPart[] limbs = {m.rightArm, m.leftArm, m.rightLeg, m.leftLeg};
