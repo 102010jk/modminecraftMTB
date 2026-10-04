@@ -11,7 +11,9 @@ package com.descentmtb.physics;
  *  Right stick Y  down = bend (attack/pump),        keyboard S / D
  *                 up = stretch (counter-pump);
  *                 down→up = bunny hop               keyboard X (macro)
- *  Right stick X  tweak (in air)                    keyboard Shift + ← →
+ *  Right stick X  ground: lean the body sideways     keyboard: -
+ *                 (into the turn = tighter, out = drift)
+ *                 air: tweak / table                keyboard Space (+ ← →)
  *  LB + R stick   trick                             keyboard C + arrows
  * </pre>
  *

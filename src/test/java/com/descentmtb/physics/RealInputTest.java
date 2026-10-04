@@ -115,4 +115,44 @@ class RealInputTest {
         }
         turn("", 7, Terrain.Surface.GRASS);
     }
+
+    /** X held for {@code holdS} then released (the client turns the release into 6 ticks of stretch). */
+    static void hop(String name, BikeParams params, double speed, double holdS, float leanDuringStretch) {
+        BikeSim sim = new BikeSim(params, TestTerrains.flat(64, Terrain.Surface.DIRT));
+        sim.place(0, 64, 0, 0);
+        sim.vel = sim.forward().mul(speed);
+        sim.riderVel = sim.vel;
+        for (int i = 0; i < 20; i++) { sim.tick(keys(true, false, false, false, false, false), DT); sim.events.clear(); }
+        int hold = (int) Math.round(holdS / DT);
+        double maxF = 0, maxR = 0, air = 0, minPitch = 0, maxPitch = 0;
+        StringBuilder t = new StringBuilder();
+        for (int i = 0; i < 40 && !sim.bailed; i++) {
+            float body = i < hold ? -1 : (i < hold + 6 ? 1 : 0);
+            float lean = i >= hold && i < hold + 6 ? leanDuringStretch : 0;
+            sim.tick(new Controls(0, lean, 0, 0, body, 0, false, 0, 0), DT);
+            sim.events.clear();
+            double fr = sim.front.contact ? 0 : clearance(sim, params, true), rr = sim.rear.contact ? 0 : clearance(sim, params, false);
+            maxF = Math.max(maxF, fr);
+            maxR = Math.max(maxR, rr);
+            if (sim.airborne) air += DT;
+            maxPitch = Math.max(maxPitch, deg(sim.pitch));
+            minPitch = Math.min(minPitch, deg(sim.pitch));
+            if (i >= hold - 1 && i < hold + 14) t.append(String.format(Locale.ROOT, " %.2f/%.2f", fr, rr));
+        }
+        System.out.printf(Locale.ROOT, "[hop] %-22s front %.2f m rear %.2f m air %.2f s pitch %+.0f..%+.0f° bail=%s | F/R:%s%n",
+                name, maxF, maxR, air, minPitch, maxPitch, sim.bailed, t);
+    }
+
+    static double clearance(BikeSim sim, BikeParams p, boolean front) {
+        V3 axle = sim.pos.addScaled(sim.forward(), (front ? 1 : -1) * p.halfWheelbase);
+        return Math.max(0, axle.y - p.wheelRadius - 64 + p.axleDrop * 0);
+    }
+
+    @Test void bunnyHops() {
+        hop("enduro, X only", new BikeParams(), 5, .35, 0);
+        hop("enduro, X + lean back", new BikeParams(), 5, .35, -1);
+        hop("enduro, X 0.2 s", new BikeParams(), 5, .2, 0);
+        hop("hardtail, X only", com.descentmtb.entity.BikeType.HARDTAIL.params(), 5, .35, 0);
+        hop("hardtail, X + lean back", com.descentmtb.entity.BikeType.HARDTAIL.params(), 5, .35, -1);
+    }
 }

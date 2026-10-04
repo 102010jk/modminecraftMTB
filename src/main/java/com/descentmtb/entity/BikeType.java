@@ -53,7 +53,7 @@ public enum BikeType {
     public BikeParams params() {
         BikeParams p = new BikeParams();
         if (this == HARDTAIL) {
-            p.bikeMass = 12.0;
+            p.bikeMass = 13.0;
             p.inertiaPitch = 1.9;
             p.inertiaYaw = 4.6;
             p.wheelRadius = 0.33;

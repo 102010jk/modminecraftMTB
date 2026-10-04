@@ -28,6 +28,7 @@ import java.nio.FloatBuffer;
  *  Bend (attack/pump)  Right stick down      S
  *  Stretch (counter)   Right stick up        D
  *  Bunny hop           R down → R up         X (hold, release)
+ *  Body lean (ground)  Right stick ← →       -   (into the turn = carve, out = drift)
  *  Tweak / table (air) Right stick ← →       Space (+ ← → picks the side)
  *  Tricks              LB + right stick      C + arrows
  *  Respawn             B                     R
@@ -111,7 +112,9 @@ public final class BikeInputHandler {
         float trickX = kTrickX, trickY = kTrickY;
         if (pad != null) {
             steer = bigger(steer, pad.lx);
-            lean = bigger(lean, -pad.ly);
+            // the left stick is mostly a steering stick: a little up/down while steering must not move the rider
+            // forward (front glued to the ground, accidental drifts) - lean only past a 35 % axial dead zone
+            lean = bigger(lean, axial(-pad.ly, 0.35f));
             pedal = Math.max(pedal, pad.rt);
             brake = Math.max(brake, pad.lt);
             if (pad.lb) {
@@ -119,8 +122,8 @@ public final class BikeInputHandler {
                 trickX = bigger(trickX, pad.rx);
                 trickY = bigger(trickY, -pad.ry);
             } else {
-                body = bigger(body, -pad.ry);
-                tweak = bigger(tweak, pad.rx);
+                body = bigger(body, padHop(-pad.ry));
+                tweak = bigger(tweak, axial(pad.rx, 0.15f));
             }
             respawn |= pad.b;
             respawnStart |= pad.back;
@@ -154,6 +157,34 @@ public final class BikeInputHandler {
         double rate = .05 / ramp * (speed > 8 ? .75 : 1) * (target == 0 ? 1.6 : 1);
         keyboardSteer += (float) Math.max(-rate, Math.min(rate, target - keyboardSteer));
         return keyboardSteer;
+    }
+
+    private static float axial(float v, float deadZone) {
+        float a = Math.abs(v);
+        return a <= deadZone ? 0f : Math.signum(v) * (a - deadZone) / (1f - deadZone);
+    }
+
+    private static int padCrouchTicks, padPopTicks;
+
+    /**
+     * Right stick Y with a bunny-hop helper: a quick flick down then up (within 0.4 s) always gives the full
+     * 0.3 s stretch, like the X key, even if the stick springs back to the centre straight away.
+     */
+    private static float padHop(float body) {
+        if (body < -0.5f) {
+            padCrouchTicks = 8;
+        } else if (padCrouchTicks > 0) {
+            padCrouchTicks--;
+            if (body > 0.5f) {
+                padPopTicks = 6;
+                padCrouchTicks = 0;
+            }
+        }
+        if (padPopTicks > 0) {
+            padPopTicks--;
+            return Math.max(body, 1f);
+        }
+        return body;
     }
 
     private static boolean down(long win, KeyMapping k) {

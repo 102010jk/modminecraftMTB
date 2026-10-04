@@ -12,8 +12,8 @@ public final class BikeParams {
     public int substeps = 12;                 // per 50 ms game tick -> 240 Hz
 
     // ---------------- masses / geometry ----------------
-    public double bikeMass = 16.0;
-    public double riderMass = 75.0;
+    public double bikeMass = 15.5;
+    public double riderMass = 60.0;
     /** Bike pitch / yaw / roll inertia about its own COM (kg m²). Yaw includes the rider's own body. */
     public double inertiaPitch = 2.6, inertiaYaw = 5.5, inertiaRoll = 1.2;
     public double wheelRadius = 0.375;
@@ -70,6 +70,10 @@ public final class BikeParams {
     public double leanMax = 0.85;
     /** Lean forward + hard steering: rear tyre grip is multiplied by this (the rear steps out = drift). */
     public double driftRearGrip = 0.55;
+    /** Right stick X on the ground: leaning the body into the turn tightens it by up to this fraction. */
+    public double carveBoost = 0.22;
+    /** ... and adds this much visible lean (rad) on top of the cornering lean. */
+    public double bodyLeanVisual = 0.35;
     public double minSteerAngle = 0.03;
 
     // ---------------- rider (pop / pump / hop) ----------------
@@ -78,7 +82,7 @@ public final class BikeParams {
     public double riderTuck = -0.16;                          // auto-tuck target in the air
     public double legStiffness = 9000, legDamping = 1300, legDriveDamping = 300;
     public double legPushMax = 2100, legPullMax = 1300;       // N beyond body weight
-    public double riderLeanFwd = 0.22, riderLeanBack = -0.30; // fore/aft targets (m)
+    public double riderLeanFwd = 0.15, riderLeanBack = -0.30; // fore/aft targets (m)
     public double riderForeAftMin = -0.36, riderForeAftMax = 0.26;
     public double armStiffness = 4500, armDamping = 900, armDriveDamping = 250, armMax = 900;
     /** Pitch-up torque helper while leaning back on the rear wheel (manual), N m. */

@@ -80,20 +80,20 @@ class SteeringTest {
         assertTrue(ice.latG < .3 && ice.latG < dirt.latG * .4, "ice " + ice.latG + " g vs dirt " + dirt.latG + " g");
     }
 
-    @Test void leaningForwardWhileSteeringDriftsTheRear() {
+    @Test void leaningTheBodyOutOfTheTurnDriftsTheRear() {
         BikeSim sim = new BikeSim(new BikeParams(), TestTerrains.flat(64, Terrain.Surface.DIRT));
         sim.place(0, 64, 0, 0);
         sim.vel = sim.forward().mul(9);
         sim.riderVel = sim.vel;
         int rear = 0, n = 40;
         for (int i = 0; i < n && !sim.bailed; i++) {
-            sim.tick(new Controls(1, 1, 0, 0, 0, 0, false, 0, 0), DT);
+            sim.tick(new Controls(1, 0, 0, 0, 0, -1, false, 0, 0), DT);
             sim.events.clear();
             if (sim.rear.sliding) rear++;
         }
-        System.out.printf(Locale.ROOT, "[steer] lean-forward drift: rear sliding %.0f%%, bail=%s%n", rear * 100.0 / n, sim.bailed);
+        System.out.printf(Locale.ROOT, "[steer] body-out drift: rear sliding %.0f%%, bail=%s%n", rear * 100.0 / n, sim.bailed);
         assertFalse(sim.bailed, sim.bailReason);
-        assertTrue(rear >= n * .3, "lean forward + full lock should slide the rear (" + rear + "/" + n + ")");
+        assertTrue(rear >= n * .3, "body out + full lock should slide the rear (" + rear + "/" + n + ")");
     }
 
     @Test void visibleLeanStaysModest() {
@@ -109,5 +109,43 @@ class SteeringTest {
         }
         System.out.printf(Locale.ROOT, "[steer] full-lock visible lean max %.0f°%n", Math.toDegrees(max));
         assertTrue(max <= new BikeParams().leanMax + 1e-9, "lean " + Math.toDegrees(max));
+    }
+
+    static int rearSlidingTicks(float lean) {
+        BikeSim sim = new BikeSim(new BikeParams(), TestTerrains.flat(64, Terrain.Surface.DIRT));
+        sim.place(0, 64, 0, 0);
+        sim.vel = sim.forward().mul(8);
+        sim.riderVel = sim.vel;
+        int rear = 0;
+        for (int i = 0; i < 40; i++) {
+            sim.tick(new Controls(1, lean, 0, 0, 0, 0, false, 0, 0), DT);
+            sim.events.clear();
+            if (sim.rear.sliding) rear++;
+        }
+        return rear;
+    }
+
+    @Test void leaningForwardWhileSteeringDoesNotDrift() {
+        int plain = rearSlidingTicks(0), forward = rearSlidingTicks(.8f);
+        System.out.printf(Locale.ROOT, "[steer] rear sliding ticks: plain %d, stick diagonal %d (of 40)%n", plain, forward);
+        // only the brief twitch while the yaw spins up, no sustained drift
+        assertTrue(forward <= plain + 2 && forward <= 6, "stick pushed diagonally must not drift by itself");
+    }
+
+    @Test void leaningIntoTheTurnTightensIt() {
+        double[] rate = new double[2];
+        for (int k = 0; k < 2; k++) {
+            BikeSim sim = new BikeSim(new BikeParams(), TestTerrains.flat(64, Terrain.Surface.DIRT));
+            sim.place(0, 64, 0, 0);
+            sim.vel = sim.forward().mul(8);
+            sim.riderVel = sim.vel;
+            for (int i = 0; i < 30; i++) {
+                sim.tick(new Controls(1, 0, .6f, 0, 0, k == 0 ? 0 : 1, false, 0, 0), DT);
+                sim.events.clear();
+            }
+            rate[k] = Math.abs(sim.omega.dot(V3.Y));
+        }
+        System.out.printf(Locale.ROOT, "[steer] yaw rate plain %.2f, body leaned in %.2f rad/s%n", rate[0], rate[1]);
+        assertTrue(rate[1] > rate[0] * 1.08, "leaning in should tighten the turn");
     }
 }

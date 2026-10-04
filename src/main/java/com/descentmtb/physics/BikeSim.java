@@ -187,10 +187,19 @@ public final class BikeSim {
         if (c.brake > 0.5 && Math.abs(c.steer) > 0.8) {
             demand *= p.driftDemandBoost;
         }
-        // Weight forward + hard steering unloads the rear: it steps out into a drift that the bars can hold.
-        leanDrift = c.lean > 0.5 && Math.abs(c.steer) > 0.6 && Math.abs(vFwd) > 3;
+        // Right stick X on the ground leans the body sideways. Into the turn: a tighter carve.
+        // Against the turn (bike leaned in, body out) with hard steering: the rear steps out into a drift.
+        // weight shifted forward unloads the rear: ask a little less of the tyres so it doesn't wash out by itself
+        if (c.lean > 0) {
+            demand *= 1 - 0.25 * c.lean;
+        }
+        double bodyLean = c.trickMod ? 0 : c.tweak;
+        double into = bodyLean * Math.signum(c.steer);
+        leanDrift = into < -0.5 && Math.abs(c.steer) > 0.5 && Math.abs(vFwd) > 3;
         if (leanDrift) {
             demand *= p.driftDemandBoost;
+        } else if (into > 0) {
+            demand *= 1 + p.carveBoost * into;
         }
         double v2 = Math.max(vFwd * vFwd, 0.25);
         double maxSteer = clamp(Math.atan(2 * p.halfWheelbase * demand / v2), p.minSteerAngle, p.maxSteerAngle);
@@ -965,7 +974,8 @@ public final class BikeSim {
             return;
         } else if (!airborne) {
             double latAcc = -omega.dot(V3.Y) * vel.horizontalLength();
-            leanT = clamp(Math.atan2(latAcc, p.gravity) * p.leanFactor, -p.leanMax, p.leanMax);
+            double bodyLean = c.trickMod ? 0 : c.tweak;
+            leanT = clamp(Math.atan2(latAcc, p.gravity) * p.leanFactor + bodyLean * p.bodyLeanVisual, -p.leanMax, p.leanMax);
         } else {
             leanT = wallRide ? -wallSide * 1.38 : c.tweak * 1.05;
         }
