@@ -205,5 +205,19 @@
   "descentmtb.tape.exists": "These posts are already connected",
   "descentmtb.tape.blocked": "A post cannot be placed here",
   "descentmtb.tape.need_more": "You need at least two rolls for a new post",
-  "descentmtb.shaping.hint.deck": "Wood: hold planks in the off-hand when placing (right-click a deck with planks to change it) • no supports, add Wooden supports yourself"
+  "descentmtb.shaping.hint.deck": "Wood: hold planks in the off-hand when placing (right-click a deck with planks to change it) • no supports, add Wooden supports yourself",
+  "descentmtb.shape.category.4": "Lines",
+  "descentmtb.shape.mode.downhill": "Downhill",
+  "descentmtb.shape.desc.downhill": "Click the top and the bottom of a slope: a run of berms, rollers and jumps is built between them",
+  "descentmtb.shape.hud.hint.downhill": "[%s] menu • click: start, then finish • Shift + click: clear • Shift + wheel: style • Ctrl + Shift + wheel: width",
+  "descentmtb.downhill.hud": "Style: %s • Width %s m • Points %s/%s",
+  "descentmtb.downhill.style.flow": "Flow",
+  "descentmtb.downhill.style.jumps": "Jumps",
+  "descentmtb.downhill.style.mixed": "Mixed",
+  "descentmtb.downhill.point": "Start set (%s/%s): now click the finish",
+  "descentmtb.downhill.cleared": "Start cleared",
+  "descentmtb.downhill.built": "Downhill: %s m, %s jumps, %s berms",
+  "descentmtb.downhill.too_close": "The start and the finish are too close together",
+  "descentmtb.downhill.too_long": "The line is too long (at most %s m)",
+  "descentmtb.downhill.no_ground": "There is no ground to build on at the start or the finish"
 }

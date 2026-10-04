@@ -39,6 +39,16 @@ class ShapeModeTest {
     }
 
     @Test
+    void theDownhillLineHasItsOwnTabAndAnIcon() {
+        assertEquals(ShapeMode.Kind.DOWNHILL, ShapeMode.DOWNHILL.kind);
+        assertEquals(4, ShapeMode.DOWNHILL.category);
+        assertEquals(false, ShapeMode.DOWNHILL.reshapesBlock());
+        assertEquals("descentmtb.shape.hud.hint.downhill", ShapeMode.DOWNHILL.hintKey());
+        assertEquals(ShapeMode.DOWNHILL, ShapeMode.DOWNHILL.cycled(1));
+        assertEquals(true, getClass().getResource("/assets/descentmtb/textures/gui/shape/downhill.png") != null);
+    }
+
+    @Test
     void everyModeHasAnIconAndAnActionOrPreset() {
         for (ShapeMode mode : ShapeMode.values()) {
             assertEquals(true, mode.category >= 0 && mode.category < ShapeMode.CATEGORIES, mode.name());

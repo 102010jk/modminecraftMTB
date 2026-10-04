@@ -22,7 +22,8 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  * Previews what the Trail Shaper is about to do. Block presets: a small brass diamond on every corner the mode
  * moves, drawn at the height that corner will have afterwards (the numbers come from {@link ShapePresets}, the same
  * code the server runs, so the preview matches the result). Copy mode: a line box around the selection and, once
- * something is copied, around the place the clipboard will land. Berm mode: a diamond on every point placed so far.
+ * something is copied, around the place the clipboard will land. Berm and downhill modes: a diamond on every point
+ * placed so far.
  */
 public final class ShapingHighlight {
     private static final float RADIUS = .16f;
@@ -47,7 +48,8 @@ public final class ShapingHighlight {
         switch (mode.kind) {
             case COLUMN -> previewBlock(mc, hit, mode, camera, pose, source);
             case COPY -> previewCopy(ShapeToolItem.data(stack), hit == null ? null : hit.getBlockPos(), camera, pose, source);
-            case BERM -> previewBerm(ShapeToolItem.data(stack), camera, pose, source);
+            case BERM -> previewPoints(ShapeToolItem.data(stack).getLongArray(com.descentmtb.trail.BermBuilder.POINTS_TAG), camera, pose, source);
+            case DOWNHILL -> previewPoints(ShapeToolItem.data(stack).getLongArray(com.descentmtb.trail.DownhillBuilder.POINTS_TAG), camera, pose, source);
             case RAMP -> { }
         }
     }
@@ -96,9 +98,8 @@ public final class ShapingHighlight {
         source.endBatch(RenderType.lines());
     }
 
-    /** A diamond on top of every berm point placed so far. */
-    private static void previewBerm(CompoundTag data, Vec3 camera, PoseStack pose, MultiBufferSource.BufferSource source) {
-        long[] points = data.getLongArray(com.descentmtb.trail.BermBuilder.POINTS_TAG);
+    /** A diamond on top of every point (packed block position) placed so far. */
+    private static void previewPoints(long[] points, Vec3 camera, PoseStack pose, MultiBufferSource.BufferSource source) {
         if (points.length == 0) {
             return;
         }

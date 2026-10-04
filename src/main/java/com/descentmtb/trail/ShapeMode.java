@@ -6,7 +6,7 @@ import java.util.Locale;
 
 /**
  * Modes of the Trail Shaper. {@link #category} is the tab of the radial menu: 0 jumps, 1 berms, 2 manual
- * (and copying), 3 copycat ramps. {@link #rise} is the height gained across the block (negative for a drop); only
+ * (and copying), 3 copycat ramps, 4 lines (whole runs built from two clicks). {@link #rise} is the height gained across the block (negative for a drop); only
  * the {@link Kind#COLUMN} modes use it. The mode is stored in the tool by its {@link #name()}.
  */
 public enum ShapeMode {
@@ -33,9 +33,11 @@ public enum ShapeMode {
     RAMP_START(3, 0, Kind.RAMP),
     RAMP_PROFILE(3, 0, Kind.RAMP),
     RAMP_ROTATE(3, 0, Kind.RAMP),
-    RAMP_LINK(3, 0, Kind.RAMP);
+    RAMP_LINK(3, 0, Kind.RAMP),
 
-    public static final int CATEGORIES = 4;
+    DOWNHILL(4, 0, Kind.DOWNHILL);
+
+    public static final int CATEGORIES = 5;
 
     /** What a click does, which decides the code that handles it. */
     public enum Kind {
@@ -46,7 +48,9 @@ public enum ShapeMode {
         /** Collects three points and builds a berm ({@link BermBuilder}). */
         BERM,
         /** Copies and pastes a box of blocks ({@link ShapeClipboard}). */
-        COPY
+        COPY,
+        /** Collects a start and a finish and builds a whole downhill line ({@link DownhillBuilder}). */
+        DOWNHILL
     }
 
     public final int category;
@@ -78,6 +82,7 @@ public enum ShapeMode {
         return switch (kind) {
             case BERM -> "descentmtb.shape.hud.hint.berm_build";
             case COPY -> "descentmtb.shape.hud.hint.copy";
+            case DOWNHILL -> "descentmtb.shape.hud.hint.downhill";
             default -> "descentmtb.shape.hud.hint." + category;
         };
     }

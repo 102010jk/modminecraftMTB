@@ -25,6 +25,13 @@ public final class DevRideSim {
         }
     }
 
+    /** How the rider handles speed: brakes at {@code target + margin} with {@code brake}, optionally slows for tight turns. */
+    public record Rider(double margin, float brake, boolean cornerSpeed) {
+        public static final Rider DEFAULT = new Rider(2.5, .5f, false);
+        /** A careful rider for steep descents: brakes early and takes turns at 0.7 g. */
+        public static final Rider DOWNHILL = new Rider(1.5, .8f, true);
+    }
+
     private static final double DT = 0.05;
 
     /**
@@ -35,6 +42,33 @@ public final class DevRideSim {
      */
     public static Result ride(Level level, double[][] path, boolean closed, double groundY, double seconds, double target,
                               BikeType type, ToDoubleFunction<BikeSim> pump) {
+        return ride(level, path, closed, groundY, seconds, target, type, pump, Rider.DEFAULT);
+    }
+
+    /** The speed a sensible rider takes each point of a one-way path at: slower in tight turns (0.7 g), looking ahead. */
+    public static double[] cornerSpeeds(double[][] path, double target) {
+        int n = path.length;
+        double[] corner = new double[n];
+        for (int i = 0; i < n; i++) {
+            int a = Math.max(0, i - 6), b = Math.min(n - 1, i + 6);
+            double ax = path[i][0] - path[a][0], az = path[i][1] - path[a][1], bx = path[b][0] - path[i][0], bz = path[b][1] - path[i][1];
+            double turn = Math.abs(Math.atan2(ax * bz - az * bx, ax * bx + az * bz));
+            double radius = (Math.hypot(ax, az) + Math.hypot(bx, bz)) / 2 / Math.max(1e-6, turn);
+            corner[i] = Math.min(target, Math.sqrt(7 * radius));
+        }
+        double[] limit = new double[n];
+        for (int i = 0; i < n; i++) {
+            limit[i] = target;
+            for (int k = 0; k <= 24 && i + k < n; k++) {
+                limit[i] = Math.min(limit[i], corner[i + k] + .25 * k);
+            }
+        }
+        return limit;
+    }
+
+    public static Result ride(Level level, double[][] path, boolean closed, double groundY, double seconds, double target,
+                              BikeType type, ToDoubleFunction<BikeSim> pump, Rider rider) {
+        double[] limit = rider.cornerSpeed() && !closed ? cornerSpeeds(path, target) : null;
         McColumns columns = new McColumns(level);
         BikeSim sim = new BikeSim(type.params(), new BlockTerrain(columns));
         double[] p0 = path[0], p1 = path[Math.min(path.length - 1, 4)];
@@ -71,8 +105,9 @@ public final class DevRideSim {
             V3 want = new V3(path[idx][0] - sim.pos.x, 0, path[idx][1] - sim.pos.z).normalize();
             double err = Math.atan2(want.dot(right), want.dot(fwd));
             float steer = (float) Math.max(-1, Math.min(1, err * 2.2));
-            float pedal = speed < target ? 1 : 0;
-            float brake = speed > target + 2.5 ? .5f : 0;
+            double wanted = limit == null ? target : limit[index];
+            float pedal = speed < wanted ? 1 : 0;
+            float brake = speed > wanted + rider.margin() ? rider.brake() : 0;
             float body = pump == null ? 0 : (float) pump.applyAsDouble(sim);
             sim.tick(new Controls(steer, 0, pedal, brake, body, 0, false, 0, 0), DT);
             sim.events.clear();

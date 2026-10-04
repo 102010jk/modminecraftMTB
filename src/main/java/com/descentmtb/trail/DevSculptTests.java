@@ -76,6 +76,7 @@ final class DevSculptTests {
         ramps(p, l, x, y, bz + 2);
         copyAndPaste(p, l, x, y, bz + 2);
         DevBermTests.run(p, l, x, y, z);
+        DevDownhillTests.run(p, l, x, y, z);
         DescentMtb.LOG.info("[sculpttest] ALL PASSED");
     }
 

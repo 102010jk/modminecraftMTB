@@ -17,12 +17,26 @@ public final class SurfacePlans {
  }
  private static Map<BlockPos,TrailEdit.Change> surface(Level l,int x0,int z0,int x1,int z1,double reference,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,boolean wood,boolean preserve){
   if((long)(x1-x0+1)*(z1-z0+1)>20000 || x1-x0>TrailConfig.MAX_LENGTH.get()+32 || z1-z0>TrailConfig.MAX_LENGTH.get()+32)throw new IllegalArgumentException("Oblast je příliš velká");
+  return surface(l,x0,z0,x1,z1,(x,z)->terrain(l,x,z,reference),height,contains,wood,preserve,0);
+ }
+ /**
+  * Dirt surface over a long stretch of hillside (the downhill line): like {@link #surface} but the ground is given
+  * per column ({@code columnTop}, NaN where nothing may be built) instead of being searched near one reference
+  * height, the track gets {@code headroom} blocks of clear air above it, and the area may be as large as the
+  * downhill line can be.
+  */
+ public static Map<BlockPos,TrailEdit.Change> hillside(Level l,int x0,int z0,int x1,int z1,DoubleBinaryOperator columnTop,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,int headroom){
+  if((long)(x1-x0+1)*(z1-z0+1)>200000)throw new IllegalArgumentException("Oblast je příliš velká");
+  return surface(l,x0,z0,x1,z1,columnTop,height,contains,false,false,headroom);
+ }
+ private static Map<BlockPos,TrailEdit.Change> surface(Level l,int x0,int z0,int x1,int z1,DoubleBinaryOperator columnTop,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,boolean wood,boolean preserve,int headroom){
   var samples=new HashMap<Long,Double>();DoubleBinaryOperator sampled=(x,z)->samples.computeIfAbsent(BlockPos.asLong((int)x,0,(int)z),k->height.applyAsDouble(x,z));
   var out=new LinkedHashMap<BlockPos,TrailEdit.Change>();
   for(int x=x0;x<=x1;x++)for(int z=z0;z<=z1;z++){
    if(!contains.test(x+.5,z+.5))continue;
    net.minecraft.nbt.CompoundTag decoration=null;boolean deck=wood;var material=wood?Blocks.OAK_PLANKS.defaultBlockState():Blocks.COARSE_DIRT.defaultBlockState();
-   double old=terrain(l,x+.5,z+.5,reference);
+   double old=columnTop.applyAsDouble(x+.5,z+.5);
+   if(Double.isNaN(old))continue;
    if(preserve && l.getBlockState(new BlockPos(x,(int)Math.floor(old-.0001),z)).is(ModBlocks.RAMP.get()))continue;
    if(preserve && l.getBlockEntity(new BlockPos(x,(int)Math.floor(old-.0001),z)) instanceof com.descentmtb.ramp.RampBlockEntity be){material=be.getMaterial();deck=be instanceof TrailSurfaceEntity shaped&&shaped.deck();decoration=be.saveWithoutMetadata(l.registryAccess());}
    double[] h={sampled.applyAsDouble(x,z),sampled.applyAsDouble(x+1,z),sampled.applyAsDouble(x,z+1),sampled.applyAsDouble(x+1,z+1)};
@@ -35,7 +49,8 @@ public final class SurfacePlans {
     for(int y=(int)Math.floor(old-.15);y<=(int)Math.ceil(old);y++)if(y<bottom||y>top){var p=new BlockPos(x,y,z);if(l.getBlockEntity(p) instanceof TrailSurfaceEntity oldDeck&&oldDeck.deck())out.put(p,TrailEdit.Change.block(Blocks.AIR.defaultBlockState()));}
    }
    if(!deck){
-    for(int y=top+1;y<=Math.min(reference+8,Math.ceil(old));y++)if(!l.getBlockState(new BlockPos(x,y,z)).isAir())out.put(new BlockPos(x,y,z),TrailEdit.Change.block(Blocks.AIR.defaultBlockState()));
+    // clear what stood on the old ground (and the headroom above the track)
+    for(int y=top+1;y<=Math.max(top+headroom,Math.ceil(old));y++)if(!l.getBlockState(new BlockPos(x,y,z)).isAir())out.put(new BlockPos(x,y,z),TrailEdit.Change.block(Blocks.AIR.defaultBlockState()));
     for(int y=bottom-1;y>=Math.max(bottom-12,Math.floor(old)-1);y--){var p=new BlockPos(x,y,z);if(!l.getBlockState(p).isAir())break;out.put(p,TrailEdit.Change.block(Blocks.DIRT.defaultBlockState()));}
    }
    if(out.size()>TrailConfig.MAX_BLOCKS.get())throw new IllegalArgumentException("Zmenši oblast; návrh překročil limit bloků");

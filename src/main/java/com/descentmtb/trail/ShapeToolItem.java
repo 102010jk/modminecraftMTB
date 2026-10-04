@@ -28,7 +28,8 @@ import java.util.function.Consumer;
  * The block presets reshape that single block and never change the blocks around it; neighbours are only read
  * (see {@link ShapePresets}). Plain full blocks (dirt, grass, stone ...) first become a shaped copy of themselves.
  * The other kinds of mode tune copycat ramps ({@link RampTuning}), build a berm from three points
- * ({@link BermBuilder}) or copy and paste blocks ({@link ShapeClipboard}). Every edit goes through
+ * ({@link BermBuilder}), build a whole downhill line from two ({@link DownhillBuilder}) or copy and paste blocks
+ * ({@link ShapeClipboard}). Every edit goes through
  * {@link TrailEdit}, so it can be undone.
  *
  * <p>The tool keeps its small state in its custom data: the selected mode, and what the berm and copy modes
@@ -91,6 +92,7 @@ public final class ShapeToolItem extends Item {
             case RAMP -> RampTuning.click(player, pos, facing, shift, RampTuning.Action.of(mode));
             case BERM -> BermBuilder.click(player, pos, shift);
             case COPY -> ShapeClipboard.click(player, pos, shift);
+            case DOWNHILL -> DownhillBuilder.click(player, pos, shift);
         };
     }
 
@@ -120,18 +122,21 @@ public final class ShapeToolItem extends Item {
         return InteractionResult.CONSUME;
     }
 
-    /** Shift + right-click in the air: turns the clipboard (copy mode) or forgets the berm points (berm mode). */
+    /** Shift + right-click in the air: turns the clipboard (copy mode) or forgets the points (berm and downhill modes). */
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         ShapeMode.Kind kind = mode(stack).kind;
-        boolean airAction = player.isShiftKeyDown() && (kind == ShapeMode.Kind.COPY || kind == ShapeMode.Kind.BERM);
+        boolean airAction = player.isShiftKeyDown()
+                && (kind == ShapeMode.Kind.COPY || kind == ShapeMode.Kind.BERM || kind == ShapeMode.Kind.DOWNHILL);
         if (!airAction) {
             return InteractionResultHolder.pass(stack);
         }
         if (player instanceof ServerPlayer serverPlayer) {
             if (kind == ShapeMode.Kind.COPY) {
                 ShapeClipboard.rotate(serverPlayer);
+            } else if (kind == ShapeMode.Kind.DOWNHILL) {
+                DownhillBuilder.clear(serverPlayer);
             } else {
                 BermBuilder.clear(serverPlayer);
             }

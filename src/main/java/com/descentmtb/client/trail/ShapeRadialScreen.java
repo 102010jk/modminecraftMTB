@@ -15,10 +15,10 @@ import java.util.List;
 
 /**
  * Radial menu of the Trail Shaper. Hold the menu key, move the mouse to a mode and release (or click).
- * The tabs on top switch between jumps, berms, manual edits (and copying) and copycat ramps.
+ * The tabs on top switch between jumps, berms, manual edits (and copying), copycat ramps and whole lines.
  */
 public final class ShapeRadialScreen extends Screen {
-    private static final int TAB_WIDTH = 100, TAB_HEIGHT = 22, TAB_Y = 28;
+    private static final int TAB_WIDTH = 84, TAB_HEIGHT = 22, TAB_Y = 28;
     private static final int CELL_W = 74, CELL_H = 40;
 
     private final ShapeMode current;

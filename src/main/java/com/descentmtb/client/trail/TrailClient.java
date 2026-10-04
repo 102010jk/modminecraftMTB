@@ -5,6 +5,7 @@ import com.descentmtb.entity.MountainBikeEntity;
 import com.descentmtb.network.ShapeTunePayload;
 import com.descentmtb.network.TrailUndoPayload;
 import com.descentmtb.trail.BermBuilder;
+import com.descentmtb.trail.DownhillBuilder;
 import com.descentmtb.trail.ShapeMode;
 import com.descentmtb.trail.ShapeToolItem;
 import com.descentmtb.trail.TrailSignBlock;
@@ -46,7 +47,8 @@ public final class TrailClient {
 
     /**
      * Shift + wheel cycles the modes of the current category. In the berm mode it sets the steepness of the bank
-     * instead (up is steeper), and Ctrl + Shift + wheel the width of the track.
+     * instead (up is steeper), and Ctrl + Shift + wheel the width of the track. In the downhill mode it chooses the
+     * style of the line (flow, jumps, mixed) and Ctrl + Shift + wheel the width.
      */
     public static void onScroll(InputEvent.MouseScrollingEvent event) {
         var mc = Minecraft.getInstance();
@@ -64,12 +66,19 @@ public final class TrailClient {
             PacketDistributor.sendToServer(new ShapeTunePayload(mode, settings));
             return;
         }
+        if (mode.kind == ShapeMode.Kind.DOWNHILL) {
+            var settings = DownhillBuilder.Settings.read(stack);
+            settings = Screen.hasControlDown() ? settings.wider(step) : settings.styled(step);
+            settings.store(stack);
+            PacketDistributor.sendToServer(new ShapeTunePayload(mode, settings));
+            return;
+        }
         ShapeMode next = mode.cycled(-step);
         ShapeToolItem.mode(stack, next);
         PacketDistributor.sendToServer(new ShapeTunePayload(next));
     }
 
-    /** Bottom-left box: icon, name, what the mode does, one hint line and, for the berm mode, its settings. */
+    /** Bottom-left box: icon, name, what the mode does, one hint line and, for the berm and downhill modes, their settings. */
     public static void hud(GuiGraphics g) {
         var mc = Minecraft.getInstance();
         if (mc.options.hideGui || !holdingShaper(mc)) {
@@ -80,7 +89,11 @@ public final class TrailClient {
         Component name = Component.translatable(mode.key());
         Component description = Component.translatable(mode.descriptionKey());
         Component hint = Component.translatable(mode.hintKey(), ModKeyMappings.TRAIL_MENU.getTranslatedKeyMessage());
-        Component status = mode.kind == ShapeMode.Kind.BERM ? bermStatus(stack) : null;
+        Component status = switch (mode.kind) {
+            case BERM -> bermStatus(stack);
+            case DOWNHILL -> downhillStatus(stack);
+            default -> null;
+        };
         int width = Math.max(mc.font.width(description), Math.max(mc.font.width(hint), mc.font.width(name) + 21));
         if (status != null) {
             width = Math.max(width, mc.font.width(status));
@@ -104,6 +117,13 @@ public final class TrailClient {
         return Component.translatable("descentmtb.berm.hud",
                 Component.translatable(settings.steepness().key()), (int) settings.steepness().degrees,
                 settings.width(), BermBuilder.points(stack).length, BermBuilder.POINTS);
+    }
+
+    /** "Style: Mixed • Width 3 m • Points 1/2" */
+    private static Component downhillStatus(net.minecraft.world.item.ItemStack stack) {
+        var settings = DownhillBuilder.Settings.read(stack);
+        return Component.translatable("descentmtb.downhill.hud", Component.translatable(settings.style().key()),
+                settings.width(), DownhillBuilder.points(stack).length, DownhillBuilder.POINTS);
     }
 
     private TrailClient() {}

@@ -205,5 +205,19 @@
   "descentmtb.tape.exists": "Tyto kolíky už jsou spojené",
   "descentmtb.tape.blocked": "Tady kolík nejde postavit",
   "descentmtb.tape.need_more": "Na nový kolík potřebuješ aspoň dvě pásky",
-  "descentmtb.shaping.hint.deck": "Dřevo: při pokládání drž prkna ve druhé ruce (pravý klik prknem na desku ho změní) • bez podpěr, Dřevěné podpěry si přidej sám"
+  "descentmtb.shaping.hint.deck": "Dřevo: při pokládání drž prkna ve druhé ruce (pravý klik prknem na desku ho změní) • bez podpěr, Dřevěné podpěry si přidej sám",
+  "descentmtb.shape.category.4": "Linie",
+  "descentmtb.shape.mode.downhill": "Sjezd",
+  "descentmtb.shape.desc.downhill": "Klikni na vrchol a na spodek svahu: mezi nimi se postaví trať z klopenek, vln a skoků",
+  "descentmtb.shape.hud.hint.downhill": "[%s] menu • klik: start, pak cíl • Shift + klik: smazat • Shift + kolečko: styl • Ctrl + Shift + kolečko: šířka",
+  "descentmtb.downhill.hud": "Styl: %s • Šířka %s m • Body %s/%s",
+  "descentmtb.downhill.style.flow": "Flow",
+  "descentmtb.downhill.style.jumps": "Skoky",
+  "descentmtb.downhill.style.mixed": "Směs",
+  "descentmtb.downhill.point": "Start nastaven (%s/%s): teď klikni na cíl",
+  "descentmtb.downhill.cleared": "Start smazán",
+  "descentmtb.downhill.built": "Sjezd: %s m, %s skoků, %s klopenek",
+  "descentmtb.downhill.too_close": "Start a cíl jsou moc blízko",
+  "descentmtb.downhill.too_long": "Trať je moc dlouhá (nejvíc %s m)",
+  "descentmtb.downhill.no_ground": "Na startu nebo v cíli není na čem stavět"
 }
