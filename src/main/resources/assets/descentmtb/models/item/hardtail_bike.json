@@ -1,4 +1,4 @@
 {
   "parent": "minecraft:item/generated",
-  "textures": { "layer0": "descentmtb:item/mountain_bike" }
+  "textures": { "layer0": "descentmtb:item/hardtail_bike" }
 }
