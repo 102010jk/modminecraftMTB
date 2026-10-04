@@ -17,7 +17,7 @@ public final class TrailEdit {
     private record Saved(BlockState before, CompoundTag beforeTag, BlockState after, CompoundTag afterTag) {}
     private record Undo(ResourceKey<Level> dimension, Map<BlockPos,Saved> blocks) {}
     private static final Map<UUID,ArrayDeque<Undo>> HISTORY = new HashMap<>();
-    public static void clearSession() { HISTORY.clear(); }
+    public static void clearSession() { HISTORY.clear(); RampTuning.clearSession(); ShapeClipboard.clearSession(); }
     private static CompoundTag data(Level l, BlockPos p) {
         var be = l.getBlockEntity(p); return be == null ? null : be.saveWithoutMetadata(l.registryAccess());
     }

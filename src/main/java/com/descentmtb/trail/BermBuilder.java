@@ -5,6 +5,8 @@ import net.minecraft.server.level.ServerPlayer;
 
 /** Placeholder, filled in by the berm part. */
 public final class BermBuilder {
+    public static final String POINTS_TAG = "BermPoints";
+
     public static boolean click(ServerPlayer player, BlockPos pos, boolean shift) {
         return false;
     }

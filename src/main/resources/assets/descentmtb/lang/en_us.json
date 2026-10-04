@@ -128,5 +128,16 @@
   "descentmtb.ramp_tune.made": "Ramp placed",
   "descentmtb.ramp_tune.not_ramp": "Click a ramp",
   "descentmtb.ramp_tune.already_ramp": "That is already a ramp",
-  "descentmtb.ramp_tune.cannot_make": "This block cannot become a ramp"
+  "descentmtb.ramp_tune.cannot_make": "This block cannot become a ramp",
+  "descentmtb.shape.mode.copy": "Copy",
+  "descentmtb.shape.desc.copy": "Click two corners, then every right-click pastes the copy",
+  "descentmtb.shape.hud.hint.copy": "[%s] menu • click: corner / paste • Shift + block: new selection • Shift + air: turn 90°",
+  "descentmtb.copy.corner": "Corner %s/2",
+  "descentmtb.copy.copied": "Copied %s blocks",
+  "descentmtb.copy.pasted": "Pasted %s blocks",
+  "descentmtb.copy.rotated": "Turned to %s°",
+  "descentmtb.copy.too_big": "Selection too large (at most %s × %s × %s)",
+  "descentmtb.copy.unsupported": "Chests and other blocks with data cannot be copied",
+  "descentmtb.copy.not_loaded": "The selection is not loaded",
+  "descentmtb.copy.empty": "Nothing copied yet"
 }

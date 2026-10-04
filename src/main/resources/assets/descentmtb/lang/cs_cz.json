@@ -128,5 +128,16 @@
   "descentmtb.ramp_tune.made": "Rampa vytvořena",
   "descentmtb.ramp_tune.not_ramp": "Klikni na rampu",
   "descentmtb.ramp_tune.already_ramp": "Tohle už je rampa",
-  "descentmtb.ramp_tune.cannot_make": "Z tohoto bloku rampu udělat nejde"
+  "descentmtb.ramp_tune.cannot_make": "Z tohoto bloku rampu udělat nejde",
+  "descentmtb.shape.mode.copy": "Kopírovat",
+  "descentmtb.shape.desc.copy": "Klikni na dva rohy, pak každý pravý klik vloží kopii",
+  "descentmtb.shape.hud.hint.copy": "[%s] menu • klik: roh / vložit • Shift + blok: nový výběr • Shift + vzduch: otočit o 90°",
+  "descentmtb.copy.corner": "Roh %s/2",
+  "descentmtb.copy.copied": "Zkopírováno %s bloků",
+  "descentmtb.copy.pasted": "Vloženo %s bloků",
+  "descentmtb.copy.rotated": "Otočeno na %s°",
+  "descentmtb.copy.too_big": "Výběr je příliš velký (nejvýš %s × %s × %s)",
+  "descentmtb.copy.unsupported": "Truhly a jiné bloky s daty se kopírovat nedají",
+  "descentmtb.copy.not_loaded": "Výběr není načtený",
+  "descentmtb.copy.empty": "Zatím nic není zkopírováno"
 }

@@ -74,6 +74,7 @@ final class DevSculptTests {
         undo(p, l, x + 22, y, bz);
         withOverlayAndDeck(p, l, x, y, bz);
         ramps(p, l, x, y, bz + 2);
+        copyAndPaste(p, l, x, y, bz + 2);
         DescentMtb.LOG.info("[sculpttest] ALL PASSED");
     }
 
@@ -237,6 +238,51 @@ final class DevSculptTests {
         check(first.getValue(RampBlock.END) == second.getValue(RampBlock.START)
                 && second.getValue(RampBlock.END) == third.getValue(RampBlock.START), "linked ramps meet end to start");
         check(second.getValue(RampBlock.PROFILE) == RampBlock.Profile.LINEAR, "the pieces of a linked run are straight");
+    }
+
+    /** One right-click of the copy mode with the given tool. */
+    private static void copyClick(ServerPlayer p, ItemStack tool, int x, int y, int z, boolean shift) {
+        p.setItemInHand(InteractionHand.MAIN_HAND, tool);
+        ShapeToolItem.shape(p, new BlockPos(x, y, z), new Vec3(x + .5, y + .5, z + .5), Direction.EAST, shift);
+    }
+
+    /** Copy two blocks (a shaped ramp and a copycat ramp), paste them, paste them turned, undo the paste. */
+    private static void copyAndPaste(ServerPlayer p, ServerLevel l, int x, int y, int rz) {
+        int sx = x + 12;
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModBlocks.TRAIL_DIRT.get()));
+        placeAt(p, sx, y, rz);
+        placeAt(p, sx + 1, y, rz);
+        shape(p, ShapeMode.RAMP_HALF, sx, y, rz);
+        shape(p, ShapeMode.RAMP_MAKE, sx + 1, y, rz);
+
+        ItemStack tool = new ItemStack(ModBlocks.TRAIL_SHOVEL.get());
+        ShapeToolItem.mode(tool, ShapeMode.COPY);
+        copyClick(p, tool, sx, y, rz, false);
+        check(ShapeToolItem.data(tool).contains(ShapeClipboard.FIRST_TAG), "copy: the first corner is remembered");
+        copyClick(p, tool, sx + 1, y, rz, false);
+        check(java.util.Arrays.equals(ShapeToolItem.data(tool).getIntArray(ShapeClipboard.SIZE_TAG), new int[]{2, 5, 1}),
+                "copy: two corners capture a 2 x 5 x 1 box (4 blocks of headroom)");
+
+        copyClick(p, tool, sx + 5, y - 1, rz, false);
+        assertCorners(l, sx + 5, y, rz, 0, .5, 0, .5);
+        check(stateAt(l, sx + 6, y, rz).is(ModBlocks.RAMP.get())
+                && stateAt(l, sx + 6, y, rz).getValue(RampBlock.FACING) == Direction.EAST, "paste: the shaped block and the ramp land in order");
+        check(l.getBlockEntity(new BlockPos(sx + 6, y, rz)) instanceof RampBlockEntity, "paste: the ramp keeps its material");
+
+        ShapeClipboard.rotate(p);
+        check(java.util.Arrays.equals(ShapeToolItem.data(tool).getIntArray(ShapeClipboard.SIZE_TAG), new int[]{1, 5, 2}),
+                "rotate: the footprint turns from 2 x 1 to 1 x 2");
+        copyClick(p, tool, sx + 8, y - 1, rz, false);
+        assertCorners(l, sx + 8, y, rz, 0, 0, .5, .5);
+        check(stateAt(l, sx + 8, y, rz + 1).getValue(RampBlock.FACING) == Direction.SOUTH, "rotate: the ramp now rises to the south");
+
+        TrailEdit.undo(l, p);
+        check(stateAt(l, sx + 8, y, rz).isAir() && stateAt(l, sx + 8, y, rz + 1).isAir(), "one undo takes the whole paste back");
+        assertCorners(l, sx + 5, y, rz, 0, .5, 0, .5);
+
+        copyClick(p, tool, sx, y, rz, true);
+        check(ShapeToolItem.data(tool).contains(ShapeClipboard.FIRST_TAG) && !ShapeToolItem.data(tool).contains(ShapeClipboard.SIZE_TAG),
+                "Shift + click on a block starts a new selection");
     }
 
     /** Roots follow the plane and survive shaping; an elevated deck gets posts down to the ground. */
