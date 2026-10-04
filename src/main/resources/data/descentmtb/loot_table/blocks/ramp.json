@@ -5,7 +5,7 @@
       "rolls": 1.0,
       "bonus_rolls": 0.0,
       "conditions": [ { "condition": "minecraft:survives_explosion" } ],
-      "entries": [ { "type": "minecraft:item", "name": "descentmtb:ramp" } ]
+      "entries": [ { "type": "minecraft:item", "name": "descentmtb:trail_dirt" } ]
     }
   ],
   "random_sequence": "descentmtb:blocks/ramp"

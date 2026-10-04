@@ -50,7 +50,6 @@ public final class DescentMtbClient {
 
         com.descentmtb.client.trail.TrailClient.setup();
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e)->com.descentmtb.client.trail.TrailClient.tick());
-        NeoForge.EVENT_BUS.addListener(com.descentmtb.client.trail.TrailClient::renderGhost);
         NeoForge.EVENT_BUS.addListener(com.descentmtb.client.trail.ShapingHighlight::render);
         MountainBikeEntity.clientTicker = BikeClientController::tick;
         RagdollPayload.clientHandler = RagdollClient::onPayload;
@@ -70,25 +69,6 @@ public final class DescentMtbClient {
         });
         NeoForge.EVENT_BUS.addListener((RenderHandEvent e) -> {
             if (BikeCamera.helmet()) e.setCanceled(true);
-        });
-        // Standalone ramp tool: select a mode. Shovel/hammer: adjust the surface under the cursor.
-        NeoForge.EVENT_BUS.addListener((InputEvent.MouseScrollingEvent e) -> {
-            var mc = net.minecraft.client.Minecraft.getInstance();
-            if (mc.player == null || mc.screen != null || !net.minecraft.client.gui.screens.Screen.hasShiftDown()) return;
-            var held = mc.player.getMainHandItem();
-            if(held.getItem() instanceof com.descentmtb.ramp.TrailToolItem) {
-                e.setCanceled(true);
-                net.neoforged.neoforge.network.PacketDistributor.sendToServer(new com.descentmtb.network.TrailActionPayload(
-                        com.descentmtb.network.TrailActionPayload.TUNE_SUB,new net.minecraft.nbt.CompoundTag(),"",e.getScrollDeltaY()>0?-1:1,0,0));
-                return;
-            }
-            if (com.descentmtb.trail.ShapeToolItem.usable(held)
-                    && mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit
-                    && mc.level.getBlockEntity(hit.getBlockPos()) instanceof com.descentmtb.trail.TrailSurfaceEntity) {
-                e.setCanceled(true);
-                net.neoforged.neoforge.network.PacketDistributor.sendToServer(new com.descentmtb.network.ShapeTunePayload(
-                        false,e.getScrollDeltaY()>0?1:-1,hit.getBlockPos(),hit.getLocation()));
-            }
         });
         // no digging / placing while riding (Steam Input maps the triggers to mouse clicks!)
         NeoForge.EVENT_BUS.addListener((InputEvent.InteractionKeyMappingTriggered e) -> {
@@ -137,7 +117,6 @@ public final class DescentMtbClient {
     }
 
     private void registerGuiLayers(RegisterGuiLayersEvent event) {
-        event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID,"trail"),(g,t)->com.descentmtb.client.trail.TrailClient.hud(g));
         event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "speed"), new SpeedHud());
     }
 }

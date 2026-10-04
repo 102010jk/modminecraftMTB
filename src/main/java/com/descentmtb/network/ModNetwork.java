@@ -10,12 +10,11 @@ public final class ModNetwork {
     }
 
     private static void onRegister(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar r = event.registrar("6");
+        PayloadRegistrar r = event.registrar("7");
         r.playToServer(ShapeTunePayload.TYPE,ShapeTunePayload.CODEC,ShapeTunePayload::handle);
         r.playToServer(RagdollRecoveryPayload.TYPE,RagdollRecoveryPayload.CODEC,RagdollRecoveryPayload::handle);
-        r.playToServer(TrailActionPayload.TYPE,TrailActionPayload.CODEC,TrailActionPayload::handle);
+        r.playToServer(TrailUndoPayload.TYPE, TrailUndoPayload.CODEC, TrailUndoPayload::handle);
         r.playToServer(SignArtPayload.TYPE,SignArtPayload.CODEC,SignArtPayload::handle);
-        r.playToClient(TrailPreviewPayload.TYPE,TrailPreviewPayload.CODEC,(m,ctx)->TrailPreviewPayload.clientHandler.accept(m));
         r.playToServer(BikeStatePayload.TYPE, BikeStatePayload.CODEC, BikeStatePayload::handle);
         r.playToServer(BikeBailPayload.TYPE, BikeBailPayload.CODEC, BikeBailPayload::handle);
         r.playToClient(RagdollPayload.TYPE, RagdollPayload.CODEC, (m, ctx) -> RagdollPayload.clientHandler.accept(m));

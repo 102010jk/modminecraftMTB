@@ -81,17 +81,6 @@ public final class SurfacePlans {
   double length=PumpShapes.distances(a,b,c)[128];if(length<2||length>TrailConfig.MAX_LENGTH.get())throw new IllegalArgumentException("Zkrať trasu na 2–"+TrailConfig.MAX_LENGTH.get()+" m");
   return surface(l,(int)Math.floor(Math.min(a.x(),Math.min(b.x(),c.x()))-half-margin),(int)Math.floor(Math.min(a.z(),Math.min(b.z(),c.z()))-half-margin),(int)Math.ceil(Math.max(a.x(),Math.max(b.x(),c.x()))+half+margin),(int)Math.ceil(Math.max(a.z(),Math.max(b.z(),c.z()))+half+margin),a.y(),PumpShapes.line(ground,a,b,c,s.pump()),(x,z)->{Point p=curve(a,b,c,nearest(a,b,c,x,z));return Math.hypot(x-p.x(),z-p.z())<half+margin;},false);
  }
- public static Map<BlockPos,TrailEdit.Change> brush(Level level,Point centre,WandSettings s){
-  if(s.mode()==WandMode.SMOOTH)return smooth(level,centre,s.radius(),s.strength(),s.softness());
-  var cache=new HashMap<Long,Double>();
-  DoubleBinaryOperator ground=(x,z)->cache.computeIfAbsent(BlockPos.asLong((int)x,0,(int)z),k->terrain(level,x,z,centre.y()));
-  DoubleBinaryOperator height=(x,z)->{
-   double old=ground.applyAsDouble(x,z),falloff=PumpMath.edge(Math.hypot(x-centre.x(),z-centre.z()),s.radius(),s.softness());
-   double delta=s.mode()==WandMode.FLATTEN?(centre.y()-old)*Math.min(1,s.strength()):s.strength()*(s.mode()==WandMode.LOWER?-1:1);
-   return old+delta*falloff;
-  };
-  return surface(level,(int)Math.floor(centre.x()-s.radius()),(int)Math.floor(centre.z()-s.radius()),(int)Math.ceil(centre.x()+s.radius()),(int)Math.ceil(centre.z()+s.radius()),centre.y(),height,(x,z)->Math.hypot(x-centre.x(),z-centre.z())<s.radius(),false,true);
- }
  public static void validate(Point p){if(!Double.isFinite(p.x())||!Double.isFinite(p.y())||!Double.isFinite(p.z())||Math.abs(p.x())>30000000||Math.abs(p.z())>30000000)throw new IllegalArgumentException("Neplatný vodicí bod");}
  private SurfacePlans(){}
 }
