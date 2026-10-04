@@ -21,8 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Development-only: {@code /mtbdevmanual <x> <z>} builds a 90° berm exactly as a player would - by placing
- * Shaping Dirt and raising corners with the item, no tool - and then rides it through the real blocks.
+ * Development-only: {@code /mtbdevmanual <x> <z>} builds a 90° berm by placing Shaping Dirt on every column
+ * and moving the shared vertices with {@link DevFixtures} (coarse sculpting), then rides it through the real blocks.
  */
 public final class DevManualBerm {
     public static final int Y = 200;
@@ -86,14 +86,14 @@ public final class DevManualBerm {
             }
             for (long key : vertices) {
                 int vx = BlockPos.getX(key), vz = BlockPos.getZ(key);
-                // a fresh Shaping Dirt block is a half-block bump: first level the vertex with the ground, then build the bank
-                int steps = (int) Math.round((bank(Math.hypot(vx - cx, vz - cz)) - .5) / ShapingBlockItem.STEP);
+                // a fresh Shaping Dirt block is a full block: lower the vertex to the ground, then build the bank on it
+                int steps = (int) Math.round((bank(Math.hypot(vx - cx, vz - cz)) - 1) / DevFixtures.STEP);
                 BlockPos owner = new BlockPos(vx, Y, vz);
                 if (!(l.getBlockEntity(owner) instanceof TrailSurfaceEntity)) {
                     continue;   // vertex on the rim of the area: its owner column has no block
                 }
                 for (int s = 0; s < Math.abs(steps); s++) {
-                    ShapingBlockItem.sculpt(p, dirt, owner, new Vec3(vx + .05, Y + .5, vz + .05), steps < 0);
+                    DevFixtures.sculpt(p, owner, new Vec3(vx + .05, Y + .5, vz + .05), steps < 0);
                     SCULPTS++;
                 }
             }

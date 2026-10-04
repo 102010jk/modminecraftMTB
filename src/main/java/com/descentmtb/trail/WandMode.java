@@ -1,10 +1,8 @@
 package com.descentmtb.trail;
 
-import java.util.Locale;
-
 /**
- * Every mode of the Trail Builder. {@link #category} is the family shown in the radial menu:
- * 0 lines, 1 jumps, 2 turns, 3 wood &amp; structures, 4 gear &amp; manual tools.
+ * Plan types of the pure planners ({@link SurfacePlans}, {@link EquipmentPlans}, {@link TrailBuilder}), kept for
+ * the dev commands and tests. Players shape with the Trail Shaper ({@link ShapeMode}) instead.
  */
 public enum WandMode {
     FLOW(0), PUMP_LINE(0), PUMP_LOOP(0),
@@ -18,10 +16,6 @@ public enum WandMode {
 
     WandMode(int category) {
         this.category = category;
-    }
-
-    public String key() {
-        return "descentmtb.wand.mode." + name().toLowerCase(Locale.ROOT);
     }
 
     public static WandMode from(int index) {

@@ -30,7 +30,7 @@ public final class TrailEdit {
             // Terrain planners may read a nearby ramp as a boundary, but cannot turn it into terrain.
             if(level.getBlockState(pos).is(com.descentmtb.registry.ModBlocks.RAMP.get())
                     && !plan.get(pos).state().is(com.descentmtb.registry.ModBlocks.RAMP.get()))
-                throw new IllegalArgumentException("Samostatnou rampu upravuj pomocí Trail Tool; před stavbou trati ji případně odeber");
+                throw new IllegalArgumentException("Starou samostatnou rampu nelze přestavět; nejprve ji odeber");
             var be = level.getBlockEntity(pos);
             if (be != null && !(be instanceof RampBlockEntity) && !(be instanceof TrailSignEntity)) throw new IllegalArgumentException("Úsek obsahuje chráněný blok s inventářem nebo daty");
         }

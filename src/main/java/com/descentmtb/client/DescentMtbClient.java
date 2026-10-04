@@ -70,6 +70,8 @@ public final class DescentMtbClient {
         NeoForge.EVENT_BUS.addListener((RenderHandEvent e) -> {
             if (BikeCamera.helmet()) e.setCanceled(true);
         });
+        // Trail Shaper: Shift + wheel cycles the modes of the current category
+        NeoForge.EVENT_BUS.addListener(com.descentmtb.client.trail.TrailClient::onScroll);
         // no digging / placing while riding (Steam Input maps the triggers to mouse clicks!)
         NeoForge.EVENT_BUS.addListener((InputEvent.InteractionKeyMappingTriggered e) -> {
             if (BikeClientController.riding() != null) {
@@ -117,6 +119,8 @@ public final class DescentMtbClient {
     }
 
     private void registerGuiLayers(RegisterGuiLayersEvent event) {
+        event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "trail"),
+                (graphics, tracker) -> com.descentmtb.client.trail.TrailClient.hud(graphics));
         event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "speed"), new SpeedHud());
     }
 }

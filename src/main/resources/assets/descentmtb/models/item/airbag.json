@@ -1,3 +1,4 @@
 {
-  "parent": "descentmtb:block/airbag"
+  "parent": "minecraft:item/generated",
+  "textures": { "layer0": "descentmtb:item/airbag" }
 }

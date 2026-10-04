@@ -2,42 +2,133 @@ package com.descentmtb.client.trail;
 
 import com.descentmtb.client.ModKeyMappings;
 import com.descentmtb.network.ShapeTunePayload;
-import com.descentmtb.trail.*;
+import com.descentmtb.trail.ShapeMode;
+import com.descentmtb.trail.ShapeToolItem;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-/** Precise editing selection, accessible with the same configurable menu key as the builder. */
+import java.util.List;
+
+/**
+ * Radial menu of the Trail Shaper. Hold the menu key, move the mouse to a mode and release (or click).
+ * The three tabs on top switch between jumps, berms and manual edits.
+ */
 public final class ShapeRadialScreen extends Screen {
-    private ShapeMode hovered;
+    private static final int TAB_WIDTH = 100, TAB_HEIGHT = 22, TAB_Y = 28;
+    private static final int CELL_W = 74, CELL_H = 40;
+
     private final ShapeMode current;
     private int category;
-    public ShapeRadialScreen(){super(Component.translatable("descentmtb.shape.title"));current=ShapeToolItem.mode(net.minecraft.client.Minecraft.getInstance().player.getMainHandItem());}
-    @Override public boolean isPauseScreen(){return false;}
-    @Override public void render(GuiGraphics g,int mx,int my,float pt){
-        g.fill(0,0,width,height,0xa0121a20);int cx=width/2,cy=height/2;
-        g.drawCenteredString(font,title,cx,12,0xffe4c488);hovered=null;
-        String[] tabs={"descentmtb.shape.group.whole","descentmtb.shape.group.corners","descentmtb.shape.group.edges"};
-        for(int i=0;i<3;i++){int x=cx-126+i*84;g.fill(x,29,x+81,49,i==category?0xff806744:0xff29373f);g.drawCenteredString(font,Component.translatable(tabs[i]),x+40,36,0xffe6e2d7);}
-        ShapeMode[] choices=switch(category){case 1->new ShapeMode[]{ShapeMode.NW,ShapeMode.NE,ShapeMode.SE,ShapeMode.SW};case 2->new ShapeMode[]{ShapeMode.NORTH,ShapeMode.EAST,ShapeMode.SOUTH,ShapeMode.WEST};default->new ShapeMode[]{ShapeMode.AUTO,ShapeMode.WHOLE,ShapeMode.CURVE};};
-        for(int index=0;index<choices.length;index++){
-            var mode=choices[index];double angle=-Math.PI/2+index*Math.PI*2/choices.length;
-            int x=cx+(int)(Math.cos(angle)*Math.min(120,width*.30))-34,y=cy+(int)(Math.sin(angle)*Math.max(48,(height-132)/2))-17;
-            boolean over=mx>=x&&mx<x+68&&my>=y&&my<y+34;if(over)hovered=mode;
-            g.fill(x-1,y-1,x+69,y+35,over?0xff72d5c3:mode==current?0xffdfb65e:0xff74634e);
-            g.fill(x,y,x+68,y+34,0xff25343d);
-            int ix=x+26,iy=y+3;g.fill(ix,iy,ix+16,iy+12,0xff4d655f);
-            for(var v:mode.vertices(0,0,.5,.5))g.fill(ix+v.x()*12,iy+v.z()*8,ix+v.x()*12+4,iy+v.z()*8+4,0xffe5bc6d);
-            g.drawCenteredString(font,Component.translatable(mode.key()),x+34,y+22,0xffe0d7c1);
-        }
-        var shown=hovered==null?current:hovered;
-        g.drawCenteredString(font,Component.translatable(shown.key()),cx,cy-5,0xfff5d087);
-        g.drawCenteredString(font,Component.translatable("descentmtb.shape.wheel"),cx,cy+9,0xff9cb9b5);
+    private ShapeMode hover;
+
+    public ShapeRadialScreen() {
+        super(Component.translatable("descentmtb.shape.title"));
+        current = ShapeToolItem.mode(Minecraft.getInstance().player.getMainHandItem());
+        category = current.category;
     }
-    private void choose(){if(hovered!=null){PacketDistributor.sendToServer(new ShapeTunePayload(true,hovered.ordinal(),BlockPos.ZERO,Vec3.ZERO));ShapeToolItem.mode(minecraft.player.getMainHandItem(),hovered.ordinal());}onClose();}
-    @Override public boolean keyReleased(int key,int scan,int modifiers){if(ModKeyMappings.TRAIL_MENU.matches(key,scan)){choose();return true;}return super.keyReleased(key,scan,modifiers);}
-    @Override public boolean mouseClicked(double x,double y,int button){if(y>=29&&y<49&&x>=width/2-126&&x<width/2+126){category=(int)((x-width/2+126)/84);return true;}if(button==0){choose();return true;}return super.mouseClicked(x,y,button);}
+
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+
+    /** The icon of a mode: a 16x16 picture in {@code textures/gui/shape/}. */
+    public static ResourceLocation icon(ShapeMode mode) {
+        return ResourceLocation.fromNamespaceAndPath("descentmtb", "textures/gui/shape/" + mode.fileName() + ".png");
+    }
+
+    @Override
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        g.fill(0, 0, width, height, 0x95121a20);
+        int cx = width / 2;
+        int cy = height / 2 + 12;
+        g.drawCenteredString(font, title, cx, 10, 0xffe4c488);
+
+        drawTabs(g);
+        drawModes(g, mouseX, mouseY, cx, cy);
+        drawCentre(g, cx, cy);
+    }
+
+    private int tabsLeft() {
+        return width / 2 - ShapeMode.CATEGORIES * TAB_WIDTH / 2;
+    }
+
+    private void drawTabs(GuiGraphics g) {
+        int left = tabsLeft();
+        for (int i = 0; i < ShapeMode.CATEGORIES; i++) {
+            int x = left + i * TAB_WIDTH;
+            boolean selected = i == category;
+            g.fill(x, TAB_Y, x + TAB_WIDTH - 3, TAB_Y + TAB_HEIGHT, selected ? 0xff806744 : 0xff29373f);
+            g.fill(x, TAB_Y + TAB_HEIGHT - 2, x + TAB_WIDTH - 3, TAB_Y + TAB_HEIGHT, selected ? 0xffe3b65e : 0xff3b4a52);
+            g.drawCenteredString(font, Component.translatable("descentmtb.shape.category." + i),
+                    x + (TAB_WIDTH - 3) / 2, TAB_Y + 7, 0xffe6e2d7);
+        }
+    }
+
+    private void drawModes(GuiGraphics g, int mouseX, int mouseY, int cx, int cy) {
+        hover = null;
+        List<ShapeMode> modes = ShapeMode.inCategory(category);
+        double radiusX = Math.min(120, width * .27);
+        double radiusY = Math.max(44, (height - 150) / 2.0);
+        for (int i = 0; i < modes.size(); i++) {
+            double angle = -Math.PI / 2 + 2 * Math.PI * i / modes.size();
+            int x = (int) (cx + Math.cos(angle) * radiusX - CELL_W / 2.0);
+            int y = (int) (cy + Math.sin(angle) * radiusY - CELL_H / 2.0);
+            ShapeMode mode = modes.get(i);
+            boolean over = mouseX >= x && mouseX < x + CELL_W && mouseY >= y && mouseY < y + CELL_H;
+            if (over) {
+                hover = mode;
+            }
+            int border = over ? 0xff72d5c3 : mode == current ? 0xffdfb65e : 0xff74634e;
+            g.fill(x - 1, y - 1, x + CELL_W + 1, y + CELL_H + 1, border);
+            g.fill(x, y, x + CELL_W, y + CELL_H, over ? 0xff314b4e : 0xff25343d);
+            g.blit(icon(mode), x + CELL_W / 2 - 8, y + 4, 0, 0, 16, 16, 16, 16);
+            g.drawCenteredString(font, Component.translatable(mode.key()), x + CELL_W / 2, y + 25,
+                    over ? 0xffcaffed : 0xffe0d7c1);
+        }
+    }
+
+    private void drawCentre(GuiGraphics g, int cx, int cy) {
+        ShapeMode shown = hover != null ? hover : current;
+        g.blit(icon(shown), cx - 16, cy - 30, 32, 32, 0, 0, 16, 16, 16, 16);
+        g.drawCenteredString(font, Component.translatable(shown.key()), cx, cy + 6, 0xfff5d087);
+        g.drawCenteredString(font, Component.translatable(shown.descriptionKey()), cx, cy + 18, 0xff9cb9b5);
+    }
+
+    private void choose(ShapeMode mode) {
+        PacketDistributor.sendToServer(new ShapeTunePayload(mode));
+        ShapeToolItem.mode(minecraft.player.getMainHandItem(), mode);
+        onClose();
+    }
+
+    @Override
+    public boolean keyReleased(int key, int scan, int modifiers) {
+        if (ModKeyMappings.TRAIL_MENU.matches(key, scan)) {
+            if (hover != null) {
+                choose(hover);
+            } else {
+                onClose();
+            }
+            return true;
+        }
+        return super.keyReleased(key, scan, modifiers);
+    }
+
+    @Override
+    public boolean mouseClicked(double mx, double my, int button) {
+        int left = tabsLeft();
+        if (my >= TAB_Y && my <= TAB_Y + TAB_HEIGHT && mx >= left && mx < left + ShapeMode.CATEGORIES * TAB_WIDTH) {
+            category = (int) ((mx - left) / TAB_WIDTH);
+            return true;
+        }
+        if (button == 0 && hover != null) {
+            choose(hover);
+            return true;
+        }
+        return super.mouseClicked(mx, my, button);
+    }
 }

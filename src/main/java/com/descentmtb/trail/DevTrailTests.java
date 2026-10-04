@@ -94,9 +94,8 @@ public final class DevTrailTests {
         check(Math.abs(h1 - (y + .995)) < .005 && Math.abs(h2 - (y + 1.005)) < .005,
                 "continuous surface crosses an integer block height without phantom step");
 
-        ItemStack bumpItem = new ItemStack(ModBlocks.TRAIL_DECK.get());
         for (int i = 0; i < 3; i++) {
-            ShapingBlockItem.sculpt(p, bumpItem, new BlockPos(x, y, z + 2), new Vec3(x + .5, y + 1, z + 2.5), false);
+            DevFixtures.sculpt(p, new BlockPos(x, y, z + 2), new Vec3(x + .5, y + 1, z + 2.5), false);
         }
         var brush = SurfacePlans.smooth(l, new Point(x + .5, y + 1.2, z + 2.5), 2, .6, .8);
         check(brush.values().stream().anyMatch(v -> v.heights() != null && v.deck() && v.material().is(Blocks.OAK_PLANKS)),
