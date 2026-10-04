@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Presets of the Trail Shaper. {@link #category} is the tab of the radial menu: 0 jumps, 1 berms, 2 manual.
- * {@link #rise} is the height gained across the block (negative for a drop); the manual modes ignore it.
- * The mode is stored in the tool by its {@link #name()}.
+ * Modes of the Trail Shaper. {@link #category} is the tab of the radial menu: 0 jumps, 1 berms, 2 manual
+ * (and copying), 3 copycat ramps. {@link #rise} is the height gained across the block (negative for a drop); only
+ * the {@link Kind#COLUMN} modes use it. The mode is stored in the tool by its {@link #name()}.
  */
 public enum ShapeMode {
     RAMP_QUARTER(0, .25),
@@ -20,20 +20,47 @@ public enum ShapeMode {
     BANK_LEFT_FULL(1, 1.0),
     BANK_RIGHT_FULL(1, 1.0),
     CORNER_BANK(1, .5),
+    BERM_BUILD(1, 0, Kind.BERM),
 
     AUTO(2, 0),
     WHOLE(2, 0),
     FLATTEN(2, 0),
-    RESET(2, 0);
+    RESET(2, 0),
+    COPY(2, 0, Kind.COPY),
 
-    public static final int CATEGORIES = 3;
+    RAMP_MAKE(3, 0, Kind.RAMP),
+    RAMP_STEEPNESS(3, 0, Kind.RAMP),
+    RAMP_START(3, 0, Kind.RAMP),
+    RAMP_PROFILE(3, 0, Kind.RAMP),
+    RAMP_ROTATE(3, 0, Kind.RAMP),
+    RAMP_LINK(3, 0, Kind.RAMP);
+
+    public static final int CATEGORIES = 4;
+
+    /** What a click does, which decides the code that handles it. */
+    public enum Kind {
+        /** Reshapes the one clicked block ({@link ShapePresets}). */
+        COLUMN,
+        /** Tunes a copycat ramp block ({@link RampTuning}). */
+        RAMP,
+        /** Collects three points and builds a berm ({@link BermBuilder}). */
+        BERM,
+        /** Copies and pastes a box of blocks ({@link ShapeClipboard}). */
+        COPY
+    }
 
     public final int category;
     public final double rise;
+    public final Kind kind;
 
     ShapeMode(int category, double rise) {
+        this(category, rise, Kind.COLUMN);
+    }
+
+    ShapeMode(int category, double rise, Kind kind) {
         this.category = category;
         this.rise = rise;
+        this.kind = kind;
     }
 
     /** Language key of the mode's name. */
@@ -46,9 +73,23 @@ public enum ShapeMode {
         return "descentmtb.shape.desc." + fileName();
     }
 
+    /** Language key of the hint line in the HUD: one per tab, except for the modes that work differently. */
+    public String hintKey() {
+        return switch (kind) {
+            case BERM -> "descentmtb.shape.hud.hint.berm_build";
+            case COPY -> "descentmtb.shape.hud.hint.copy";
+            default -> "descentmtb.shape.hud.hint." + category;
+        };
+    }
+
     /** Lower-case name, also the file name of the icon in {@code textures/gui/shape/}. */
     public String fileName() {
         return name().toLowerCase(Locale.ROOT);
+    }
+
+    /** True for the presets that reshape the one clicked block and can therefore be previewed with {@link ShapePresets}. */
+    public boolean reshapesBlock() {
+        return kind == Kind.COLUMN;
     }
 
     public static List<ShapeMode> inCategory(int category) {

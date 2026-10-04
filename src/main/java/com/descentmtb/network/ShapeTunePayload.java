@@ -33,7 +33,7 @@ public record ShapeTunePayload(int mode) implements CustomPacketPayload {
         }
         ShapeMode[] modes = ShapeMode.values();
         if (message.mode >= 0 && message.mode < modes.length) {
-            ShapeToolItem.mode(player.getMainHandItem(), modes[message.mode]);
+            ShapeToolItem.changeMode(player, modes[message.mode]);
         }
     }
 }

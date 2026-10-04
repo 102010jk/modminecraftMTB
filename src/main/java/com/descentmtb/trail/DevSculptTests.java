@@ -1,6 +1,8 @@
 package com.descentmtb.trail;
 
 import com.descentmtb.DescentMtb;
+import com.descentmtb.ramp.RampBlock;
+import com.descentmtb.ramp.RampBlockEntity;
 import com.descentmtb.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -10,6 +12,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -70,6 +73,7 @@ final class DevSculptTests {
         plainGround(p, l, x + 20, y, bz);
         undo(p, l, x + 22, y, bz);
         withOverlayAndDeck(p, l, x, y, bz);
+        ramps(p, l, x, y, bz + 2);
         DescentMtb.LOG.info("[sculpttest] ALL PASSED");
     }
 
@@ -183,6 +187,56 @@ final class DevSculptTests {
         assertCorners(l, x, y, bz, 0, .25, 0, .25);
         TrailEdit.undo(l, p);
         assertCorners(l, x, y, bz, 1, 1, 1, 1);
+    }
+
+    private static BlockState stateAt(ServerLevel l, int x, int y, int z) {
+        return l.getBlockState(new BlockPos(x, y, z));
+    }
+
+    /** The Ramps tab: make a copycat ramp from a shaped block, tune it, link a run, undo. */
+    private static void ramps(ServerPlayer p, ServerLevel l, int x, int y, int rz) {
+        int rx = x + 3;
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModBlocks.TRAIL_DIRT.get()));
+        for (int i = 0; i < 4; i++) {
+            placeAt(p, rx + i, y, rz);
+        }
+
+        shape(p, ShapeMode.RAMP_MAKE, rx, y, rz);
+        BlockState ramp = stateAt(l, rx, y, rz);
+        check(ramp.is(ModBlocks.RAMP.get()), "Make ramp turns the shaped block into a copycat ramp");
+        check(ramp.getValue(RampBlock.FACING) == Direction.EAST, "the ramp rises away from the player (east)");
+        check(ramp.getValue(RampBlock.START) == 0 && ramp.getValue(RampBlock.END) == 16
+                && ramp.getValue(RampBlock.PROFILE) == RampBlock.Profile.CONCAVE, "a new ramp is a kicker from 0 to 16");
+        check(l.getBlockEntity(new BlockPos(rx, y, rz)) instanceof RampBlockEntity, "the ramp has its copycat material");
+        shape(p, ShapeMode.RAMP_MAKE, rx + 3, y, rz, .5, .5, true);
+        check(stateAt(l, rx + 3, y, rz).getValue(RampBlock.FACING) == Direction.WEST, "Shift makes the ramp face the player");
+
+        shape(p, ShapeMode.RAMP_STEEPNESS, rx, y, rz, .5, .5, true);
+        check(stateAt(l, rx, y, rz).getValue(RampBlock.END) == 14, "Shift + steepness lowers the end by 2/16");
+        shape(p, ShapeMode.RAMP_START, rx, y, rz);
+        check(stateAt(l, rx, y, rz).getValue(RampBlock.START) == 2, "start height goes up by 2/16");
+        shape(p, ShapeMode.RAMP_PROFILE, rx, y, rz);
+        check(stateAt(l, rx, y, rz).getValue(RampBlock.PROFILE) == RampBlock.Profile.CONVEX, "profile cycles kicker to roller");
+        shape(p, ShapeMode.RAMP_PROFILE, rx, y, rz, .5, .5, true);
+        check(stateAt(l, rx, y, rz).getValue(RampBlock.PROFILE) == RampBlock.Profile.CONCAVE, "Shift cycles the profile back");
+        shape(p, ShapeMode.RAMP_ROTATE, rx, y, rz);
+        check(stateAt(l, rx, y, rz).getValue(RampBlock.FACING) == Direction.SOUTH, "rotate turns clockwise (east to south)");
+        TrailEdit.undo(l, p);
+        check(stateAt(l, rx, y, rz).getValue(RampBlock.FACING) == Direction.EAST, "a ramp edit can be undone");
+        check(l.getBlockEntity(new BlockPos(rx, y, rz)) instanceof RampBlockEntity, "undo keeps the ramp block entity");
+
+        // three ramps in a row become one continuous slope
+        shape(p, ShapeMode.RAMP_START, rx, y, rz, .5, .5, true);   // back to 0
+        shape(p, ShapeMode.RAMP_STEEPNESS, rx, y, rz);              // back to 16
+        shape(p, ShapeMode.RAMP_MAKE, rx + 1, y, rz);
+        shape(p, ShapeMode.RAMP_MAKE, rx + 2, y, rz);
+        shape(p, ShapeMode.RAMP_LINK, rx, y, rz);
+        shape(p, ShapeMode.RAMP_LINK, rx + 2, y, rz);
+        BlockState first = stateAt(l, rx, y, rz), second = stateAt(l, rx + 1, y, rz), third = stateAt(l, rx + 2, y, rz);
+        check(first.getValue(RampBlock.START) == 0 && third.getValue(RampBlock.END) == 16, "link spans the whole run");
+        check(first.getValue(RampBlock.END) == second.getValue(RampBlock.START)
+                && second.getValue(RampBlock.END) == third.getValue(RampBlock.START), "linked ramps meet end to start");
+        check(second.getValue(RampBlock.PROFILE) == RampBlock.Profile.LINEAR, "the pieces of a linked run are straight");
     }
 
     /** Roots follow the plane and survive shaping; an elevated deck gets posts down to the ground. */

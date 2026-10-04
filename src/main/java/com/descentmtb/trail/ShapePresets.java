@@ -40,10 +40,11 @@ public final class ShapePresets {
      * @param hit    where the block was clicked (world coordinates)
      * @param facing the player's horizontal facing: ramps rise away from the player
      * @param shift  Shift held: ramps rise towards the player, manual clicks lower
-     * @return the plan, or null when the block cannot be shaped (air, a chest, a standalone ramp ...)
+     * @return the plan, or null when the block cannot be shaped (air, a chest, a standalone ramp ...) or the
+     *         mode does not reshape single blocks (ramp tuning, berm building, copying)
      */
     public static Plan plan(Level level, BlockPos pos, ShapeMode mode, Vec3 hit, Direction facing, boolean shift) {
-        ColumnEditor.Column column = shapeableColumn(level, pos);
+        ColumnEditor.Column column = mode.reshapesBlock() ? shapeableColumn(level, pos) : null;
         if (column == null) {
             return null;
         }

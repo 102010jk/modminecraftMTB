@@ -65,7 +65,7 @@ public final class TrailClient {
         ShapeMode mode = ShapeToolItem.mode(mc.player.getMainHandItem());
         Component name = Component.translatable(mode.key());
         Component description = Component.translatable(mode.descriptionKey());
-        Component hint = Component.translatable("descentmtb.shape.hud.hint." + mode.category,
+        Component hint = Component.translatable(mode.hintKey(),
                 ModKeyMappings.TRAIL_MENU.getTranslatedKeyMessage());
         int width = Math.max(mc.font.width(description), Math.max(mc.font.width(hint), mc.font.width(name) + 21));
         int x = 12, y = g.guiHeight() - 62;
