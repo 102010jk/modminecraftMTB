@@ -9,16 +9,17 @@ import net.minecraft.world.level.block.state.BlockState;
  * <p>For a plain {@link RampBlock} the geometry comes from its block state (facing / start / end / profile)
  * and only the material matters; for a trail surface the four corners, the deck flag and the beam do.
  */
-public record ShapeKey(int c0, int c1, int c2, int c3, boolean deck, boolean beam, BlockState material) {
+public record ShapeKey(int c0, int c1, int c2, int c3, boolean deck, boolean beam, BlockState material,int overlay) {
     private static final double SCALE = 1024;
 
     public static ShapeKey ramp(BlockState material) {
-        return new ShapeKey(0, 0, 0, 0, false, false, material);
+        return new ShapeKey(0, 0, 0, 0, false, false, material,0);
     }
 
     public static ShapeKey surface(double[] corners, boolean deck, boolean beam, BlockState material) {
-        return new ShapeKey(q(corners[0]), q(corners[1]), q(corners[2]), q(corners[3]), deck, beam, material);
+        return new ShapeKey(q(corners[0]), q(corners[1]), q(corners[2]), q(corners[3]), deck, beam, material,0);
     }
+    public ShapeKey withOverlay(int kind){return new ShapeKey(c0,c1,c2,c3,deck,beam,material,kind);}
 
     private static int q(double v) {
         return (int) Math.round(v * SCALE);

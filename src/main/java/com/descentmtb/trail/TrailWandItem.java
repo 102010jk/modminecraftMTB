@@ -39,7 +39,7 @@ public final class TrailWandItem extends Item {
     /** How many clicked points a mode needs before it can produce a preview. */
     public static int requiredPoints(WandMode mode) {
         return switch (mode) {
-            case SUPPORT, ROOTS, ROCKS, ROCK_GARDEN, AIRBAG, SIGN, TEMPLATE -> 1;
+            case SUPPORT, ROOTS, ROCKS, ROCK_GARDEN, AIRBAG, SIGN, TEMPLATE, RAISE,LOWER,SMOOTH,FLATTEN -> 1;
             case PUMP_LOOP, BOARDWALK, WOOD_KICKER, WOOD_DROP, DROP_EDGE, BARRIER, MEASURE -> 2;
             default -> 3;
         };
@@ -156,6 +156,7 @@ public final class TrailWandItem extends Item {
     private static Map<BlockPos, TrailEdit.Change> plan(Level level, ServerPlayer player, WandSettings s,
                                                         Point a, Point b, Point c) {
         Map<BlockPos, TrailEdit.Change> plan = switch (s.mode()) {
+            case RAISE,LOWER,SMOOTH,FLATTEN -> SurfacePlans.brush(level,c,s);
             case PUMP_LINE, PUMP_LOOP -> SurfacePlans.pump(level, a, b, c, s);
             case SUPPORT, ROOTS, ROCKS, ROCK_GARDEN, BARRIER, AIRBAG, SIGN, DROP_EDGE ->
                     EquipmentPlans.plan(level, a, c, s, player.getDirection());

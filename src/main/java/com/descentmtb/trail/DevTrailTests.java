@@ -59,6 +59,7 @@ public final class DevTrailTests {
    var signPos=new BlockPos(x+4,y,z+5);l.setBlock(signPos,ModBlocks.TRAIL_SIGN.get().defaultBlockState(),3);var sign=(TrailSignEntity)l.getBlockEntity(signPos);var canvas=new SignArt(new byte[256]);canvas.template(0);sign.setPixels(canvas.pixels());var tag=sign.saveWithoutMetadata(l.registryAccess());var second=new TrailSignEntity(signPos,sign.getBlockState());second.loadWithComponents(tag,l.registryAccess());check(Arrays.equals(sign.pixels(),second.pixels()),"16x16 sign artwork survives block entity serialization");
    var bag=EquipmentPlans.plan(l,new Point(x+5,y,z+12),a,new WandSettings(WandMode.AIRBAG,5,.75,5,6,3,.3,.75),Direction.SOUTH);TrailEdit.apply(l,p,bag);check(bag.size()>=30,"landing airbag prefab built");
    DevSculptTests.run(p,l,x,y,z);
+   DevClearTests.run(p,l,x,y,z);
    PASSED=true;DescentMtb.LOG.info("[trailtest] ALL PASSED");
   }catch(Exception e){FAILED=true;DescentMtb.LOG.error("[trailtest] FAIL",e);}
   finally{TrailDraft.action(p,action(TrailActionPayload.CANCEL));p.setItemInHand(InteractionHand.MAIN_HAND,saved);}

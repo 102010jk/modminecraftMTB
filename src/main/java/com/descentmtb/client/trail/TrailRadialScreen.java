@@ -26,6 +26,7 @@ public final class TrailRadialScreen extends Screen {
     private final WandSettings current;
     private int category;
     private WandMode hover;
+    private int page;
 
     public TrailRadialScreen() {
         super(Component.translatable("descentmtb.wand.title"));
@@ -39,7 +40,7 @@ public final class TrailRadialScreen extends Screen {
     }
 
     private List<WandMode> modes() {
-        return Arrays.stream(WandMode.values()).filter(m -> m.category == category).toList();
+        return Arrays.stream(WandMode.values()).filter(m -> m.category == category).skip(page*6L).limit(6).toList();
     }
 
     static ResourceLocation icon(String name) {
@@ -61,6 +62,8 @@ public final class TrailRadialScreen extends Screen {
         drawModes(g, mouseX, mouseY, cx, cy);
         drawCentre(g, cx, cy);
         drawSettingsButton(g, cx);
+        int pages=(int)(Arrays.stream(WandMode.values()).filter(m->m.category==category).count()+5)/6;
+        if(pages>1){g.fill(12,height-30,52,height-8,0xff34454c);g.fill(width-52,height-30,width-12,height-8,0xff34454c);g.drawString(font,"< "+(page+1)+"/"+pages,17,height-23,0xffe7d5aa);g.drawString(font,">",width-34,height-23,0xffe7d5aa);}
     }
 
     private void drawTabs(GuiGraphics g, int cx) {
@@ -137,7 +140,12 @@ public final class TrailRadialScreen extends Screen {
         int left = cx - 5 * TAB_WIDTH / 2;
         if (my >= TAB_Y && my <= TAB_Y + TAB_HEIGHT && mx >= left && mx < left + 5 * TAB_WIDTH) {
             category = (int) ((mx - left) / TAB_WIDTH);
+            page=0;
             return true;
+        }
+        if(my>=height-30&&my<height-8&&(mx<52||mx>width-52)) {
+            int pages=(int)(Arrays.stream(WandMode.values()).filter(m->m.category==category).count()+5)/6;
+            page=Math.floorMod(page+(mx<52?-1:1),Math.max(1,pages));return true;
         }
         if (my >= height - 30 && my < height - 8 && Math.abs(mx - cx) < 80) {
             minecraft.setScreen(new TrailSettingsScreen());

@@ -195,8 +195,9 @@ public final class BikeCamera {
 
         BlockHitResult hit = mc.level.clip(new ClipContext(focus, pos, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, bike));
         if (hit.getType() != HitResult.Type.MISS) {
-            Vec3 back = focus.subtract(hit.getLocation()).normalize().scale(0.25);
-            pos = hit.getLocation().add(back);
+            Vec3 at=ClipCoordinates.world(hit,(float)t);
+            Vec3 back = focus.subtract(at).normalize().scale(0.25);
+            pos = at.add(back);
         }
         // look slightly ahead of the rider
         Vec3 lookAt = focus.add(-Math.sin(camYaw) * 1.2, -0.15, Math.cos(camYaw) * 1.2);

@@ -108,8 +108,11 @@ public final class McColumns implements BlockTerrain.Columns {
     public Terrain.Surface surface(int x, int z, double topY) {
         mpos.set(x, (int) Math.floor(topY - 0.01), z);
         BlockState s = level.getBlockState(mpos);
+        if(s.isAir()){mpos.move(Direction.DOWN);s=level.getBlockState(mpos);}
         if(s.is(com.descentmtb.registry.ModBlocks.AIRBAG.get()))return Terrain.Surface.AIRBAG;
         if (RampBlock.isRamp(s)) {
+            if(level.getBlockEntity(mpos) instanceof com.descentmtb.trail.TrailSurfaceEntity shaped && shaped.overlay()!=0)
+                return shaped.overlay()==1?Terrain.Surface.WOOD:Terrain.Surface.ROCK;
             if(level.getBlockEntity(mpos) instanceof com.descentmtb.ramp.RampBlockEntity be && be.getMaterial().is(BlockTags.PLANKS))return Terrain.Surface.WOOD;
             return Terrain.Surface.TRAIL;
         }

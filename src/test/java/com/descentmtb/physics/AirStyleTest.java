@@ -39,6 +39,15 @@ class AirStyleTest {
         assertTrue(soft.tyreRolling>normal.tyreRolling*3);assertTrue(soft.tyreGrip>hard.tyreGrip);
         assertTrue(soft.pedalPower==normal.pedalPower,"pressure changes resistance, never silently disables pedalling");
     }
+    @Test void brushingAHighWallWhileGroundedNeverStartsWallride(){
+        Terrain flat=TestTerrains.flat(64,Terrain.Surface.ROCK);
+        Terrain wall=new Terrain(){
+            public boolean ground(double x,double z,double a,double b,GroundHit out){return flat.ground(x,z,a,b,out);}
+            public boolean solidAt(double x,double y,double z){return x<-.9&&y>=64&&y<70||flat.solidAt(x,y,z);}
+        };
+        BikeSim s=new BikeSim(new BikeParams(),wall);s.place(-.35,64,0,0);s.vel=s.riderVel=new V3(0,0,14);
+        for(int i=0;i<30&&!s.bailed;i++){s.tick(new Controls(0,0,0,0,0,1,false,0,0),.05);assertFalse(s.wallRide);}
+    }
     @Test void oneFlatTyreCannotBeCancelledByAnOverinflatedTyre(){BikeParams p=new BikeParams();BikeTuning.apply(p,new BikeParams(),5,65,80,1);assertTrue(p.tyreRolling>2.9);}
     @Test void airbagAbsorbsHardLandingWithoutAnAutomaticBounce(){BikeSim s=new BikeSim(new BikeParams(),TestTerrains.flat(64,Terrain.Surface.AIRBAG));s.place(0,64,0,0);s.pos=s.pos.add(new V3(0,6,0));s.riderPos=s.riderPos.add(new V3(0,6,0));s.vel=s.riderVel=new V3(0,-14,5);double largest=0;for(int i=0;i<120;i++){s.tick(Controls.NONE,.05);if(s.front.contact||s.rear.contact)largest=Math.max(largest,s.vel.y);assertFalse(s.bailed,s.bailReason);assertTrue(s.pos.y>63.9);}assertTrue(largest<.5,"airbag must dissipate energy instead of bouncing");}
     @Test void aMovingDeckCarriesTheBrakedBike() {

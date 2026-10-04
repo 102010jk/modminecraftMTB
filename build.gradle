@@ -50,6 +50,12 @@ neoForge {
             systemProperty 'descentmtb.autopilot', 'true'
             systemProperty 'descentmtb.autopilot.keepOpen', providers.gradleProperty('autopilotKeepOpen').orElse('false').get()
         }
+        clientWall {
+            client()
+            programArguments.addAll('--quickPlaySingleplayer', 'MTB Wallride Regression')
+            systemProperty 'descentmtb.autopilot', 'true'
+            systemProperty 'descentmtb.wallrideOnly', 'true'
+        }
         server {
             server()
         }

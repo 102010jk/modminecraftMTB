@@ -37,6 +37,7 @@ public final class BikeParams {
     public double lateralStiffness = 0.65;
     public double tyreGrip = 1, tyreRolling = 1;
     public boolean wallRides = true;
+    public double wallRideMinSpeed = 8;       // m/s along the wall, not into it
 
     // ---------------- drivetrain / brakes ----------------
     public double pedalPower = 1050;          // short sprint; 20–30 km/h without a long run-up

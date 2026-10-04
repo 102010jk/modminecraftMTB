@@ -21,6 +21,9 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
 
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.ArrayList;
 
 /**
  * The translucent preview of a pending trail edit, uploaded to the GPU once when the preview changes and then
@@ -33,8 +36,10 @@ final class GhostMesh {
     private final VertexBuffer buffer;
     private final double originX, originY, originZ;
     private final double minX, minY, minZ, maxX, maxY, maxZ;
+    private final ClientSubLevelAccess sub;
 
-    private GhostMesh(VertexBuffer buffer, double ox, double oy, double oz, double[] bounds) {
+    private GhostMesh(VertexBuffer buffer, double ox, double oy, double oz, double[] bounds,ClientSubLevelAccess sub) {
+        this.sub=sub;
         this.buffer = buffer;
         this.originX = ox;
         this.originY = oy;
@@ -47,7 +52,15 @@ final class GhostMesh {
         this.maxZ = bounds[5];
     }
 
-    static GhostMesh build(List<TrailPreviewPayload.Cell> cells, float partialTick) {
+    static List<GhostMesh> buildAll(List<TrailPreviewPayload.Cell> cells) {
+        Map<ClientSubLevelAccess,List<TrailPreviewPayload.Cell>> groups=new LinkedHashMap<>();
+        for(var cell:cells)groups.computeIfAbsent(SableCompanion.INSTANCE.getContainingClient(cell.pos()),s->new ArrayList<>()).add(cell);
+        var meshes=new ArrayList<GhostMesh>();
+        groups.forEach((sub,group)->{var mesh=build(group,sub);if(mesh!=null)meshes.add(mesh);});
+        return meshes;
+    }
+
+    private static GhostMesh build(List<TrailPreviewPayload.Cell> cells,ClientSubLevelAccess sub) {
         if (cells.isEmpty()) {
             return null;
         }
@@ -57,8 +70,7 @@ final class GhostMesh {
         BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
         int vertices = 0;
         for (var cell : cells) {
-            ClientSubLevelAccess sub = SableCompanion.INSTANCE.getContainingClient(cell.pos());
-            vertices += addCell(builder, cell, sub, partialTick, ox, oy, oz, bounds);
+            vertices += addCell(builder, cell, null, 0, ox, oy, oz, bounds);
         }
         if (vertices == 0) {
             return null;
@@ -68,7 +80,7 @@ final class GhostMesh {
         vb.bind();
         vb.upload(mesh);
         VertexBuffer.unbind();
-        return new GhostMesh(vb, ox, oy, oz, bounds);
+        return new GhostMesh(vb, ox, oy, oz, bounds,sub);
     }
 
     private static int addCell(BufferBuilder b, TrailPreviewPayload.Cell c, ClientSubLevelAccess sub, float pt,
@@ -119,8 +131,14 @@ final class GhostMesh {
 
     void draw(RenderLevelStageEvent event) {
         Vec3 camera = event.getCamera().getPosition();
+        Vec3 origin=new Vec3(originX,originY,originZ);Matrix4f rotation=new Matrix4f();
+        if(sub!=null) {
+            var pose=sub.renderPose(event.getPartialTick().getGameTimeDeltaPartialTick(false));origin=pose.transformPosition(origin);
+            Vec3 x=pose.transformNormal(new Vec3(1,0,0)),y=pose.transformNormal(new Vec3(0,1,0)),z=pose.transformNormal(new Vec3(0,0,1));
+            rotation.m00((float)x.x).m01((float)x.y).m02((float)x.z).m10((float)y.x).m11((float)y.y).m12((float)y.z).m20((float)z.x).m21((float)z.y).m22((float)z.z);
+        }
         Matrix4f modelView = new Matrix4f(event.getModelViewMatrix())
-                .translate((float) (originX - camera.x), (float) (originY - camera.y), (float) (originZ - camera.z));
+                .translate((float) (origin.x - camera.x), (float) (origin.y - camera.y), (float) (origin.z - camera.z)).mul(rotation);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.disableCull();
@@ -136,8 +154,8 @@ final class GhostMesh {
         var source = Minecraft.getInstance().renderBuffers().bufferSource();
         PoseStack pose = event.getPoseStack();
         pose.pushPose();
-        pose.translate(-camera.x, -camera.y, -camera.z);
-        LevelRenderer.renderLineBox(pose, source.getBuffer(RenderType.lines()), minX, minY, minZ, maxX, maxY, maxZ, .45f, .95f, .85f, 1f);
+        pose.translate(origin.x-camera.x, origin.y-camera.y, origin.z-camera.z);pose.mulPose(rotation);
+        LevelRenderer.renderLineBox(pose, source.getBuffer(RenderType.lines()), minX-originX, minY-originY, minZ-originZ, maxX-originX, maxY-originY, maxZ-originZ, .45f, .95f, .85f, 1f);
         source.endBatch(RenderType.lines());
         pose.popPose();
     }

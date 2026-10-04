@@ -38,6 +38,9 @@ public final class TrailClient {
    ghost = List.of();
    level = mc.level;
   }
+  if(mc.player!=null&&mc.screen==null&&ShapeToolItem.usable(mc.player.getMainHandItem())&&ModKeyMappings.TRAIL_MENU.consumeClick()) {
+   mc.setScreen(new ShapeRadialScreen());return;
+  }
   if (!holdingBuilder(mc)) {
    return;
   }
@@ -118,7 +121,7 @@ public final class TrailClient {
   };
  }
 
- private static GhostMesh ghostMesh;
+ private static List<GhostMesh> ghostMeshes=List.of();
  private static List<TrailPreviewPayload.Cell> ghostMeshSource = List.of();
 
  /** Draws the preview: the GPU mesh is rebuilt only when the preview itself changed. */
@@ -127,14 +130,10 @@ public final class TrailClient {
    return;
   }
   if (ghost != ghostMeshSource) {
-   if (ghostMesh != null) {
-    ghostMesh.close();
-   }
-   ghostMesh = GhostMesh.build(ghost, e.getPartialTick().getGameTimeDeltaPartialTick(false));
+   ghostMeshes.forEach(GhostMesh::close);
+   ghostMeshes = GhostMesh.buildAll(ghost);
    ghostMeshSource = ghost;
   }
-  if (ghostMesh != null) {
-   ghostMesh.draw(e);
-  }
+  ghostMeshes.forEach(mesh->mesh.draw(e));
  }
 }

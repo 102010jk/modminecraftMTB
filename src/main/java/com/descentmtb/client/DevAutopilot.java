@@ -15,14 +15,16 @@ import java.util.Locale;
 public final class DevAutopilot {
     public static final boolean ENABLED = Boolean.getBoolean("descentmtb.autopilot");
     private static final boolean KEEP_OPEN = Boolean.getBoolean("descentmtb.autopilot.keepOpen");
+    private static final boolean WALL_ONLY = Boolean.getBoolean("descentmtb.wallrideOnly");
     private static final int CRASH_PHASE = 8;
     private static boolean finished, sawManual, sawWall;
-    private static int tick, phase, rideTick = -1, mountAt = -1, afterBail = -1, sableWait = -1;
+    private static int tick, phase = WALL_ONLY ? 7 : 0, rideTick = -1, mountAt = -1, afterBail = -1, sableWait = -1;
     private static BlockPos o;
     private static boolean flew, shotAir, shotTrick, sawRagdoll, remountSent;
     private static MountainBikeEntity crashedBike;
+    private static boolean pumpSent;
 
-    static boolean active() { return ENABLED && !finished && (DevPumpRide.riding() || tick >= 60 && rideTick >= 0 && afterBail < 0); }
+    static boolean active() { return ENABLED && !finished && tick >= 60 && rideTick >= 0 && afterBail < 0; }
 
     static void prepareBike(MountainBikeEntity bike) {
         if (!ENABLED || o == null || tick < 60 || afterBail >= 0) return;
@@ -56,11 +58,19 @@ public final class DevAutopilot {
             cmd(p, String.format("fill %d %d %d %d %d %d descentmtb:ramp[facing=south,start=0,end=6,profile=concave]", x - 1, y, z + 24, x + 1, y, z + 24));
             cmd(p, String.format("fill %d %d %d %d %d %d descentmtb:ramp[facing=south,start=6,end=16,profile=linear]", x - 1, y, z + 25, x + 1, y, z + 25));
             cmd(p, String.format("fill %d %d %d %d %d %d minecraft:stone", x - 4, y, z + 62, x + 4, y + 3, z + 62));
+            if (WALL_ONLY) cmd(p, String.format("fill %d %d %d %d %d %d minecraft:stone", x - 1, y, z + 27, x - 1, y + 4, z + 43));
 
         }
-        if (tick == 35) cmd(p,"mtbdevtrail");
+        if (tick == 35) {
+            if (WALL_ONLY) mc.getSingleplayerServer().execute(() -> com.descentmtb.world.DevWallTests.run(mc.getSingleplayerServer().overworld(), o));
+            else cmd(p,"mtbdevtrail");
+        }
         if (tick == 45) spawn(p);
-        if(tick==60&&!com.descentmtb.trail.DevTrailTests.PASSED){if(com.descentmtb.trail.DevTrailTests.FAILED)fail(mc,"world construction tests failed");else tick=59;return;}
+        if (tick == 60) {
+            boolean passed = WALL_ONLY ? com.descentmtb.world.DevWallTests.PASSED : com.descentmtb.trail.DevTrailTests.PASSED;
+            boolean failed = WALL_ONLY ? com.descentmtb.world.DevWallTests.FAILED : com.descentmtb.trail.DevTrailTests.FAILED;
+            if (!passed) { if (failed) fail(mc, "world construction/collision tests failed"); else tick = 59; return; }
+        }
         if (tick == 60 || tick == mountAt) {
             mountAt = -1;
             cmd(p, "ride @s mount @e[type=descentmtb:mountain_bike,tag=mtb_autopilot,limit=1,sort=nearest]");
@@ -72,9 +82,13 @@ public final class DevAutopilot {
                 sableWait++;
                 if(com.descentmtb.world.DevSableTests.FAILED){fail(mc,"Sable integration test failed");return;}
                 if(!com.descentmtb.world.DevSableTests.PASSED){if(sableWait>180)fail(mc,"Sable integration test timed out");return;}
-                DevPumpRide.tick(mc, p, bike, o);
-                if (DevPumpRide.failed()) { fail(mc, DevPumpRide.why()); return; }
-                if (!DevPumpRide.finished()) return;
+                if(!com.descentmtb.trail.DevPumpTrack.BUILT) {
+                    if(com.descentmtb.trail.DevPumpTrack.FAILED){fail(mc,"pumptrack simulation failed");return;}
+                    if(!pumpSent){pumpSent=true;cmd(p,"mtbdevpump "+(o.getX()+80)+" "+(o.getZ()+80));}
+                    return;
+                }
+                var pump=com.descentmtb.trail.DevPumpTrack.RIDE;
+                if(pump==null||pump.bailed()||pump.laps()<.8){fail(mc,"pumptrack did not complete: "+pump);return;}
                 DescentMtb.LOG.info("[autopilot] PASS: enduro jump, hardtail tailwhip/barspin, gentle drop, manual/no-hander, natural whip/table, wallride, ragdoll, standing, remount and a full pumptrack ride");
                 finished = true;
                 BikeCamera.debugSide = 0;
@@ -110,7 +124,6 @@ public final class DevAutopilot {
 
     static BikeInputHandler.Frame frame() {
         MountainBikeEntity bike = BikeClientController.riding();
-        if (DevPumpRide.riding()) return DevPumpRide.frame(bike);
         double z = bike != null ? bike.getZ() - o.getZ() : 0;
         float body = phase == 3 ? 0 : z > 19.5 && z < 24.6 ? -1 : z >= 24.6 && z < 27 ? 1 : 0;
         boolean trick = (phase == 1 || phase == 2 || phase == 4) && bike != null && bike.sim() != null && bike.sim().airborne && z > 25.8;
@@ -145,6 +158,13 @@ public final class DevAutopilot {
                 fail(mc, "missing jump/trick/manual in phase " + phase + " flew="+flew+" trick="+shotTrick+" wall="+sawWall); return;
             }
             DescentMtb.LOG.info("[autopilot] phase {} passed: jump landed, trick={}", phase, shotTrick);
+            if (WALL_ONLY) {
+                finished = true;
+                DescentMtb.LOG.info("[walltest] CLIENT PASS: ramp takeoff, sustained wallride, wall release and landing");
+                shot(mc, "wallride_landed");
+                mc.stop();
+                return;
+            }
             phase++;
             if(phase==7)cmd(mc.player,String.format("fill %d %d %d %d %d %d minecraft:stone",o.getX()-1,o.getY(),o.getZ()+27,o.getX()-1,o.getY()+4,o.getZ()+43));
             if(phase==8)cmd(mc.player,String.format("fill %d %d %d %d %d %d minecraft:air",o.getX()-1,o.getY(),o.getZ()+27,o.getX()-1,o.getY()+4,o.getZ()+43));

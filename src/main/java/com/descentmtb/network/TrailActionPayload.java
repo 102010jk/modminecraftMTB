@@ -13,5 +13,10 @@ public record TrailActionPayload(int action,CompoundTag settings,String name,int
  public static final Type<TrailActionPayload> TYPE=new Type<>(ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID,"trail_action"));
  public static final StreamCodec<FriendlyByteBuf,TrailActionPayload> CODEC=StreamCodec.ofMember((m,b)->{b.writeVarInt(m.action);b.writeNbt(m.settings);b.writeUtf(m.name,24);b.writeInt(m.dx);b.writeInt(m.dy);b.writeInt(m.dz);},b->new TrailActionPayload(b.readVarInt(),b.readNbt(),b.readUtf(24),b.readInt(),b.readInt(),b.readInt()));
  public Type<? extends CustomPacketPayload> type(){return TYPE;}
- public static void handle(TrailActionPayload m,IPayloadContext ctx){if(ctx.player() instanceof ServerPlayer p)TrailDraft.action(p,m);}
+ public static void handle(TrailActionPayload m,IPayloadContext ctx){if(ctx.player() instanceof ServerPlayer p){
+  if(m.action()==TUNE_SUB&&p.getMainHandItem().getItem() instanceof com.descentmtb.ramp.TrailToolItem){
+   if(m.dx()==1||m.dx()==-1)com.descentmtb.ramp.TrailToolItem.cycle(p,p.getMainHandItem(),m.dx());return;
+  }
+  TrailDraft.action(p,m);
+ }}
 }

@@ -59,7 +59,19 @@ public final class ClearingToolItem extends Item {
 
     private InteractionResult fellTree(UseOnContext context, ServerPlayer player, Level level, BlockPos start, BlockState state) {
         Set<BlockPos> tree = collectTree(level, start, family(state));
+        if(player.isShiftKeyDown()) {
+            Direction forward=player.getDirection();
+            for(int step=1;step<=7&&tree.size()<MAX_TREE_BLOCKS;step++) for(int across=-1;across<=1;across++)for(int dy=-2;dy<=4;dy++) {
+                BlockPos q=start.relative(forward,step).relative(forward.getClockWise(),across).above(dy);
+                if(level.isLoaded(q)&&level.getBlockState(q).is(BlockTags.LOGS)) {
+                    var next=collectTree(level,q,family(level.getBlockState(q)));
+                    if(tree.size()+next.size()<=MAX_TREE_BLOCKS)tree.addAll(next);
+                }
+            }
+        }
         try {
+            for(var pos:tree) if(!player.mayBuild()||!level.mayInteract(player,pos)||level.getBlockEntity(pos)!=null)
+                throw new IllegalArgumentException("Koridor obsahuje chráněné bloky");
             if (player.isCreative()) {
                 // creative: an undoable edit, no drops
                 Map<BlockPos, TrailEdit.Change> plan = new LinkedHashMap<>();
@@ -124,7 +136,7 @@ public final class ClearingToolItem extends Item {
                         continue;
                     }
                     BlockState s = level.getBlockState(q);
-                    if (s.is(BlockTags.LEAVES) && !s.getValue(LeavesBlock.PERSISTENT)) {
+                    if (s.is(BlockTags.LEAVES) && s.hasProperty(LeavesBlock.PERSISTENT) && !s.getValue(LeavesBlock.PERSISTENT)) {
                         all.add(q);
                         next.add(q);
                     }

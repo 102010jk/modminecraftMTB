@@ -63,7 +63,7 @@ final class ShapedBakedModel implements IDynamicBakedModel {
             if (quadCache.size() > MAX_CACHED_SHAPES) {
                 quadCache.clear();
             }
-            cached = ShapedQuads.build(state, shape, faces(shape.material()));
+            cached = ShapedQuads.build(state, shape, faces(shape.material()),shape.overlay()==0?null:faces(shape.overlay()==1?Blocks.OAK_LOG.defaultBlockState():Blocks.STONE.defaultBlockState()));
             quadCache.put(key, cached);
         }
         return cached;

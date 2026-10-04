@@ -21,13 +21,15 @@ public final class SurfacePlans {
   var out=new LinkedHashMap<BlockPos,TrailEdit.Change>();
   for(int x=x0;x<=x1;x++)for(int z=z0;z<=z1;z++){
    if(!contains.test(x+.5,z+.5))continue;
-   boolean deck=wood;var material=wood?Blocks.OAK_PLANKS.defaultBlockState():Blocks.COARSE_DIRT.defaultBlockState();
+   net.minecraft.nbt.CompoundTag decoration=null;boolean deck=wood;var material=wood?Blocks.OAK_PLANKS.defaultBlockState():Blocks.COARSE_DIRT.defaultBlockState();
    double old=terrain(l,x+.5,z+.5,reference);
-   if(preserve && l.getBlockEntity(new BlockPos(x,(int)Math.floor(old-.0001),z)) instanceof com.descentmtb.ramp.RampBlockEntity be){material=be.getMaterial();deck=be instanceof TrailSurfaceEntity shaped&&shaped.deck();}
+   if(preserve && l.getBlockState(new BlockPos(x,(int)Math.floor(old-.0001),z)).is(ModBlocks.RAMP.get()))continue;
+   if(preserve && l.getBlockEntity(new BlockPos(x,(int)Math.floor(old-.0001),z)) instanceof com.descentmtb.ramp.RampBlockEntity be){material=be.getMaterial();deck=be instanceof TrailSurfaceEntity shaped&&shaped.deck();decoration=be.saveWithoutMetadata(l.registryAccess());}
    double[] h={sampled.applyAsDouble(x,z),sampled.applyAsDouble(x+1,z),sampled.applyAsDouble(x,z+1),sampled.applyAsDouble(x+1,z+1)};
-   var stack=ColumnShaper.layers(h,deck);
-   int bottom=stack.bottom(),top=stack.top();
-   for(var layer:stack.layers())out.put(new BlockPos(x,layer.y(),z),new TrailEdit.Change(ModBlocks.TRAIL_SURFACE.get().defaultBlockState(),null,layer.heights(),material,deck));
+   double[] occupied=h.clone();double amplitude=decoration==null?0:OverlayMath.amplitude(decoration.getInt("Overlay"));for(int i=0;i<4;i++)occupied[i]+=amplitude;
+   var stack=ColumnShaper.layers(occupied,deck);
+   int bottom=ColumnShaper.layers(h,deck).bottom(),top=stack.top();
+   for(int y=bottom;y<=top;y++){double[] local=h.clone();for(int i=0;i<4;i++)local[i]-=y;out.put(new BlockPos(x,y,z),new TrailEdit.Change(ModBlocks.TRAIL_SURFACE.get().defaultBlockState(),decoration==null?null:decoration.copy(),local,material,deck));}
    if(deck){
     // Remove obsolete layers when a wooden wave is moved up/down, retaining the empty underside.
     for(int y=(int)Math.floor(old-.15);y<=(int)Math.ceil(old);y++)if(y<bottom||y>top){var p=new BlockPos(x,y,z);if(l.getBlockEntity(p) instanceof TrailSurfaceEntity oldDeck&&oldDeck.deck())out.put(p,TrailEdit.Change.block(Blocks.AIR.defaultBlockState()));}
@@ -78,6 +80,17 @@ public final class SurfacePlans {
   }
   double length=PumpShapes.distances(a,b,c)[128];if(length<2||length>TrailConfig.MAX_LENGTH.get())throw new IllegalArgumentException("Zkrať trasu na 2–"+TrailConfig.MAX_LENGTH.get()+" m");
   return surface(l,(int)Math.floor(Math.min(a.x(),Math.min(b.x(),c.x()))-half-margin),(int)Math.floor(Math.min(a.z(),Math.min(b.z(),c.z()))-half-margin),(int)Math.ceil(Math.max(a.x(),Math.max(b.x(),c.x()))+half+margin),(int)Math.ceil(Math.max(a.z(),Math.max(b.z(),c.z()))+half+margin),a.y(),PumpShapes.line(ground,a,b,c,s.pump()),(x,z)->{Point p=curve(a,b,c,nearest(a,b,c,x,z));return Math.hypot(x-p.x(),z-p.z())<half+margin;},false);
+ }
+ public static Map<BlockPos,TrailEdit.Change> brush(Level level,Point centre,WandSettings s){
+  if(s.mode()==WandMode.SMOOTH)return smooth(level,centre,s.radius(),s.strength(),s.softness());
+  var cache=new HashMap<Long,Double>();
+  DoubleBinaryOperator ground=(x,z)->cache.computeIfAbsent(BlockPos.asLong((int)x,0,(int)z),k->terrain(level,x,z,centre.y()));
+  DoubleBinaryOperator height=(x,z)->{
+   double old=ground.applyAsDouble(x,z),falloff=PumpMath.edge(Math.hypot(x-centre.x(),z-centre.z()),s.radius(),s.softness());
+   double delta=s.mode()==WandMode.FLATTEN?(centre.y()-old)*Math.min(1,s.strength()):s.strength()*(s.mode()==WandMode.LOWER?-1:1);
+   return old+delta*falloff;
+  };
+  return surface(level,(int)Math.floor(centre.x()-s.radius()),(int)Math.floor(centre.z()-s.radius()),(int)Math.ceil(centre.x()+s.radius()),(int)Math.ceil(centre.z()+s.radius()),centre.y(),height,(x,z)->Math.hypot(x-centre.x(),z-centre.z())<s.radius(),false,true);
  }
  public static void validate(Point p){if(!Double.isFinite(p.x())||!Double.isFinite(p.y())||!Double.isFinite(p.z())||Math.abs(p.x())>30000000||Math.abs(p.z())>30000000)throw new IllegalArgumentException("Neplatný vodicí bod");}
  private SurfacePlans(){}

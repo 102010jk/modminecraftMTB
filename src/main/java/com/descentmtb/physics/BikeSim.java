@@ -82,7 +82,12 @@ public final class BikeSim {
     public int trickMask;
     public boolean wallRide;
     private int wallSide;
-    private double wallTime;
+    private V3 wallNormal = V3.ZERO, wallPoint = V3.ZERO, wallVelocity = V3.ZERO;
+    private double wallCooldown;
+    private double substepTime;
+    private final Terrain.RayHit[] wallHits = {new Terrain.RayHit(), new Terrain.RayHit(),
+            new Terrain.RayHit(), new Terrain.RayHit(), new Terrain.RayHit()};
+    private final Terrain.RayHit collisionHit = new Terrain.RayHit();
 
     public boolean bailed;
     /**
@@ -147,7 +152,8 @@ public final class BikeSim {
         airPitchTravel = airYawTravel = airBudget = 0;
         maxWhip = maxTable = brake = 0;
         trickMask = 0;
-        wallRide = false; wallTime = 0;
+        wallRide = false; wallCooldown = 0;
+        wallNormal = wallPoint = wallVelocity = V3.ZERO;
         events.clear();
     }
 
@@ -159,8 +165,10 @@ public final class BikeSim {
     public void tick(Controls c, double dt) {
         Controls in = bailed ? Controls.NONE : c;
         double h = dt / p.substeps;
+        substepTime = 0;
         for (int i = 0; i < p.substeps; i++) {
             substep(in, h);
+            substepTime += h;
         }
     }
 
@@ -186,7 +194,7 @@ public final class BikeSim {
             maxSteer *= clamp((1.2 - cornering) / .35, .25, 1);
         }
         double steerTarget = c.steer * maxSteer;
-        steerAngle += (steerTarget - steerAngle) * (1 - Math.exp(-h / p.steerResponse));
+        steerAngle = p.steerResponse <= 0 ? steerTarget : steerAngle+(steerTarget-steerAngle)*(1-Math.exp(-h/p.steerResponse));
 
         // ---------- wheel contacts + suspension forces ----------
         contact(front, h);
@@ -202,13 +210,11 @@ public final class BikeSim {
         vel = vel.addScaled(V3.Y, -g * h);
         riderVel = riderVel.addScaled(V3.Y, -g * h);
         if (wallRide) {
-            double support = clamp(vel.horizontalLength() * vel.horizontalLength() / (13 * 13), 0, .95);
+            double tangentSpeed = vel.sub(wallVelocity).reject(wallNormal).horizontalLength();
+            double support = clamp(tangentSpeed * tangentSpeed / (13 * 13), 0, .95);
             vel = vel.addScaled(V3.Y, g * support * h);
             riderVel = riderVel.addScaled(V3.Y, g * support * h);
-            V3 normal = right.mul(-wallSide);
-            double into = Math.min(0, vel.dot(normal));
-            vel = vel.addScaled(normal, -into).mul(Math.exp(-h * .18));
-            riderVel = riderVel.addScaled(normal, -Math.min(0, riderVel.dot(normal)));
+            vel = wallVelocity.add(vel.sub(wallVelocity).mul(Math.exp(-h * .18)));
         }
 
         // ---------- aero + soft speed cap (uniform decel on bike & rider) ----------
@@ -257,6 +263,8 @@ public final class BikeSim {
         front.updateSliding();
         rear.updateSliding();
         bodyContacts(h);
+        if (grounded || bodyGrounded) wallRide = false;
+        if (wallRide) constrainWall();
 
         // ---------- roll lock ----------
         omega = omega.reject(fH);
@@ -388,21 +396,91 @@ public final class BikeSim {
         applyImpulse(w.patch, n.mul(load * h));
     }
 
-    /** High-speed side contact supplies friction from speed-dependent normal force, then releases. */
+    /** Acquire an actual continuous wall face at the tyres, then retain that face without held input. */
     private void wallContact(Controls c, boolean grounded, double h) {
+        boolean wasRiding = wallRide;
         wallRide = false;
-        if (!p.wallRides || riderless || grounded || vel.horizontalLength() < 8) { wallTime = 0; return; }
+        wallCooldown = Math.max(0, wallCooldown - h);
+        if (!p.wallRides || riderless || bailed || grounded || wallCooldown > 0
+                || Math.abs(pitch) > Math.toRadians(60) || !clearOfFloor()) return;
+        WallFace best = null;
         for (int side : new int[]{-1, 1}) {
-            V3 q = pos.addScaled(right, side * .65);
-            if (!terrain.solidAt(q.x,q.y-.2,q.z) || !terrain.solidAt(q.x,q.y+.6,q.z)) continue;
-            if (Math.abs(vel.dot(right)) > vel.horizontalLength() * .45) continue;
-            wallTime += h;
-            if ((c.steer * side > .1 || c.tweak * side > .1) && wallTime < 2.2) {
-                wallRide = true; wallSide = side;
-            }
-            return;
+            boolean retaining = wasRiding && side == wallSide;
+            V3 toward = retaining ? wallNormal.horizontal().normalize().mul(-1) : right.mul(side);
+            WallFace face = wallFace(toward, side, h, retaining ? wallVelocity : V3.ZERO);
+            if (face == null || retaining && face.normal.dot(wallNormal) < .9) continue;
+            V3 relative = vel.sub(face.velocity);
+            double tangentSpeed = relative.reject(face.normal).horizontalLength();
+            double into = -relative.dot(face.normal);
+            double input = Math.max(c.steer * side, c.tweak * side);
+            double awayInput = Math.min(c.steer * side, c.tweak * side);
+            if (tangentSpeed < p.wallRideMinSpeed * (retaining ? .85 : 1)
+                    || into < -.6 || into > tangentSpeed * .65 || into > p.wallCrashSpeed
+                    || Math.abs(fH.dot(face.normal)) > .65) continue;
+            if (retaining && awayInput < -.35) { wallCooldown = .15; return; }
+            if (!retaining && awayInput < -.35) continue;
+            double reach = p.wheelRadius - p.axleDrop + .04;
+            if (face.distance > reach + Math.max(0, into * h) + (retaining ? .04 : 0)) continue;
+            // A parallel fly-by needs deliberate lean/steer or actual tyre proximity.
+            if (!retaining && into < .2 && input < .15 && face.distance > reach - .12) continue;
+            if (best == null || face.distance < best.distance) best = face;
         }
-        wallTime = 0;
+        if (best == null) return;
+        wallRide = true; wallSide = best.side;
+        wallNormal = best.normal; wallPoint = best.point; wallVelocity = best.velocity;
+    }
+
+    private boolean clearOfFloor() {
+        for (int sign : new int[]{-1, 1}) {
+            V3 axle = pos.addScaled(fwd, sign * p.halfWheelbase).addScaled(up, p.axleDrop);
+            double bottom = axle.y - p.wheelRadius;
+            if (terrain.floor(axle.x, axle.z, axle.y + .05, bottom - .15, bodyHit)
+                    && bodyHit.height >= bottom - .15) return false;
+        }
+        return true;
+    }
+
+    private record WallFace(V3 point, V3 normal, V3 velocity, double distance, int side) {}
+
+    private WallFace wallFace(V3 toward, int side, double h, V3 previousVelocity) {
+        double reach = p.wheelRadius - p.axleDrop + .08 + Math.min(.12, vel.horizontalLength() * h);
+        V3 centre = pos.addScaled(up, p.axleDrop);
+        V3[] origins = {centre, pos.addScaled(fwd, p.halfWheelbase).addScaled(up, p.axleDrop + front.compression),
+                pos.addScaled(fwd, -p.halfWheelbase).addScaled(up, p.axleDrop + rear.compression),
+                centre.addScaled(V3.Y, .35), centre.addScaled(V3.Y, .75)};
+        // Minecraft/Sable poses update once a tick; the bike runs several substeps inside it.
+        // Query in that frozen pose, then advance the returned contact by its surface velocity.
+        V3 offset = previousVelocity.mul(substepTime);
+        for (int i = 0; i < origins.length; i++) {
+            V3 origin = origins[i].sub(offset);
+            if (!terrain.raycast(origin, origin.addScaled(toward, reach), wallHits[i])) return null;
+            Terrain.RayHit hit = wallHits[i];
+            if (i == 0 && previousVelocity.lengthSq() == 0 && hit.velocity.lengthSq() > 0) {
+                offset = hit.velocity.mul(substepTime);
+                origin = origins[i].sub(offset);
+                if (!terrain.raycast(origin, origin.addScaled(toward, reach), hit)) return null;
+            }
+            hit.point = hit.point.add(offset);
+            if (Math.abs(hit.normal.y) > .35 || hit.normal.dot(toward) > -.5) return null;
+            if (i > 0 && (hit.normal.dot(wallHits[0].normal) < .96
+                    || Math.abs(hit.point.sub(wallHits[0].point).dot(wallHits[0].normal)) > .06
+                    || hit.velocity.sub(wallHits[0].velocity).length() > 1)) return null;
+        }
+        Terrain.RayHit hit = wallHits[0];
+        return new WallFace(hit.point, hit.normal, hit.velocity,
+                centre.sub(hit.point).dot(hit.normal), side);
+    }
+
+    private void constrainWall() {
+        vel = vel.addScaled(wallNormal, -Math.min(0, vel.sub(wallVelocity).dot(wallNormal)));
+        riderVel = riderVel.addScaled(wallNormal, -Math.min(0, riderVel.sub(wallVelocity).dot(wallNormal)));
+        double distance = pos.addScaled(up, p.axleDrop).sub(wallPoint).dot(wallNormal);
+        double tyreReach = (p.wheelRadius - p.axleDrop) * Math.abs(Math.sin(lean));
+        double correction = Math.min(.04, Math.max(0, tyreReach - distance));
+        if (correction > 0) {
+            pos = pos.addScaled(wallNormal, correction);
+            riderPos = riderPos.addScaled(wallNormal, correction);
+        }
     }
 
     /** Keep the tyre supported by a lip until its round tread clears the edge. */
@@ -772,29 +850,28 @@ public final class BikeSim {
         boolean[] needsTall = {true, false, false};
         for (int i = 0; i < probes.length; i++) {
             V3 a = probes[i];
-            V3 b = a.add(step);
-            if (!terrain.solidAt(b.x, b.y, b.z) || terrain.solidAt(a.x, a.y, a.z)) continue;
-            if (needsTall[i] && !terrain.solidAt(b.x, b.y + 1.0, b.z)) continue; // 1-block step: ride it
-            // find the face we crossed
-            V3 nrm;
-            if (terrain.solidAt(a.x + step.x, a.y, a.z)) nrm = new V3(-Math.signum(step.x), 0, 0);
-            else if (terrain.solidAt(a.x, a.y, a.z + step.z)) nrm = new V3(0, 0, -Math.signum(step.z));
-            else nrm = new V3(0, -Math.signum(step.y), 0);
-            double into = -vel.dot(nrm);
+            V3 probeVelocity = i == 2 ? riderVel : vel;
+            V3 b = a.addScaled(probeVelocity, h);
+            if (!terrain.raycast(a, b, collisionHit)) continue;
+            V3 nrm = collisionHit.normal;
+            boolean wall = Math.abs(nrm.y) < .5;
+            V3 inside = collisionHit.point.addScaled(nrm, -.01);
+            if (needsTall[i] && wall && !terrain.solidAt(inside.x, inside.y + 1.0, inside.z)) continue; // 1-block step: ride it
+            double into = -probeVelocity.sub(collisionHit.velocity).dot(nrm);
             if (into <= 0) continue;
             events.add(new Event(Event.Type.HIT, into, "probe " + i + " n=" + nrm + " at " + b));
-            if (nrm.y != 0) {
+            if (!wall) {
                 // a floor/ceiling, not a wall: tyres handle the ground, but the head or
                 // bars hitting it means you went over the bars / landed upside down
                 if (i == 0) continue;
                 if (into > p.crashSpeed) bail(i == 2 ? "head first into the ground" : "went over the bars");
-            } else if (i == 2 && speedAgainst(nrm) > p.crashSpeed) {
+            } else if (i == 2 && -riderVel.sub(collisionHit.velocity).dot(nrm) > p.crashSpeed) {
                 bail("head strike");
             } else if (into > p.wallCrashSpeed) {
                 bail("crashed into a wall at " + Math.round(into * 3.6) + " km/h");
             }
-            vel = vel.addScaled(nrm, into);
-            riderVel = riderVel.addScaled(nrm, Math.max(0, -riderVel.dot(nrm)));
+            vel = vel.addScaled(nrm, Math.max(0, -vel.sub(collisionHit.velocity).dot(nrm)));
+            riderVel = riderVel.addScaled(nrm, Math.max(0, -riderVel.sub(collisionHit.velocity).dot(nrm)));
             step = vel.mul(h);
         }
         pos = pos.add(step);
@@ -837,10 +914,6 @@ public final class BikeSim {
             if (!riderless) riderPos = riderPos.addScaled(V3.Y, lift);
             if (vel.y < 0) vel = new V3(vel.x, 0, vel.z);
         }
-    }
-
-    private double speedAgainst(V3 n) {
-        return Math.max(0, -riderVel.dot(n));
     }
 
     private void bookkeeping(Controls c, double h) {

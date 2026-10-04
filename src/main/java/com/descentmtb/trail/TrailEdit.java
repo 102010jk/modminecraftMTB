@@ -27,6 +27,10 @@ public final class TrailEdit {
             if(!player.mayBuild()||!level.mayInteract(player,pos))throw new IllegalArgumentException("V tomto místě nelze stavět");
             if (!level.isLoaded(pos) || pos.getY()<level.getMinBuildHeight() || pos.getY()>=level.getMaxBuildHeight())
                 throw new IllegalArgumentException("Úsek není načtený nebo leží mimo výšku světa");
+            // Terrain planners may read a nearby ramp as a boundary, but cannot turn it into terrain.
+            if(level.getBlockState(pos).is(com.descentmtb.registry.ModBlocks.RAMP.get())
+                    && !plan.get(pos).state().is(com.descentmtb.registry.ModBlocks.RAMP.get()))
+                throw new IllegalArgumentException("Samostatnou rampu upravuj pomocí Trail Tool; před stavbou trati ji případně odeber");
             var be = level.getBlockEntity(pos);
             if (be != null && !(be instanceof RampBlockEntity) && !(be instanceof TrailSignEntity)) throw new IllegalArgumentException("Úsek obsahuje chráněný blok s inventářem nebo daty");
         }

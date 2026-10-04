@@ -47,6 +47,7 @@ public final class BikeInputHandler {
     }
 
     public static volatile String controllerStatus = "none";
+    public static boolean instantKeyboardSteering;
 
     private static boolean prevRespawn, prevRespawnStart, prevCamera, prevResetCamera;
     private static boolean prevHopKey;
@@ -91,6 +92,7 @@ public final class BikeInputHandler {
 
         // ---------------- controller ----------------
         Pad pad = pollPad();
+        instantKeyboardSteering=ClientConfig.KEYBOARD_STEER_RAMP.get()<.001 && (pad==null || Math.abs(kSteer)>=Math.abs(pad.lx));
         float steer = kSteer, lean = kLean, pedal = kPedal, brake = kBrake, body = kBody, tweak = kTweak;
         boolean trick = trickKey;
         float trickX = kTrickX, trickY = kTrickY;

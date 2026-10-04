@@ -41,6 +41,7 @@ public final class BikeClientController {
 
         BikeInputHandler.Frame in = DevAutopilot.active() ? DevAutopilot.frame()
                 : (mc.isPaused() || mc.screen != null) ? BikeInputHandler.Frame.NONE : BikeInputHandler.poll();
+        bike.params().steerResponse=BikeInputHandler.instantKeyboardSteering?0:bike.bikeType().params().steerResponse;
 
         boolean teleport = false;
         BikeSim sim = bike.sim();

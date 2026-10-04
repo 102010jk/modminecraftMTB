@@ -186,7 +186,7 @@ public final class RagdollClient {
         Vec3 want = c.subtract(dir.scale(4.2)).add(0, 1.8, 0);
         var hit = mc.level.clip(new ClipContext(c, want, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, mc.player));
         Vec3 pos = hit.getType() == HitResult.Type.MISS ? want
-                : hit.getLocation().add(c.subtract(hit.getLocation()).normalize().scale(0.25));
+                : ClipCoordinates.world(hit,pt).add(c.subtract(ClipCoordinates.world(hit,pt)).normalize().scale(0.25));
         Vec3 d = c.subtract(pos);
         float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
         float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));

@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * "Ladit rampu" mode of the Trail Builder: adjusts the {@link RampBlock} under the cursor.
+ * Copycat-ramp adjustments shared by the standalone Trail Tool and the legacy builder mode.
  *
  * <p>The sub-action (steepness, start height, profile, rotate, link) is chosen with Shift + mouse wheel
  * and kept on the wand; right-click applies it, Shift + right-click applies the reverse.
@@ -45,48 +45,54 @@ public final class RampTuning {
     public static void clearSession() {
         LINK_START.clear();
     }
+    public static void clearLink(Player player){LINK_START.remove(player.getUUID());}
+    public static boolean isCopycatRamp(BlockState state){return state.is(com.descentmtb.registry.ModBlocks.RAMP.get());}
 
     /** Applies one click of the chosen sub-action on the ramp at {@code pos}. */
     public static void tune(Level level, Player player, BlockPos pos, SubAction action, boolean reverse) {
+        if(level.isClientSide||!player.mayBuild()||!level.isLoaded(pos)||!level.mayInteract(player,pos))return;
         BlockState state = level.getBlockState(pos);
-        if (!RampBlock.isRamp(state)) {
+        if (!isCopycatRamp(state)) {
             return;
         }
+        try {
         switch (action) {
             case STEEPNESS -> {
                 int end = Mth.clamp(state.getValue(RampBlock.END) + (reverse ? -2 : 2), 0, 16);
-                change(level, pos, state.setValue(RampBlock.END, end));
+                change(level,player,pos,state.setValue(RampBlock.END, end));
                 message(player, "descentmtb.ramp_tune.steepness", end);
             }
             case START_HEIGHT -> {
                 int start = Mth.clamp(state.getValue(RampBlock.START) + (reverse ? -2 : 2), 0, 16);
-                change(level, pos, state.setValue(RampBlock.START, start));
+                change(level,player,pos,state.setValue(RampBlock.START, start));
                 message(player, "descentmtb.ramp_tune.start_height", start);
             }
             case PROFILE -> {
                 RampBlock.Profile profile = state.getValue(RampBlock.PROFILE);
                 profile = reverse ? profile.previous() : profile.next();
-                change(level, pos, state.setValue(RampBlock.PROFILE, profile));
+                change(level,player,pos,state.setValue(RampBlock.PROFILE, profile));
                 player.displayClientMessage(Component.translatable("descentmtb.ramp_tune.profile",
                         Component.translatable("descentmtb.ramp_tune.profile." + profile.getSerializedName())), true);
             }
             case ROTATE -> {
                 Direction facing = state.getValue(RampBlock.FACING);
                 facing = reverse ? facing.getCounterClockWise() : facing.getClockWise();
-                change(level, pos, state.setValue(RampBlock.FACING, facing));
+                change(level,player,pos,state.setValue(RampBlock.FACING, facing));
                 player.displayClientMessage(Component.translatable("descentmtb.ramp_tune.facing",
                         Component.translatable("descentmtb.ramp_tune.dir." + facing.getName())), true);
             }
             case LINK -> link(level, player, pos, state, reverse);
         }
+        }catch(IllegalArgumentException ex){player.displayClientMessage(Component.literal(ex.getMessage()),true);}
     }
 
     private static void message(Player player, String key, Object... args) {
         player.displayClientMessage(Component.translatable(key, args), true);
     }
 
-    private static void change(Level level, BlockPos pos, BlockState newState) {
-        level.setBlock(pos, newState, 3);
+    private static void change(Level level, Player player, BlockPos pos, BlockState newState) {
+        if(level.getBlockState(pos).equals(newState))return;
+        TrailEdit.apply(level,player,Map.of(pos,TrailEdit.Change.block(newState)));
         level.playSound(null, pos, SoundEvents.UI_BUTTON_CLICK.value(), SoundSource.BLOCKS, 0.4F, 1.3F);
     }
 
@@ -99,8 +105,8 @@ public final class RampTuning {
      */
     private static void link(Level level, Player player, BlockPos pos, BlockState target, boolean reverse) {
         BlockPos first = LINK_START.get(player.getUUID());
-        BlockState firstState = first == null ? null : level.getBlockState(first);
-        if (reverse || firstState == null || !RampBlock.isRamp(firstState)) {
+        BlockState firstState = first == null || !level.isLoaded(first) ? null : level.getBlockState(first);
+        if (reverse || firstState == null || !isCopycatRamp(firstState)) {
             LINK_START.put(player.getUUID(), pos);
             message(player, "descentmtb.ramp_tune.link.start_set");
             return;
@@ -131,6 +137,7 @@ public final class RampTuning {
         int length = along + 1;
         double startHeight = firstState.getValue(RampBlock.START);
         double endHeight = dy * 16 + target.getValue(RampBlock.END);
+        Map<BlockPos,TrailEdit.Change> changes=new java.util.LinkedHashMap<>();
         for (int k = 0; k < length; k++) {
             double s0 = (double) k / length;
             double s1 = (double) (k + 1) / length;
@@ -147,8 +154,9 @@ public final class RampTuning {
                 levelOffset = (max == 0 && min == 0) ? 0 : (int) (Math.ceil(max / 16.0) - 1);
             }
             BlockPos p = first.offset(facing.getStepX() * k, levelOffset, facing.getStepZ() * k);
+            if(!level.isLoaded(p))throw new IllegalArgumentException("Úsek rampy není načtený");
             BlockState existing = level.getBlockState(p);
-            if (!RampBlock.isRamp(existing)) {
+            if (!isCopycatRamp(existing)) {
                 continue;
             }
             BlockState updated = existing.setValue(RampBlock.FACING, facing)
@@ -156,9 +164,10 @@ public final class RampTuning {
                     .setValue(RampBlock.END, Mth.clamp((int) (h1 - 16L * levelOffset), 0, 16))
                     .setValue(RampBlock.PROFILE, length == 1 ? firstState.getValue(RampBlock.PROFILE) : RampBlock.Profile.LINEAR);
             if (updated != existing) {
-                level.setBlock(p, updated, 3);
+                changes.put(p,TrailEdit.Change.block(updated));
             }
         }
+        if(!changes.isEmpty())TrailEdit.apply(level,player,changes);
         LINK_START.remove(player.getUUID());
         level.playSound(null, pos, SoundEvents.UI_BUTTON_CLICK.value(), SoundSource.BLOCKS, 0.5F, 1.0F);
         message(player, "descentmtb.ramp_tune.link.done", length);

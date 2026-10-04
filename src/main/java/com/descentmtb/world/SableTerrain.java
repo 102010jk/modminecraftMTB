@@ -39,6 +39,34 @@ public final class SableTerrain implements Terrain {
     }
     public boolean ground(double x, double z, double top, double bottom, GroundHit out) { return query(x, z, top, bottom, out, false); }
     public boolean floor(double x, double z, double top, double bottom, GroundHit out) { return query(x, z, top, bottom, out, true); }
+    @Override
+    public boolean raycast(V3 from, V3 to, RayHit out) {
+        var hit = level.clip(new ClipContext(new Vec3(from.x, from.y, from.z), new Vec3(to.x, to.y, to.z),
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, net.minecraft.world.phys.shapes.CollisionContext.empty()));
+        if (hit.getType() == HitResult.Type.MISS || hit.isInside()) return false;
+        SubLevelAccess sub = SABLE_PRESENT ? SableCompanion.INSTANCE.getContaining(level, hit.getBlockPos()) : null;
+        // Shaped blocks have a continuous riding surface, rather than the walking collider's steps.
+        if (RampBlock.isRamp(level.getBlockState(hit.getBlockPos()))) {
+            if (!Terrain.super.raycast(from, to, out)) return false;
+            if (sub != null) {
+                Vec3 localPoint = sub.logicalPose().transformPositionInverse(new Vec3(out.point.x, out.point.y, out.point.z));
+                Vec3 v = SableCompanion.INSTANCE.getVelocity(level, sub, localPoint);
+                out.velocity = new V3(v.x, v.y, v.z);
+            }
+            return true;
+        }
+        Vec3 local = hit.getLocation(), world = sub == null ? local : sub.logicalPose().transformPosition(local);
+        Vec3 normal = Vec3.atLowerCornerOf(hit.getDirection().getNormal());
+        Vec3 velocity = Vec3.ZERO;
+        if (sub != null) {
+            normal = sub.logicalPose().transformNormal(normal).normalize();
+            velocity = SableCompanion.INSTANCE.getVelocity(level, sub, local);
+        }
+        V3 point = new V3(world.x, world.y, world.z);
+        out.set(point, new V3(normal.x, normal.y, normal.z), point.sub(from).length(),
+                new V3(velocity.x, velocity.y, velocity.z));
+        return true;
+    }
     private boolean query(double x, double z, double top, double bottom, GroundHit out, boolean floor) {
         boolean found = floor ? base.floor(x, z, top, bottom, out) : base.ground(x, z, top, bottom, out);
         if (!nearby(x, top, z)) return found;

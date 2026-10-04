@@ -24,13 +24,11 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Shaping Dirt / Shaping Deck: a block that is sculpted by hand, no tool needed.
+ * Placeable shaping dirt/deck. Editing belongs to the separate shovel or hammer.
  *
  * <ul>
  *   <li>Right-click a plain block: places a shaping block (it matches the shaped neighbours).</li>
- *   <li>Right-click a shaped block or ramp: raises the corner / edge / whole block under the cursor
- *       (the click position decides which, see {@link ColumnEditor#pickVertices}); Shift lowers.</li>
- *   <li>Left-click anything with the item in hand: lowers it (plain terrain turns into a shaped copy).</li>
+ *   <li>Right-click a shaped block: place the next block against it; never sculpt while placing.</li>
  * </ul>
  * Neighbouring blocks share their corners, so the surface is always continuous.
  */
@@ -61,36 +59,43 @@ public final class ShapingBlockItem extends BlockItem {
     // ------------------------------------------------------------------ placing
 
     @Override
-    public InteractionResult useOn(UseOnContext context) {
-        BlockState clicked = context.getLevel().getBlockState(context.getClickedPos());
-        if (!(clicked.getBlock() instanceof RampBlock)) {
-            return super.useOn(context);   // plain block: place a new shaping block
-        }
-        if (context.getLevel().isClientSide || !(context.getPlayer() instanceof ServerPlayer player)) {
-            return InteractionResult.SUCCESS;
-        }
-        sculpt(player, context.getItemInHand(), context.getClickedPos(), context.getClickLocation(), player.isShiftKeyDown());
-        return InteractionResult.CONSUME;
-    }
-
-    @Override
     protected boolean placeBlock(BlockPlaceContext context, BlockState state) {
         boolean placed = super.placeBlock(context, state);
         if (placed && !context.getLevel().isClientSide
                 && context.getLevel().getBlockEntity(context.getClickedPos()) instanceof TrailSurfaceEntity shaped) {
-            shaped.setShape(ColumnEditor.initialCorners(context.getLevel(), context.getClickedPos()), deck);
+            boolean independent=context.getPlayer()!=null && context.getPlayer().isShiftKeyDown();
+            double[] corners=independent ? new double[]{1,1,1,1} : ColumnEditor.initialCorners(context.getLevel(), context.getClickedPos());
+            if(independent && context.getClickedFace().getAxis().isHorizontal()) {
+                var d=context.getHorizontalDirection();
+                corners=new double[]{d==net.minecraft.core.Direction.NORTH||d==net.minecraft.core.Direction.WEST?1:0,
+                        d==net.minecraft.core.Direction.NORTH||d==net.minecraft.core.Direction.EAST?1:0,
+                        d==net.minecraft.core.Direction.SOUTH||d==net.minecraft.core.Direction.WEST?1:0,
+                        d==net.minecraft.core.Direction.SOUTH||d==net.minecraft.core.Direction.EAST?1:0};
+            }
+            // Ordinary placement creates one block. Larger height edits belong to the separate tools.
+            for(int i=0;i<4;i++)corners[i]=Math.max(0,Math.min(1,corners[i]));
+            shaped.setShape(corners, deck);
             shaped.setMaterial(deck ? net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState()
                     : net.minecraft.world.level.block.Blocks.COARSE_DIRT.defaultBlockState(), false);
+            if(deck && context.getPlayer() instanceof ServerPlayer player) {
+                var column=new ColumnEditor.Column(context.getClickedPos().getX(),context.getClickedPos().getZ(),
+                        ColumnShaper.absolute(context.getClickedPos().getY(),corners),shaped.getMaterial(),deck);
+                var changes=new java.util.LinkedHashMap<BlockPos,TrailEdit.Change>();
+                changes.put(context.getClickedPos(),new TrailEdit.Change(state,shaped.saveWithoutMetadata(context.getLevel().registryAccess()),corners,shaped.getMaterial(),true));
+                DeckSupports.add(context.getLevel(),column,changes);
+                try { TrailEdit.apply(context.getLevel(),player,changes); }
+                catch(IllegalArgumentException e) { player.displayClientMessage(Component.literal(e.getMessage()),true); }
+            }
         }
         return placed;
     }
 
     // ------------------------------------------------------------------ sculpting
 
-    /** Called for right clicks (server) and for the left-click payload. */
+    /** Development fixtures use coarse sculpting to build test tracks; player edits use ShapeToolItem. */
     public static void sculpt(ServerPlayer player, ItemStack stack, BlockPos pos, Vec3 hit, boolean lower) {
         Level level = player.level();
-        if (!level.isLoaded(pos) || !level.mayInteract(player, pos)) {
+        if (!player.mayBuild() || !level.isLoaded(pos) || !level.mayInteract(player, pos)) {
             return;
         }
         boolean survival = !player.getAbilities().instabuild;
@@ -136,7 +141,6 @@ public final class ShapingBlockItem extends BlockItem {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines, TooltipFlag flag) {
         lines.add(Component.translatable("descentmtb.shaping.hint.place"));
-        lines.add(Component.translatable("descentmtb.shaping.hint.raise"));
-        lines.add(Component.translatable("descentmtb.shaping.hint.lower"));
+        lines.add(Component.translatable("descentmtb.shaping.hint.tool"));
     }
 }

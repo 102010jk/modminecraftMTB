@@ -71,27 +71,23 @@ public final class DescentMtbClient {
         NeoForge.EVENT_BUS.addListener((RenderHandEvent e) -> {
             if (BikeCamera.helmet()) e.setCanceled(true);
         });
-        // Shift + mouse wheel with the Trail Builder in "Ladit rampu" mode picks the sub-action
+        // Standalone ramp tool: select a mode. Shovel/hammer: adjust the surface under the cursor.
         NeoForge.EVENT_BUS.addListener((InputEvent.MouseScrollingEvent e) -> {
             var mc = net.minecraft.client.Minecraft.getInstance();
             if (mc.player == null || mc.screen != null || !net.minecraft.client.gui.screens.Screen.hasShiftDown()) return;
             var held = mc.player.getMainHandItem();
-            if (held.getItem() instanceof com.descentmtb.trail.TrailWandItem
-                    && com.descentmtb.trail.WandSettings.read(held).mode() == com.descentmtb.trail.WandMode.RAMP_TUNE) {
+            if(held.getItem() instanceof com.descentmtb.ramp.TrailToolItem) {
                 e.setCanceled(true);
                 net.neoforged.neoforge.network.PacketDistributor.sendToServer(new com.descentmtb.network.TrailActionPayload(
-                        com.descentmtb.network.TrailActionPayload.TUNE_SUB, new net.minecraft.nbt.CompoundTag(), "",
-                        e.getScrollDeltaY() > 0 ? -1 : 1, 0, 0));
+                        com.descentmtb.network.TrailActionPayload.TUNE_SUB,new net.minecraft.nbt.CompoundTag(),"",e.getScrollDeltaY()>0?-1:1,0,0));
+                return;
             }
-        });
-        // left click with a shaping item lowers the corner / edge under the cursor
-        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.LeftClickBlock e) -> {
-            if (!e.getLevel().isClientSide() || !(e.getItemStack().getItem() instanceof com.descentmtb.trail.ShapingBlockItem)
-                    || e.getAction() != net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.LeftClickBlock.Action.START) return;
-            if (net.minecraft.client.Minecraft.getInstance().hitResult instanceof net.minecraft.world.phys.BlockHitResult hit
-                    && hit.getBlockPos().equals(e.getPos())) {
-                net.neoforged.neoforge.network.PacketDistributor.sendToServer(new com.descentmtb.network.SculptPayload(
-                        hit.getBlockPos(), hit.getLocation().x, hit.getLocation().y, hit.getLocation().z));
+            if (com.descentmtb.trail.ShapeToolItem.usable(held)
+                    && mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit
+                    && mc.level.getBlockEntity(hit.getBlockPos()) instanceof com.descentmtb.trail.TrailSurfaceEntity) {
+                e.setCanceled(true);
+                net.neoforged.neoforge.network.PacketDistributor.sendToServer(new com.descentmtb.network.ShapeTunePayload(
+                        false,e.getScrollDeltaY()>0?1:-1,hit.getBlockPos(),hit.getLocation()));
             }
         });
         // no digging / placing while riding (Steam Input maps the triggers to mouse clicks!)

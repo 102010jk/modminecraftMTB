@@ -40,7 +40,8 @@ public record SculptPayload(BlockPos pos, double hitX, double hitY, double hitZ)
         }
         Vec3 hit = new Vec3(m.hitX, m.hitY, m.hitZ);
         if (!Double.isFinite(hit.x) || !Double.isFinite(hit.y) || !Double.isFinite(hit.z)
-                || player.distanceToSqr(hit) > 10 * 10 || hit.distanceTo(Vec3.atCenterOf(m.pos)) > 3) {
+                || hit.distanceTo(Vec3.atCenterOf(m.pos)) > 3 || !player.level().isLoaded(m.pos)
+                || player.distanceToSqr(dev.ryanhcode.sable.companion.SableCompanion.INSTANCE.projectOutOfSubLevel(player.level(),hit))>10*10) {
             return;
         }
         ShapingBlockItem.sculpt(player, stack, m.pos, hit, true);

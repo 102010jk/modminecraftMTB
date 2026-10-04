@@ -29,7 +29,7 @@ final class ShapedQuads {
     private static final int[][] LAT = {{1, 0}, {0, 1}, {1, 0}, {0, 1}};
     private static final Direction[] SIDES = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
 
-    private final Faces faces;
+    private Faces faces;
     private final List<BakedQuad> out = new ArrayList<>();
     private final float[] q = new float[12];
 
@@ -37,14 +37,37 @@ final class ShapedQuads {
         this.faces = faces;
     }
 
-    static List<BakedQuad> build(BlockState state, ShapeKey key, Faces faces) {
+    static List<BakedQuad> build(BlockState state, ShapeKey key, Faces faces,Faces overlay) {
         ShapedQuads b = new ShapedQuads(faces);
         if (state.getBlock() instanceof com.descentmtb.trail.TrailSurfaceBlock) {
             b.surface(key);
         } else {
             b.ramp(state);
         }
+        if(overlay!=null&&key.overlay()!=0){b.faces=overlay;b.overlay(key);}
         return List.copyOf(b.out);
+    }
+
+    private void overlay(ShapeKey key) {
+        var c=key.corners();double d=1.0/16;
+        for(int x=0;x<16;x++)for(int z=0;z<16;z++) {
+            double[][] points={{x*d,z*d},{(x+1)*d,z*d},{(x+1)*d,(z+1)*d},{x*d,(z+1)*d}};
+            double[] base=new double[4],top=new double[4];boolean visible=false;
+            for(int i=0;i<4;i++){
+                double px=points[i][0],pz=points[i][1];base[i]=height(c,px,pz);
+                top[i]=Math.max(0,Math.min(1,bilerp(c,px,pz)+com.descentmtb.trail.OverlayMath.bump(key.overlay(),px,pz)));
+                visible|=top[i]>base[i]+.0001;set(i*3,px,top[i],pz);
+            }
+            if(!visible)continue;
+            float sx=(float)((top[1]+top[2]-top[0]-top[3])/(2*d)),sz=(float)((top[2]+top[3]-top[0]-top[1])/(2*d));
+            emit(Direction.UP,-sx,1,-sz);
+            for(int side=0;side<4;side++){
+                int next=(side+1)%4;
+                set(0,points[side][0],base[side],points[side][1]);set(3,points[next][0],base[next],points[next][1]);
+                set(6,points[next][0],top[next],points[next][1]);set(9,points[side][0],top[side],points[side][1]);
+                var face=SIDES[side];emit(face,face.getStepX(),0,face.getStepZ());
+            }
+        }
     }
 
     // ------------------------------------------------------------------ ramp

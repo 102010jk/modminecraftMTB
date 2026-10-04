@@ -24,14 +24,14 @@ public final class ShapingHighlight {
             return;
         }
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.level == null || !(mc.player.getMainHandItem().getItem() instanceof ShapingBlockItem)) {
+        if (mc.player == null || mc.level == null || !com.descentmtb.trail.ShapeToolItem.usable(mc.player.getMainHandItem())) {
             return;
         }
         if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) {
             return;
         }
         var pos = hit.getBlockPos();
-        if (!(mc.level.getBlockState(pos).getBlock() instanceof com.descentmtb.ramp.RampBlock)) {
+        if (!(mc.level.getBlockEntity(pos) instanceof com.descentmtb.trail.TrailSurfaceEntity)) {
             return;   // placing, not sculpting
         }
         var column = ColumnEditor.read(mc.level, pos.getX(), pos.getZ(), pos.getY());
@@ -39,7 +39,7 @@ public final class ShapingHighlight {
             return;
         }
         Vec3 at = hit.getLocation();
-        var vertices = com.descentmtb.trail.ColumnShaper.pickVertices(pos.getX(), pos.getZ(), clamp01(at.x - pos.getX()), clamp01(at.z - pos.getZ()));
+        var vertices = com.descentmtb.trail.ShapeToolItem.mode(mc.player.getMainHandItem()).vertices(pos.getX(), pos.getZ(), clamp01(at.x - pos.getX()), clamp01(at.z - pos.getZ()));
 
         Vec3 camera = event.getCamera().getPosition();
         PoseStack pose = event.getPoseStack();
