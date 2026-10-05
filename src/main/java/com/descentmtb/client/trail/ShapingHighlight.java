@@ -1,6 +1,9 @@
 package com.descentmtb.client.trail;
 
 import com.descentmtb.trail.ClipboardMath;
+import com.descentmtb.trail.CursorSettings;
+import com.descentmtb.trail.JumpBuilder;
+import com.descentmtb.trail.JumpProfiles;
 import com.descentmtb.trail.ShapeClipboard;
 import com.descentmtb.trail.ShapeMode;
 import com.descentmtb.trail.ShapePresets;
@@ -27,7 +30,9 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  * moves, drawn at the height that corner will have afterwards (the numbers come from {@link ShapePresets}, the same
  * code the server runs, so the preview matches the result). Copy mode: a line box around the selection and, once
  * something is copied, around the place the clipboard will land. Berm and downhill modes: a diamond on every point
- * placed so far.
+ * placed so far. Jump builder: a line box around the blocks the jump would take from the aimed block, and its profile
+ * as a line along the middle (the settings kept in the tool, the same height function the server builds from). The
+ * cursor's diamonds follow its sub-type and step ({@link CursorSettings}).
  *
  * <p>Nothing is recomputed per frame: the tool's data is copied only when its custom data component changes, and the
  * block preset's plan only when the aim, the mode, the facing or Shift changed, or a game tick passed (so an edit of
@@ -42,6 +47,8 @@ public final class ShapingHighlight {
     private static CustomData cachedData;
     private static CompoundTag data = new CompoundTag();
     private static ShapeMode mode;
+    private static CursorSettings cursor = CursorSettings.DEFAULT;
+    private static JumpProfiles.Params jump = JumpProfiles.Params.DEFAULT;
 
     /** Inputs of the cached plan; {@code planPos == null} means nothing is cached. */
     private static BlockPos planPos;
@@ -67,6 +74,9 @@ public final class ShapingHighlight {
             cachedData = custom;
             data = ShapeToolItem.data(stack);
             mode = ShapeToolItem.mode(stack);
+            cursor = CursorSettings.read(stack);
+            jump = JumpBuilder.read(stack);
+            planPos = null;   // the cursor settings may have changed
         }
         BlockHitResult hit = mc.hitResult instanceof BlockHitResult block && block.getType() == HitResult.Type.BLOCK ? block : null;
         Vec3 camera = event.getCamera().getPosition();
@@ -78,6 +88,7 @@ public final class ShapingHighlight {
             case COPY -> previewCopy(data, hit == null ? null : hit.getBlockPos(), camera, pose, source);
             case BERM -> previewPoints(data.getLongArray(com.descentmtb.trail.BermBuilder.POINTS_TAG), camera, pose, source);
             case DOWNHILL -> previewPoints(data.getLongArray(com.descentmtb.trail.DownhillBuilder.POINTS_TAG), camera, pose, source);
+            case JUMP -> previewJump(mc, hit, camera, pose, source);
             case RAMP -> { }
         }
     }
@@ -114,9 +125,48 @@ public final class ShapingHighlight {
             planShift = shift;
             planTick = tick;
             planLevel = mc.level;
-            plan = ShapePresets.plan(mc.level, planPos, mode, hitAt, facing, shift);
+            plan = ShapePresets.plan(mc.level, planPos, mode, hitAt, facing, shift, cursor);
         }
         return plan;
+    }
+
+    /** The footprint of the jump from the aimed block, and its profile along the clicked block's centre line. */
+    private static void previewJump(Minecraft mc, BlockHitResult hit, Vec3 camera, PoseStack pose, MultiBufferSource.BufferSource source) {
+        if (hit == null) {
+            return;
+        }
+        BlockPos start = hit.getBlockPos();
+        JumpProfiles.Layout layout = JumpBuilder.layout(start, mc.player.getDirection(), jump);
+        int[] box = layout.bounds();
+        double top = 0;
+        for (double u = 0; u <= jump.total(); u += .25) {
+            top = Math.max(top, jump.heightAt(u));
+        }
+        VertexConsumer lines = source.getBuffer(RenderType.lines());
+        LevelRenderer.renderLineBox(pose, lines,
+                box[0] - camera.x, start.getY() - camera.y, box[1] - camera.z,
+                box[2] + 1 - camera.x, start.getY() + 1 + Math.max(.05, top) - camera.y, box[3] + 1 - camera.z,
+                .95f, .76f, .29f, 1f);
+        var last = pose.last();
+        double[] previous = null;
+        double previousY = 0;
+        int steps = jump.total() * 8;
+        for (int i = 0; i <= steps; i++) {
+            double u = i / 8.0;
+            double[] point = layout.point(u);
+            double y = start.getY() + 1 + jump.heightAt(u) + .04;
+            if (previous != null) {
+                float dx = (float) (point[0] - previous[0]), dy = (float) (y - previousY), dz = (float) (point[1] - previous[1]);
+                float length = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+                lines.addVertex(last, (float) (previous[0] - camera.x), (float) (previousY - camera.y), (float) (previous[1] - camera.z))
+                        .setColor(.45f, .84f, .76f, 1f).setNormal(last, dx / length, dy / length, dz / length);
+                lines.addVertex(last, (float) (point[0] - camera.x), (float) (y - camera.y), (float) (point[1] - camera.z))
+                        .setColor(.45f, .84f, .76f, 1f).setNormal(last, dx / length, dy / length, dz / length);
+            }
+            previous = point;
+            previousY = y;
+        }
+        source.endBatch(RenderType.lines());
     }
 
     /** Corner A and the box to the aimed block; the footprint of the clipboard at the aimed block. */

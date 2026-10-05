@@ -74,6 +74,8 @@ public final class DescentMtbClient {
         });
         // Trail Shaper: Shift + wheel cycles the modes of the current category
         NeoForge.EVENT_BUS.addListener(com.descentmtb.client.trail.TrailClient::onScroll);
+        // Trail Shaper: right-clicks that open the block editor or the jump screen
+        NeoForge.EVENT_BUS.addListener(com.descentmtb.client.trail.TrailClient::onInteract);
         // no digging / placing while riding (Steam Input maps the triggers to mouse clicks!)
         NeoForge.EVENT_BUS.addListener((InputEvent.InteractionKeyMappingTriggered e) -> {
             if (BikeClientController.riding() != null) {
