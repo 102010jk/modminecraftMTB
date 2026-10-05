@@ -12,7 +12,7 @@ import net.minecraft.world.phys.Vec3;
  * to any other column. The server applies the {@link Plan}; the client draws it as a preview.
  */
 public final class ShapePresets {
-    /** One manual click moves a corner by this much. */
+    /** One click of {@link ShapeMode#WHOLE} moves the block by this much (the cursor has its own step, {@link CursorSettings}). */
     public static final double NUDGE = 1.0 / 16;
     /** A neighbour further than this above or below the clicked block is not continued. */
     private static final double MAX_NEIGHBOUR_STEP = 1.5;
@@ -44,15 +44,22 @@ public final class ShapePresets {
      *         mode does not reshape single blocks (ramp tuning, berm building, copying)
      */
     public static Plan plan(Level level, BlockPos pos, ShapeMode mode, Vec3 hit, Direction facing, boolean shift) {
-        ColumnEditor.Column column = mode.reshapesBlock() ? shapeableColumn(level, pos) : null;
-        if (column == null) {
+        return plan(level, pos, mode, hit, facing, shift, CursorSettings.DEFAULT);
+    }
+
+    /**
+     * Like {@link #plan(Level, BlockPos, ShapeMode, Vec3, Direction, boolean)}, with the cursor's sub-type and step
+     * (they only matter for {@link ShapeMode#AUTO}).
+     */
+    public static Plan plan(Level level, BlockPos pos, ShapeMode mode, Vec3 hit, Direction facing, boolean shift,
+                            CursorSettings cursor) {
+        Editable editable = mode.reshapesBlock() ? editable(level, pos) : null;
+        if (editable == null) {
             return null;
         }
-        int frame = frameOf(level, pos, column);
-        double[] local = new double[4];
-        for (int i = 0; i < 4; i++) {
-            local[i] = column.abs()[i] - frame;
-        }
+        ColumnEditor.Column column = editable.column();
+        int frame = editable.frame();
+        double[] local = editable.local();
         double fx = clamp01(hit.x - pos.getX()), fz = clamp01(hit.z - pos.getZ());
 
         double[] shaped;
@@ -74,8 +81,8 @@ public final class ShapePresets {
                 shaped = BlockShapes.cornerBank(BlockShapes.lowest(local), mode.rise, high);
             }
             case AUTO -> {
-                affected = pickedCorners(pos, fx, fz);
-                shaped = BlockShapes.nudge(local, affected, shift ? -NUDGE : NUDGE);
+                affected = CornerEdits.picked(cursor.pick(), fx, fz);
+                shaped = CornerEdits.nudge(local, affected, cursor.step().size, shift ? -1 : 1);
             }
             case WHOLE -> shaped = BlockShapes.nudge(local, ALL_CORNERS, shift ? -NUDGE : NUDGE);
             case FLATTEN -> shaped = BlockShapes.flatten(local);
@@ -87,6 +94,47 @@ public final class ShapePresets {
             newAbs[i] = frame + shaped[i];
         }
         return new Plan(column, newAbs, affected);
+    }
+
+    /**
+     * A block the shaper can edit: its column and the block Y its corner heights are local to (see {@link #frameOf}).
+     * The block editor shows and sends heights relative to {@code frame}.
+     */
+    public record Editable(ColumnEditor.Column column, int frame) {
+        /** The column's corner heights relative to {@link #frame}. */
+        public double[] local() {
+            return relativeTo(frame);
+        }
+
+        /**
+         * The block Y the block editor's heights are relative to: {@link #frame}, unless the shape reaches more than
+         * {@link BlockShapes#MAX_HEIGHT} above it (a tall stack of support blocks); then the block of the lowest corner,
+         * so the editor never shows a height it could not keep.
+         */
+        public int editorFrame() {
+            double[] local = local();
+            double high = Math.max(Math.max(local[0], local[1]), Math.max(local[2], local[3]));
+            return high <= BlockShapes.MAX_HEIGHT + EPS ? frame : (int) Math.floor(BlockShapes.lowest(column.abs()) - EPS);
+        }
+
+        /** The column's corner heights relative to {@link #editorFrame}. */
+        public double[] editorLocal() {
+            return relativeTo(editorFrame());
+        }
+
+        private double[] relativeTo(int base) {
+            double[] local = new double[4];
+            for (int i = 0; i < 4; i++) {
+                local[i] = column.abs()[i] - base;
+            }
+            return local;
+        }
+    }
+
+    /** The block at {@code pos} as the shaper edits it, or null when it cannot be shaped (air, a chest, a standalone ramp ...). */
+    public static Editable editable(Level level, BlockPos pos) {
+        ColumnEditor.Column column = shapeableColumn(level, pos);
+        return column == null ? null : new Editable(column, frameOf(level, pos, column));
     }
 
     /**
@@ -155,12 +203,6 @@ public final class ShapePresets {
         double edge = sum / count;
         double top = Math.max(Math.max(column.abs()[0], column.abs()[1]), Math.max(column.abs()[2], column.abs()[3]));
         return Math.abs(edge - top) <= MAX_NEIGHBOUR_STEP ? edge : Double.NaN;
-    }
-
-    /** Corners (0..3) of this block that a click at (fx, fz) refers to: a corner zone, an edge or the whole block. */
-    private static int[] pickedCorners(BlockPos pos, double fx, double fz) {
-        return ColumnShaper.pickVertices(pos.getX(), pos.getZ(), fx, fz).stream()
-                .mapToInt(v -> (v.x() - pos.getX()) + 2 * (v.z() - pos.getZ())).toArray();
     }
 
     private static double clamp01(double value) {

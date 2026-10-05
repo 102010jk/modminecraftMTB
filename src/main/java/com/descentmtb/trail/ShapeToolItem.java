@@ -29,11 +29,13 @@ import java.util.function.Consumer;
  * (see {@link ShapePresets}). Plain full blocks (dirt, grass, stone ...) first become a shaped copy of themselves.
  * The other kinds of mode tune copycat ramps ({@link RampTuning}), build a berm from three points
  * ({@link BermBuilder}), build a whole downhill line from two ({@link DownhillBuilder}) or copy and paste blocks
- * ({@link ShapeClipboard}). Every edit goes through
+ * ({@link ShapeClipboard}). The jump builder ({@link JumpBuilder}) and the block editor ({@link BlockEditor}) are
+ * opened as screens on the client and send their result in their own payloads. Every edit goes through
  * {@link TrailEdit}, so it can be undone.
  *
- * <p>The tool keeps its small state in its custom data: the selected mode, and what the berm and copy modes
- * show on the client (see {@link #data} and {@link #editData}).
+ * <p>The tool keeps its small state in its custom data: the selected mode, the cursor's sub-type and step
+ * ({@link CursorSettings}), the last jump settings, and what the berm and copy modes show on the client (see
+ * {@link #data} and {@link #editData}).
  */
 public final class ShapeToolItem extends Item {
     private static final String MODE_TAG = "ShapeModeName";
@@ -94,18 +96,20 @@ public final class ShapeToolItem extends Item {
         ItemStack tool = player.getItemInHand(hand);
         ShapeMode mode = mode(tool);
         return switch (mode.kind) {
-            case COLUMN -> reshape(player, pos, mode, hit, facing, shift);
+            case COLUMN -> reshape(player, pos, mode, hit, facing, shift, CursorSettings.read(tool));
             case RAMP -> RampTuning.click(player, pos, facing, shift, RampTuning.Action.of(mode));
             case BERM -> BermBuilder.click(player, tool, pos, shift);
             case COPY -> ShapeClipboard.click(player, tool, pos, shift);
             case DOWNHILL -> DownhillBuilder.click(player, tool, pos, shift);
+            case JUMP -> false;   // the client opens the jump screen instead, its Build button builds (JumpBuilder)
         };
     }
 
     /** The block presets: new corner heights for the one clicked block. */
-    private static boolean reshape(ServerPlayer player, BlockPos pos, ShapeMode mode, Vec3 hit, Direction facing, boolean shift) {
+    private static boolean reshape(ServerPlayer player, BlockPos pos, ShapeMode mode, Vec3 hit, Direction facing, boolean shift,
+                                   CursorSettings cursor) {
         var level = player.serverLevel();
-        ShapePresets.Plan plan = ShapePresets.plan(level, pos, mode, hit, facing, shift);
+        ShapePresets.Plan plan = ShapePresets.plan(level, pos, mode, hit, facing, shift, cursor);
         if (plan == null || !plan.changesAnything()) {
             return false;
         }

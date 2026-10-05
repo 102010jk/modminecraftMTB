@@ -30,18 +30,34 @@ import java.util.*;
  *       would be deleted, and no block holds an inventory or other foreign data. NeoForge's break and place events
  *       are posted for the player first, so claim mods can veto an edit.</li>
  *   <li><b>Economy.</b> In survival the edit is paid for with trail dirt / trail deck, see {@link TrailEconomy}.</li>
- *   <li><b>Materials.</b> A material the player paid for (right-click on a ramp with a block) is refunded exactly
+ *   <li><b>Materials.</b> A material the player paid for (right-click on a ramp with a block, or a
+ *       {@link Change#paid} change such as the block editor's material from the off-hand) is refunded exactly
  *       once: {@link RampBlockEntity#isConsumed()} survives an edit only on the very block it was paid on, the
  *       break handler of the ramp stays silent while the edit runs ({@link #isBeingEdited}), and a material that is
- *       lost in an edit is handed to the player at once. Undo never brings back a paid flag that was refunded.</li>
+ *       lost in an edit is handed to the player at once. Undo never brings back a paid flag that was refunded, and
+ *       hands back a material that was paid for in the edit it takes back.</li>
  *   <li><b>Undo.</b> The last {@link TrailConfig#UNDO_DEPTH} edits of a player are kept, but at most twice
  *       {@link TrailConfig#MAX_BLOCKS} changed blocks in total.</li>
  * </ul>
  */
 public final class TrailEdit {
-    /** One block of a plan. A null {@code heights} keeps the shape the block entity already has. */
-    public record Change(BlockState state, CompoundTag tag, double[] heights, BlockState material, boolean deck) {
+    /**
+     * One block of a plan. A null {@code heights} keeps the shape the block entity already has.
+     *
+     * @param paysMaterial the player pays for {@code material} on this block (one item of it, survival only), like a
+     *                     right-click with the block on a ramp does; the block then refunds it once when it is removed
+     */
+    public record Change(BlockState state, CompoundTag tag, double[] heights, BlockState material, boolean deck, boolean paysMaterial) {
+        public Change(BlockState state, CompoundTag tag, double[] heights, BlockState material, boolean deck) {
+            this(state, tag, heights, material, deck, false);
+        }
+
         public static Change block(BlockState s) { return new Change(s,null,null,null,false); }
+
+        /** This change, with the player paying for its material. */
+        public Change paid() {
+            return new Change(state, tag, heights, material, deck, true);
+        }
     }
 
     /** An edit that is refused; {@link #key()} is a language key and the arguments fill its placeholders. */
@@ -113,7 +129,16 @@ public final class TrailEdit {
     public static int apply(Level level, Player player, Map<BlockPos,Change> plan, boolean charge) {
         if (plan.size() > TrailConfig.MAX_BLOCKS.get()) throw new Rejected("descentmtb.edit.too_big", TrailConfig.MAX_BLOCKS.get());
         preflight(level, player, plan);
-        Map<Item,Integer> price = charge ? TrailEconomy.balance(level, plan) : Map.of();
+        Map<Item,Integer> price = charge ? new HashMap<>(TrailEconomy.balance(level, plan)) : Map.of();
+        Set<BlockPos> newlyPaid = new HashSet<>();
+        if (charge) {
+            plan.forEach((pos, change) -> {
+                if (paysNow(level, pos, change)) {
+                    newlyPaid.add(pos);
+                    price.merge(change.material().getBlock().asItem(), 1, Integer::sum);
+                }
+            });
+        }
         Item missing = TrailEconomy.missing(player, price);
         if (missing != null) {
             throw new Rejected("descentmtb.edit.need_items", price.get(missing), new ItemStack(missing).getHoverName());
@@ -133,9 +158,10 @@ public final class TrailEdit {
                 if(be instanceof RampBlockEntity ramp) {
                     if(change.material!=null) ramp.setMaterial(change.material);   // keeps the refund flag
                     // a paid material stays paid only on the block it was paid on; copies of it are never paid
-                    boolean keep = paid != null && ramp.getMaterial().getBlock() == paid;
+                    boolean keptOld = paid != null && ramp.getMaterial().getBlock() == paid;
+                    boolean keep = keptOld || newlyPaid.contains(pos);
                     if (ramp.isConsumed() != keep) ramp.setConsumedQuiet(keep);
-                    if (paid != null && !keep) lost.merge(paid, 1, Integer::sum);
+                    if (paid != null && !keptOld) lost.merge(paid, 1, Integer::sum);
                 } else if (paid != null) {
                     lost.merge(paid, 1, Integer::sum);
                 }
@@ -152,6 +178,18 @@ public final class TrailEdit {
         history.addLast(new Undo(level.dimension(),undo,charge));
         trim(history);
         return undo.size();
+    }
+
+    /**
+     * True when the change makes the player pay for its material now: it asks for it, and the block there is not
+     * already paid for with that very material.
+     */
+    private static boolean paysNow(Level level, BlockPos pos, Change change) {
+        if (!change.paysMaterial() || change.material() == null || change.material().getBlock().asItem() == net.minecraft.world.item.Items.AIR) {
+            return false;
+        }
+        return !(level.getBlockEntity(pos) instanceof RampBlockEntity ramp && ramp.isConsumed()
+                && ramp.getMaterial().getBlock() == change.material().getBlock());
     }
 
     /** Everything that can refuse a plan, checked before the first block changes. */
@@ -217,7 +255,11 @@ public final class TrailEdit {
             BlockPos p = e.getKey(); Saved s = e.getValue();
             if (!level.getBlockState(p).equals(s.after) || !Objects.equals(data(level,p),s.afterTag)) continue;
             restorable.put(p, s);
-            if (edit.charged) TrailEconomy.undoStep(price, s.before, s.beforeTag, s.after, s.afterTag);
+            if (edit.charged) {
+                TrailEconomy.undoStep(price, s.before, s.beforeTag, s.after, s.afterTag);
+                Item bought = boughtMaterial(level, s);
+                if (bought != null) price.merge(bought, -1, Integer::sum);   // the material paid in the edit goes back
+            }
         }
         Item missing = TrailEconomy.missing(player, price);
         if (missing != null) throw new Rejected("descentmtb.edit.undo_need_items", price.get(missing), new ItemStack(missing).getHoverName());
@@ -245,10 +287,27 @@ public final class TrailEdit {
      */
     private static CompoundTag unpaid(Saved s) {
         CompoundTag tag = s.beforeTag.copy();
-        if (tag.getBoolean("consumed") && (s.afterTag == null || !s.afterTag.getBoolean("consumed"))) {
+        if (tag.getBoolean("consumed") && !keptPaid(s)) {
             tag.putBoolean("consumed", false);
         }
         return tag;
+    }
+
+    /** True when the block was paid for before the edit and the edit kept it paid with the same material. */
+    private static boolean keptPaid(Saved s) {
+        return s.beforeTag != null && s.afterTag != null && s.beforeTag.getBoolean("consumed") && s.afterTag.getBoolean("consumed")
+                && Objects.equals(s.beforeTag.get("material"), s.afterTag.get("material"));
+    }
+
+    /** The material item the player paid for in the edit on this block (to hand back on undo), or null. */
+    private static Item boughtMaterial(Level level, Saved s) {
+        if (s.afterTag == null || !s.afterTag.getBoolean("consumed") || keptPaid(s) || !s.afterTag.contains("material")) {
+            return null;
+        }
+        BlockState material = net.minecraft.nbt.NbtUtils.readBlockState(level.holderLookup(net.minecraft.core.registries.Registries.BLOCK),
+                s.afterTag.getCompound("material"));
+        Item item = material.getBlock().asItem();
+        return item == net.minecraft.world.item.Items.AIR ? null : item;
     }
 
     private TrailEdit() {}

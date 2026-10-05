@@ -2,6 +2,8 @@ package com.descentmtb.network;
 
 import com.descentmtb.trail.BermBuilder;
 import com.descentmtb.trail.BermShapes;
+import com.descentmtb.trail.CornerEdits;
+import com.descentmtb.trail.CursorSettings;
 import com.descentmtb.trail.DownhillBuilder;
 import com.descentmtb.trail.DownhillShapes;
 import com.descentmtb.trail.ShapeMode;
@@ -16,7 +18,8 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 /**
  * Client to server: the Trail Shaper in the player's hand switches to another {@link ShapeMode} (by ordinal) and, for
  * the berm mode, takes the chosen berm steepness (ordinal) and width (m); for the downhill mode the second number is the
- * style (ordinal). A negative steepness means "no settings".
+ * style (ordinal); for the cursor ({@link ShapeMode#AUTO}) the two numbers are its sub-type and its step (ordinals).
+ * A negative steepness means "no settings".
  */
 public record ShapeTunePayload(int mode, int steepness, int width) implements CustomPacketPayload {
     public static final Type<ShapeTunePayload> TYPE =
@@ -44,6 +47,11 @@ public record ShapeTunePayload(int mode, int steepness, int width) implements Cu
         this(mode.ordinal(), settings.style().ordinal(), settings.width());
     }
 
+    /** A switch to the cursor with the given sub-type and step. */
+    public ShapeTunePayload(ShapeMode mode, CursorSettings settings) {
+        this(mode.ordinal(), settings.pick().ordinal(), settings.step().ordinal());
+    }
+
     @Override
     public Type<? extends CustomPacketPayload> type() {
         return TYPE;
@@ -56,6 +64,14 @@ public record ShapeTunePayload(int mode, int steepness, int width) implements Cu
         ShapeMode[] modes = ShapeMode.values();
         if (message.mode >= 0 && message.mode < modes.length) {
             ShapeToolItem.changeMode(player, modes[message.mode]);
+        }
+        if (ShapeToolItem.mode(player.getMainHandItem()) == ShapeMode.AUTO) {
+            CornerEdits.Pick[] picks = CornerEdits.Pick.values();
+            CornerEdits.Step[] steps = CornerEdits.Step.values();
+            if (message.steepness >= 0 && message.steepness < picks.length && message.width >= 0 && message.width < steps.length) {
+                new CursorSettings(picks[message.steepness], steps[message.width]).store(player.getMainHandItem());
+            }
+            return;
         }
         if (ShapeToolItem.mode(player.getMainHandItem()).kind == ShapeMode.Kind.DOWNHILL) {
             DownhillShapes.Style[] styles = DownhillShapes.Style.values();

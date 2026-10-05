@@ -66,18 +66,26 @@ public final class ColumnEditor {
 
     /** Block changes that give {@code column} the new corner heights, clearing / filling the layers around. */
     public static Map<BlockPos, TrailEdit.Change> rebuild(Level level, Column column, double[] newAbs) {
+        return rebuild(level, column, newAbs, column.deck(), column.material());
+    }
+
+    /**
+     * Like {@link #rebuild(Level, Column, double[])}, and the column also becomes a wooden deck or ground
+     * ({@code deck}) of another {@code material}. The old layers are recognised by the column as it is now.
+     */
+    public static Map<BlockPos, TrailEdit.Change> rebuild(Level level, Column column, double[] newAbs, boolean deck, BlockState material) {
         if(column.copycat())throw new TrailEdit.Rejected("descentmtb.edit.old_ramp");
         Map<BlockPos, TrailEdit.Change> changes = new LinkedHashMap<>();
         double[] occupied=newAbs.clone();
         double amplitude=column.decoration()==null?0:OverlayMath.amplitude(column.decoration().getInt("Overlay"));
         if(amplitude>0)for(int i=0;i<4;i++)occupied[i]+=amplitude;
-        ColumnShaper.Layers stack = ColumnShaper.layers(occupied, column.deck());
-        int bottom=ColumnShaper.layers(newAbs,column.deck()).bottom();
+        ColumnShaper.Layers stack = ColumnShaper.layers(occupied, deck);
+        int bottom=ColumnShaper.layers(newAbs,deck).bottom();
         BlockState surface = ModBlocks.TRAIL_SURFACE.get().defaultBlockState();
         for (int y=bottom;y<=stack.top();y++) {
             double[] local=newAbs.clone();for(int i=0;i<4;i++)local[i]-=y;
             changes.put(new BlockPos(column.x(), y, column.z()),
-                    new TrailEdit.Change(surface, column.decoration()==null?null:column.decoration().copy(), local, column.material(), column.deck()));
+                    new TrailEdit.Change(surface, column.decoration()==null?null:column.decoration().copy(), local, material, deck));
         }
 
         // old shaped layers above the new surface are no longer part of it
@@ -89,14 +97,14 @@ public final class ColumnEditor {
         }
 
         // below it: a deck leaves open space, ground stays solid
-        boolean fillingAir = !column.deck();
+        boolean fillingAir = !deck;
         for (int y = bottom - 1; y >= bottom - ColumnShaper.MAX_LAYERS; y--) {
             BlockPos pos = new BlockPos(column.x(), y, column.z());
             if (sameSurface(level, pos, column)) {
-                if (column.deck()) {
+                if (deck) {
                     changes.put(pos, TrailEdit.Change.block(Blocks.AIR.defaultBlockState()));
                 } else {
-                    changes.put(pos, new TrailEdit.Change(surface, null, new double[]{1, 1, 1, 1}, column.material(), false));
+                    changes.put(pos, new TrailEdit.Change(surface, null, new double[]{1, 1, 1, 1}, material, false));
                 }
             } else if (fillingAir && level.isLoaded(pos) && level.getBlockState(pos).isAir()) {
                 changes.put(pos, TrailEdit.Change.block(Blocks.DIRT.defaultBlockState()));

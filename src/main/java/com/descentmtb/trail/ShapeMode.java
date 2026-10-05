@@ -14,6 +14,7 @@ public enum ShapeMode {
     RAMP_HALF(0, .5),
     RAMP_FULL(0, 1.0),
     DROP_HALF(0, -.5),
+    JUMP_BUILD(0, 0, Kind.JUMP),
 
     BANK_LEFT_HALF(1, .5),
     BANK_RIGHT_HALF(1, .5),
@@ -50,7 +51,9 @@ public enum ShapeMode {
         /** Copies and pastes a box of blocks ({@link ShapeClipboard}). */
         COPY,
         /** Collects a start and a finish and builds a whole downhill line ({@link DownhillBuilder}). */
-        DOWNHILL
+        DOWNHILL,
+        /** Opens the jump profile screen and builds one jump from it ({@link JumpBuilder}). */
+        JUMP
     }
 
     public final int category;
@@ -83,7 +86,8 @@ public enum ShapeMode {
             case BERM -> "descentmtb.shape.hud.hint.berm_build";
             case COPY -> "descentmtb.shape.hud.hint.copy";
             case DOWNHILL -> "descentmtb.shape.hud.hint.downhill";
-            default -> "descentmtb.shape.hud.hint." + category;
+            case JUMP -> "descentmtb.shape.hud.hint.jump_build";
+            default -> this == AUTO ? "descentmtb.shape.hud.hint.auto" : "descentmtb.shape.hud.hint." + category;
         };
     }
 

@@ -2,9 +2,11 @@
 Radial-menu icons of the Trail Shaper, vanilla style (rough fills, material outlines), one distinct picture per
 mode so the menu can be read at a glance:
 
-* jumps / ramps  - side profile of the block (dirt or planks), the height tells which preset
+* jumps / ramps  - side profile of the block (dirt or planks), the height tells which preset; the jump builder is a
+                   kicker over three blocks with a settings gear
 * berms          - view along the trail: the tilted surface, arrow to the high side
-* manual         - the block with the action drawn on it (cursor, arrows, level, reset, copy)
+* manual         - the block with the action drawn on it (cursor, arrows, level, reset, copy); the cursor's sub-types
+                   (cursor_*) mark the corners a click picks on the top in gold
 * lines          - a hillside with a trail and a flag
 
     python tools/gen_icons_v4.py [--install]
@@ -102,6 +104,12 @@ def icons():
     arrow(c, 11, 5, 0, 1, 3)
     out['drop_half'] = finish(c)
 
+    c = Canvas()                                        # jump builder: kicker, gap and landing + a settings gear
+    side(c, ramp_profile(9, 1.3)[::2][:7], x0=0, seed=8)
+    side(c, [8, 7, 5, 3, 2], x0=11, seed=9)
+    glyph(c, [(2, 0), (1, 1), (2, 1), (3, 1), (0, 2), (1, 2), (3, 2), (4, 2), (1, 3), (2, 3), (3, 3), (2, 4)])
+    out['jump_build'] = finish(c)
+
     # ---------------------------------------------------------------- berms (view along the trail)
     def bank(name, rise, left):
         c = Canvas()
@@ -152,6 +160,25 @@ def icons():
     arrow(c, 3, 0, 0, -1, 2)
     arrow(c, 3, 6, 0, 1, 2)
     out['whole'] = finish(c)
+
+    # cursor sub-types: the top of the block with the picked corners in gold
+    def picked_top(test, seed):
+        def detail(u, v):
+            return ACCENT if test(u, v) else None
+        c = Canvas()
+        t4.iso_rough(c, [.55] * 4, {'top': 4, 'south': 2, 'east': 1}, 'dirt', seed, cy=10, top_detail=detail)
+        return c
+
+    def zones(u, v):
+        return any(abs(u - k) < .06 for k in (.3, .7)) or any(abs(v - k) < .06 for k in (.3, .7))
+    c = Canvas()
+    t4.iso_rough(c, [.55] * 4, {'top': 4, 'south': 2, 'east': 1}, 'dirt', 34, cy=10,
+                 top_detail=lambda u, v: col('dirt', 1) if zones(u, v) else (ACCENT if u > .76 and v > .76 else None))
+    glyph(c, [(11, 0), (11, 1), (12, 1), (11, 2), (12, 2), (13, 2), (11, 3), (12, 3), (13, 3), (14, 3), (12, 4)])
+    out['cursor_auto_zone'] = finish(c)
+    out['cursor_corner'] = finish(picked_top(lambda u, v: u > .55 and v > .55, 35))
+    out['cursor_edge'] = finish(picked_top(lambda u, v: u > .62, 36))
+    out['cursor_whole'] = finish(picked_top(lambda u, v: (u < .38 or u > .62) and (v < .38 or v > .62), 37))
 
     c = block(.45)
     for x in range(3, 13):                              # spirit level

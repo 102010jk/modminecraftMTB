@@ -15,8 +15,9 @@ class ShapeModeTest {
     @Test
     void cyclingStaysInsideTheCategoryAndWraps() {
         assertEquals(ShapeMode.RAMP_HALF, ShapeMode.RAMP_QUARTER.cycled(1));
-        assertEquals(ShapeMode.DROP_HALF, ShapeMode.RAMP_QUARTER.cycled(-1));
-        assertEquals(ShapeMode.RAMP_QUARTER, ShapeMode.DROP_HALF.cycled(1));
+        assertEquals(ShapeMode.JUMP_BUILD, ShapeMode.RAMP_QUARTER.cycled(-1));
+        assertEquals(ShapeMode.JUMP_BUILD, ShapeMode.DROP_HALF.cycled(1));
+        assertEquals(ShapeMode.RAMP_QUARTER, ShapeMode.JUMP_BUILD.cycled(1));
         assertEquals(ShapeMode.BERM_BUILD, ShapeMode.BANK_LEFT_HALF.cycled(-1));
         assertEquals(ShapeMode.AUTO, ShapeMode.COPY.cycled(1));
         assertEquals(ShapeMode.RAMP_MAKE, ShapeMode.RAMP_LINK.cycled(1));
@@ -46,6 +47,26 @@ class ShapeModeTest {
         assertEquals("descentmtb.shape.hud.hint.downhill", ShapeMode.DOWNHILL.hintKey());
         assertEquals(ShapeMode.DOWNHILL, ShapeMode.DOWNHILL.cycled(1));
         assertEquals(true, getClass().getResource("/assets/descentmtb/textures/gui/shape/downhill.png") != null);
+    }
+
+    @Test
+    void theJumpBuilderSitsInTheJumpsTab() {
+        assertEquals(ShapeMode.Kind.JUMP, ShapeMode.JUMP_BUILD.kind);
+        assertEquals(0, ShapeMode.JUMP_BUILD.category);
+        assertEquals(false, ShapeMode.JUMP_BUILD.reshapesBlock());
+        assertEquals("descentmtb.shape.hud.hint.jump_build", ShapeMode.JUMP_BUILD.hintKey());
+        assertEquals("descentmtb.shape.hud.hint.auto", ShapeMode.AUTO.hintKey());
+    }
+
+    @Test
+    void everyModeAndCursorSubTypeHasAnIcon() {
+        for (ShapeMode mode : ShapeMode.values()) {
+            assertEquals(true, getClass().getResource("/assets/descentmtb/textures/gui/shape/" + mode.fileName() + ".png") != null, mode.name());
+        }
+        for (CornerEdits.Pick pick : CornerEdits.Pick.values()) {
+            String file = "cursor_" + pick.name().toLowerCase(java.util.Locale.ROOT);
+            assertEquals(true, getClass().getResource("/assets/descentmtb/textures/gui/shape/" + file + ".png") != null, file);
+        }
     }
 
     @Test
