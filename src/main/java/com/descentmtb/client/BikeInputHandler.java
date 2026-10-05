@@ -106,7 +106,10 @@ public final class BikeInputHandler {
 
         // ---------------- controller ----------------
         Pad pad = pollPad();
-        instantKeyboardSteering=ClientConfig.KEYBOARD_STEER_RAMP.get()<.001 && (pad==null || Math.abs(kSteer)>=Math.abs(pad.lx));
+        // keys steer instantly, but only while a steering key is actually held: releasing (a key or the stick)
+        // always lets the bars return smoothly instead of snapping to centre in one frame
+        instantKeyboardSteering = ClientConfig.KEYBOARD_STEER_RAMP.get() < .001 && kSteer != 0
+                && (pad == null || Math.abs(kSteer) >= Math.abs(pad.lx));
         float steer = kSteer, lean = kLean, pedal = kPedal, brake = kBrake, body = kBody, tweak = kTweak;
         boolean trick = trickKey;
         float trickX = kTrickX, trickY = kTrickY;
