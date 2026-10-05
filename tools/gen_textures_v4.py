@@ -204,7 +204,7 @@ def item_airbag():
         if (u * 2) % 1 < .1 or (v * 2) % 1 < .1:
             return col('blue', 2)
         return None
-    iso_rough(c, [.66, .66, .66, .66], {'top': 4, 'south': 2, 'east': 1}, 'blue', 13, cy=9, top_detail=top)
+    iso_rough(c, [.95, .95, .95, .95], {'top': 4, 'south': 2, 'east': 1}, 'blue', 13, cy=8, top_detail=top)
     c.set(11, 11, col('gold', 4), 'gold')
     c.set(12, 11, col('gold', 3), 'gold')
     outline(c)
@@ -212,30 +212,33 @@ def item_airbag():
 
 
 def item_tape():
-    """Roll of trail tape: red/white windings on a cardboard core, loose end trailing off."""
+    """Roll of trail tape seen at an angle: striped red/white side band, cardboard core, a loose end."""
     c = Canvas()
-    cx, cy, r = 6.5, 7.5, 5.2
-    for x in range(9, 16):
-        for y in range(9, 13):
-            t = y - 9 - (x - 9) * .3
-            if 0 <= t < 2.4:
-                red = ((x + y) // 2) % 2 == 0
-                put(c, x, y, 'red' if red else 'white', 3 if t < 1.2 else 2, 21)
+    cx, top, bot, rx, ry = 7.5, 6.0, 8.5, 6.5, 3.2
     for y in range(16):
         for x in range(16):
-            if math.hypot(x + .5 - cx - 1.4, y + .5 - cy - .5) <= r:
-                put(c, x, y, 'red', 1, 22)
+            dx = (x + .5 - cx) / rx
+            if abs(dx) > 1:
+                continue
+            e = ry * math.sqrt(max(0, 1 - dx * dx))
+            if top <= y + .5 <= bot + e:                       # side band
+                red = ((x + int(y * .6)) // 2) % 2 == 0
+                lit = dx < -.2
+                put(c, x, y, 'red' if red else 'white', (3 if lit else 2), 21)
     for y in range(16):
         for x in range(16):
-            d = math.hypot(x + .5 - cx, y + .5 - cy)
-            if d <= 1.4:
-                c.clear(x, y)
-            elif d <= 2.4:
-                put(c, x, y, 'oak', 3, 23)
-            elif d <= r:
-                lit = (x - cx) + (y - cy) < 0
-                red = int(d * 1.6) % 3 == 0
-                put(c, x, y, 'red' if red else 'white', (3 if lit else 2), 24)
+            dx, dy = (x + .5 - cx) / rx, (y + .5 - top) / ry
+            if dx * dx + dy * dy <= 1:                         # top face: wound layers
+                r = math.hypot(dx, dy)
+                if r < .28:
+                    put(c, x, y, 'oak', 1, 23)                 # inside of the cardboard core
+                elif r < .42:
+                    put(c, x, y, 'oak', 4, 23)
+                else:
+                    put(c, x, y, 'red' if int(r * 9) % 2 else 'white', 4, 24)
+    for x in range(12, 16):                                    # loose end
+        for y in (11, 12):
+            put(c, x, y + (x - 12) // 2, 'red' if (x // 2) % 2 == 0 else 'white', 3, 25)
     outline(c)
     return c
 
@@ -279,18 +282,20 @@ def item_rock():
 
 
 def item_roots():
+    """A gnarled root lifted out of the dirt: thick trunk end at the left, branching thinner to the right."""
     c = Canvas()
-    for y in range(10, 15):
-        for x in range(0, 16):
-            if y == 10 and noise(x, 1, 51) > .6:
-                continue
-            put(c, x, y, 'dirt', 3 if y < 12 else 2, 52)
-    for x0, x1, h in ((1, 10, 6.5), (6, 15, 4.5)):
-        for x in range(x0, x1 + 1):
-            t = (x - x0) / (x1 - x0)
-            y = int(round(11 - h * math.sin(math.pi * t)))
-            put(c, x, y, 'bark', 4, 53)
-            put(c, x, y + 1, 'bark', 2, 54)
+    for x in range(1, 15):
+        y = int(round(9 + 2.2 * math.sin(x / 2.4)))
+        w = 3 if x < 6 else 2 if x < 11 else 1
+        for k in range(w):
+            put(c, x, y - k, 'bark', 4 if k == w - 1 else 2, 53)
+    for x0, y0, dx, dy, n in ((5, 8, 1, -1, 4), (9, 10, 1, 1, 3), (3, 10, -1, 1, 2)):
+        for k in range(n):
+            put(c, x0 + dx * k, y0 + dy * k, 'bark', 3, 54)
+    for x in range(2, 7):                                      # clump of dirt on the thick end
+        for y in range(11, 14):
+            if (x - 4) ** 2 + (y - 12) ** 2 <= 4:
+                put(c, x, y, 'dirt', 3, 55)
     outline(c)
     return c
 
