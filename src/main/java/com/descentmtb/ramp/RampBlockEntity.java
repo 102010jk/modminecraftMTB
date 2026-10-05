@@ -73,7 +73,8 @@ public class RampBlockEntity extends BlockEntity {
 
     public void setMaterial(BlockState mat) { setMaterial(mat, this.consumed); }
 
-    void setConsumedQuiet(boolean consumed) {
+    /** Sets the refund flag without syncing; {@link com.descentmtb.trail.TrailEdit} uses it to keep one refund per paid item. */
+    public void setConsumedQuiet(boolean consumed) {
         this.consumed = consumed;
         setChanged();
     }

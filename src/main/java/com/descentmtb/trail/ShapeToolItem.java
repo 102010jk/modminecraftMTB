@@ -82,17 +82,23 @@ public final class ShapeToolItem extends Item {
      * @return true when something was changed
      */
     public static boolean shape(ServerPlayer player, BlockPos pos, Vec3 hit, Direction facing, boolean shift) {
+        return shape(player, InteractionHand.MAIN_HAND, pos, hit, facing, shift);
+    }
+
+    /** Like {@link #shape(ServerPlayer, BlockPos, Vec3, Direction, boolean)}, with the tool in the given hand. */
+    public static boolean shape(ServerPlayer player, InteractionHand hand, BlockPos pos, Vec3 hit, Direction facing, boolean shift) {
         var level = player.serverLevel();
         if (!player.mayBuild() || !level.isLoaded(pos) || !level.mayInteract(player, pos)) {
             return false;
         }
-        ShapeMode mode = mode(player.getMainHandItem());
+        ItemStack tool = player.getItemInHand(hand);
+        ShapeMode mode = mode(tool);
         return switch (mode.kind) {
             case COLUMN -> reshape(player, pos, mode, hit, facing, shift);
             case RAMP -> RampTuning.click(player, pos, facing, shift, RampTuning.Action.of(mode));
-            case BERM -> BermBuilder.click(player, pos, shift);
-            case COPY -> ShapeClipboard.click(player, pos, shift);
-            case DOWNHILL -> DownhillBuilder.click(player, pos, shift);
+            case BERM -> BermBuilder.click(player, tool, pos, shift);
+            case COPY -> ShapeClipboard.click(player, tool, pos, shift);
+            case DOWNHILL -> DownhillBuilder.click(player, tool, pos, shift);
         };
     }
 
@@ -106,7 +112,7 @@ public final class ShapeToolItem extends Item {
         try {
             TrailEdit.apply(level, player, ColumnEditor.rebuild(level, plan.column(), plan.newAbs()));
         } catch (IllegalArgumentException e) {
-            player.displayClientMessage(Component.literal(e.getMessage()), true);
+            player.displayClientMessage(TrailEdit.describe(e), true);
             return false;
         }
         level.playSound(null, pos, SoundEvents.GRAVEL_PLACE, SoundSource.BLOCKS, .5f, shift ? .8f : 1.1f);
@@ -118,7 +124,7 @@ public final class ShapeToolItem extends Item {
         if (!(context.getPlayer() instanceof ServerPlayer player)) {
             return InteractionResult.SUCCESS;
         }
-        shape(player, context.getClickedPos(), context.getClickLocation(), player.getDirection(), player.isShiftKeyDown());
+        shape(player, context.getHand(), context.getClickedPos(), context.getClickLocation(), player.getDirection(), player.isShiftKeyDown());
         return InteractionResult.CONSUME;
     }
 
@@ -134,11 +140,11 @@ public final class ShapeToolItem extends Item {
         }
         if (player instanceof ServerPlayer serverPlayer) {
             if (kind == ShapeMode.Kind.COPY) {
-                ShapeClipboard.rotate(serverPlayer);
+                ShapeClipboard.rotate(serverPlayer, stack);
             } else if (kind == ShapeMode.Kind.DOWNHILL) {
-                DownhillBuilder.clear(serverPlayer);
+                DownhillBuilder.clear(serverPlayer, stack);
             } else {
-                BermBuilder.clear(serverPlayer);
+                BermBuilder.clear(serverPlayer, stack);
             }
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);

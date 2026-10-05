@@ -51,6 +51,7 @@ public final class TrailBuilder {
                         wood?Blocks.OAK_PLANKS.defaultBlockState():Blocks.COARSE_DIRT.defaultBlockState(),wood));
             }
             if(!wood) {
+                if(!level.isLoaded(new BlockPos(x,bottom,z)))throw new TrailEdit.Rejected("descentmtb.edit.not_loaded");
                 double original=new com.descentmtb.world.McColumns(level).collisionTop(x+.5,z+.5,bottom+.01,bottom-12);
                 if(!Double.isFinite(original)||bottom-original>12)throw new IllegalArgumentException("Hlinitá rampa musí mít zem do 12 m pod sebou; ve vzduchu použij dřevěnou konstrukci");
                 for(int y=bottom-1;y>=Math.floor(original)-1;y--) {

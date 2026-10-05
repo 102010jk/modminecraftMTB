@@ -193,6 +193,7 @@ public class RampBlock extends BaseEntityBlock {
         BlockState mat = bi.getBlock().defaultBlockState();
         if (!isValidMaterial(mat, level, pos)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         if (!(level.getBlockEntity(pos) instanceof RampBlockEntity be)) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        if (!player.mayBuild() || !level.mayInteract(player, pos)) return ItemInteractionResult.FAIL;
         if (be.getMaterial().getBlock() == mat.getBlock()) return ItemInteractionResult.CONSUME;
         if (!level.isClientSide) {
             boolean creative = player.getAbilities().instabuild;
@@ -215,7 +216,8 @@ public class RampBlock extends BaseEntityBlock {
 
     @Override
     protected void onRemove(BlockState s, Level level, BlockPos pos, BlockState newState, boolean moved) {
-        if (!s.is(newState.getBlock()) && !level.isClientSide
+        // while the Trail Shaper replaces the block it settles paid materials itself (exactly one refund)
+        if (!s.is(newState.getBlock()) && !level.isClientSide && !com.descentmtb.trail.TrailEdit.isBeingEdited(pos)
                 && level.getBlockEntity(pos) instanceof RampBlockEntity be && be.isConsumed()) {
             Block.popResource(level, pos, new ItemStack(be.getMaterial().getBlock()));
         }

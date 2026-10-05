@@ -74,6 +74,7 @@ final class DevSculptTests {
         undo(p, l, x + 22, y, bz);
         withOverlayAndDeck(p, l, x, y, bz);
         ramps(p, l, x, y, bz + 2);
+        paidMaterial(p, l, x + 26, y, bz);
         copyAndPaste(p, l, x, y, bz + 2);
         DevBermTests.run(p, l, x, y, z);
         DevDownhillTests.run(p, l, x, y, z);
@@ -242,6 +243,34 @@ final class DevSculptTests {
         check(second.getValue(RampBlock.PROFILE) == RampBlock.Profile.LINEAR, "the pieces of a linked run are straight");
     }
 
+    /**
+     * A material paid for on a shaped block (right-click with a block) is refunded exactly once: an edit that keeps
+     * the block keeps it paid, an edit that removes it hands the item to the player (and the block drops nothing),
+     * and undo brings it back unpaid, so breaking it afterwards refunds nothing again.
+     */
+    private static void paidMaterial(ServerPlayer p, ServerLevel l, int x, int y, int bz) {
+        BlockPos pos = new BlockPos(x, y, bz);
+        var stone = net.minecraft.world.item.Items.STONE;
+        var nearby = new net.minecraft.world.phys.AABB(pos).inflate(2);
+        p.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModBlocks.TRAIL_DIRT.get()));
+        placeAt(p, x, y, bz);
+        check(l.getBlockEntity(pos) instanceof TrailSurfaceEntity, "paid material: a shaped block to pay on");
+        ((TrailSurfaceEntity) l.getBlockEntity(pos)).setMaterial(Blocks.STONE.defaultBlockState(), true);
+        int before = p.getInventory().countItem(stone);
+
+        shape(p, ShapeMode.RAMP_QUARTER, x, y, bz);
+        check(l.getBlockEntity(pos) instanceof TrailSurfaceEntity shaped && shaped.isConsumed(), "an edit that keeps the block keeps it paid");
+
+        TrailEdit.apply(l, p, java.util.Map.of(pos, TrailEdit.Change.block(Blocks.AIR.defaultBlockState())), false);
+        check(p.getInventory().countItem(stone) == before + 1, "removing a paid block refunds the material once");
+        check(l.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, nearby).isEmpty(), "the removed block drops nothing on top of the refund");
+
+        TrailEdit.undo(l, p);
+        check(l.getBlockEntity(pos) instanceof TrailSurfaceEntity shaped && !shaped.isConsumed(), "undo brings the block back unpaid");
+        l.removeBlock(pos, false);
+        check(l.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, nearby).isEmpty(), "breaking the restored block refunds nothing again");
+    }
+
     /** One right-click of the copy mode with the given tool. */
     private static void copyClick(ServerPlayer p, ItemStack tool, int x, int y, int z, boolean shift) {
         p.setItemInHand(InteractionHand.MAIN_HAND, tool);
@@ -271,7 +300,7 @@ final class DevSculptTests {
                 && stateAt(l, sx + 6, y, rz).getValue(RampBlock.FACING) == Direction.EAST, "paste: the shaped block and the ramp land in order");
         check(l.getBlockEntity(new BlockPos(sx + 6, y, rz)) instanceof RampBlockEntity, "paste: the ramp keeps its material");
 
-        ShapeClipboard.rotate(p);
+        ShapeClipboard.rotate(p, tool);
         check(java.util.Arrays.equals(ShapeToolItem.data(tool).getIntArray(ShapeClipboard.SIZE_TAG), new int[]{1, 5, 2}),
                 "rotate: the footprint turns from 2 x 1 to 1 x 2");
         copyClick(p, tool, sx + 8, y - 1, rz, false);

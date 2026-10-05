@@ -33,7 +33,7 @@ public final class ColumnShaper {
         int bottom = (int) Math.floor(min - (deck ? DECK_THICKNESS : 0) - .001);
         int top = (int) Math.ceil(max) - 1;
         if (top - bottom + 1 > MAX_LAYERS) {
-            throw new IllegalArgumentException("Příliš prudký přechod; zmenši sílu nebo nejprve vyhlaď terén");
+            throw new TrailEdit.Rejected("descentmtb.edit.too_steep");
         }
         List<Layer> list = new ArrayList<>();
         for (int y = bottom; y <= top; y++) {

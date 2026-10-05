@@ -9,14 +9,16 @@ import java.util.function.DoubleBinaryOperator;
 import static com.descentmtb.trail.TrailMath.*;
 /** Shared vertex heights, integer-layer clipping and smooth feathering to existing terrain. */
 public final class SurfacePlans {
- public static double terrain(Level l,double x,double z,double y){var columns=new McColumns(l);double top=y+6,best=Double.NaN,distance=Double.MAX_VALUE;
+ public static double terrain(Level l,double x,double z,double y){
+  if(!l.isLoaded(BlockPos.containing(x,y,z)))throw new TrailEdit.Rejected("descentmtb.edit.not_loaded");   // never load a chunk by looking at it
+  var columns=new McColumns(l);double top=y+6,best=Double.NaN,distance=Double.MAX_VALUE;
   for(int i=0;i<20;i++){double v=columns.collisionTop(x+.00001,z+.00001,top,y-12);if(!Double.isFinite(v))break;double d=Math.abs(v-y);if(d<distance){distance=d;best=v;}if(d<.03)break;top=v-.001;}
   return Double.isFinite(best)?best:y;}
  public static Map<BlockPos,TrailEdit.Change> surface(Level l,int x0,int z0,int x1,int z1,double reference,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,boolean wood){
   return surface(l,x0,z0,x1,z1,reference,height,contains,wood,false);
  }
  private static Map<BlockPos,TrailEdit.Change> surface(Level l,int x0,int z0,int x1,int z1,double reference,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,boolean wood,boolean preserve){
-  if((long)(x1-x0+1)*(z1-z0+1)>20000 || x1-x0>TrailConfig.MAX_LENGTH.get()+32 || z1-z0>TrailConfig.MAX_LENGTH.get()+32)throw new IllegalArgumentException("Oblast je příliš velká");
+  if((long)(x1-x0+1)*(z1-z0+1)>20000 || x1-x0>TrailConfig.MAX_LENGTH.get()+32 || z1-z0>TrailConfig.MAX_LENGTH.get()+32)throw new TrailEdit.Rejected("descentmtb.edit.area_too_big");
   return surface(l,x0,z0,x1,z1,(x,z)->terrain(l,x,z,reference),height,contains,wood,preserve,0);
  }
  /**
@@ -26,7 +28,7 @@ public final class SurfacePlans {
   * downhill line can be.
   */
  public static Map<BlockPos,TrailEdit.Change> hillside(Level l,int x0,int z0,int x1,int z1,DoubleBinaryOperator columnTop,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,int headroom){
-  if((long)(x1-x0+1)*(z1-z0+1)>200000)throw new IllegalArgumentException("Oblast je příliš velká");
+  if((long)(x1-x0+1)*(z1-z0+1)>200000)throw new TrailEdit.Rejected("descentmtb.edit.area_too_big");
   return surface(l,x0,z0,x1,z1,columnTop,height,contains,false,false,headroom);
  }
  private static Map<BlockPos,TrailEdit.Change> surface(Level l,int x0,int z0,int x1,int z1,DoubleBinaryOperator columnTop,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,boolean wood,boolean preserve,int headroom){
@@ -53,7 +55,7 @@ public final class SurfacePlans {
     for(int y=top+1;y<=Math.max(top+headroom,Math.ceil(old));y++)if(!l.getBlockState(new BlockPos(x,y,z)).isAir())out.put(new BlockPos(x,y,z),TrailEdit.Change.block(Blocks.AIR.defaultBlockState()));
     for(int y=bottom-1;y>=Math.max(bottom-12,Math.floor(old)-1);y--){var p=new BlockPos(x,y,z);if(!l.getBlockState(p).isAir())break;out.put(p,TrailEdit.Change.block(Blocks.DIRT.defaultBlockState()));}
    }
-   if(out.size()>TrailConfig.MAX_BLOCKS.get())throw new IllegalArgumentException("Zmenši oblast; návrh překročil limit bloků");
+   if(out.size()>TrailConfig.MAX_BLOCKS.get())throw new TrailEdit.Rejected("descentmtb.edit.too_big",TrailConfig.MAX_BLOCKS.get());
   }
   return out;
  }

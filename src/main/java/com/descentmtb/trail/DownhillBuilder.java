@@ -17,15 +17,16 @@ import java.util.function.DoubleBinaryOperator;
 /**
  * The downhill line of the Trail Shaper ({@link ShapeMode#DOWNHILL}): right-click the top of a slope and then its
  * bottom, and a line of berms, rollers and jumps is built between them, as one {@link TrailEdit} step (undo with Z).
- * Shift + right-click forgets the first point. The style and the width are chosen with the mouse wheel while the mode
+ * Shift + right-click forgets the first point. Only creative players and operators may build downhill lines. The style and the width are chosen with the mouse wheel while the mode
  * is selected (see {@link Settings}); the line itself is planned by {@link DownhillShapes}, over the terrain read by
  * {@link HillGround}.
  *
- * <p>The first point lives in the tool's custom data, so the client can draw it.
+ * <p>The first point lives in the tool's custom data (with its dimension; a start from another dimension is
+ * forgotten), so the client can draw it.
  */
 public final class DownhillBuilder {
     /** Custom data keys: the points (as packed block positions), the style (ordinal) and the width (m). */
-    public static final String POINTS_TAG = "DownhillPoints", STYLE_TAG = "DownhillStyle", WIDTH_TAG = "DownhillWidth";
+    public static final String POINTS_TAG = "DownhillPoints", DIMENSION_TAG = "DownhillDim", STYLE_TAG = "DownhillStyle", WIDTH_TAG = "DownhillWidth";
     /** Start and finish. */
     public static final int POINTS = 2;
     /** The widths (m) the wheel steps through. */
@@ -91,36 +92,42 @@ public final class DownhillBuilder {
     }
 
     /** A right-click on a block in downhill mode: Shift forgets the start, otherwise the block is the start, then the finish. */
-    public static boolean click(ServerPlayer player, BlockPos pos, boolean shift) {
+    public static boolean click(ServerPlayer player, ItemStack tool, BlockPos pos, boolean shift) {
+        if (!TrailEdit.mayBulkEdit(player)) {
+            message(player, "descentmtb.edit.creative_only");
+            return false;
+        }
         if (shift) {
-            clear(player);
+            clear(player, tool);
             return true;
         }
-        ItemStack tool = player.getMainHandItem();
-        long[] placed = points(tool);
+        String dimension = player.serverLevel().dimension().location().toString();
+        long[] placed = dimension.equals(ShapeToolItem.data(tool).getString(DIMENSION_TAG)) ? points(tool) : new long[0];
         if (placed.length >= POINTS || placed.length == 0) {
-            store(tool, List.of(pos.immutable()));
+            store(tool, List.of(pos.immutable()), dimension);
             player.serverLevel().playSound(null, pos, SoundEvents.UI_BUTTON_CLICK.value(), SoundSource.BLOCKS, .5f, 1.4f);
             message(player, "descentmtb.downhill.point", 1, POINTS);
             return true;
         }
-        store(tool, List.of());
+        store(tool, List.of(), dimension);
         return build(player, BlockPos.of(placed[0]), pos, Settings.read(tool));
     }
 
     /** Forgets the points placed so far. */
-    public static void clear(ServerPlayer player) {
-        store(player.getMainHandItem(), List.of());
+    public static void clear(ServerPlayer player, ItemStack tool) {
+        store(tool, List.of(), "");
         message(player, "descentmtb.downhill.cleared");
     }
 
-    private static void store(ItemStack tool, List<BlockPos> positions) {
+    private static void store(ItemStack tool, List<BlockPos> positions, String dimension) {
         long[] packed = positions.stream().mapToLong(BlockPos::asLong).toArray();
         ShapeToolItem.editData(tool, tag -> {
             if (packed.length == 0) {
                 tag.remove(POINTS_TAG);
+                tag.remove(DIMENSION_TAG);
             } else {
                 tag.putLongArray(POINTS_TAG, packed);
+                tag.putString(DIMENSION_TAG, dimension);
             }
         });
     }
@@ -133,7 +140,7 @@ public final class DownhillBuilder {
             DownhillShapes.Params params = new DownhillShapes.Params(settings.style(), settings.width(), TrailConfig.MAX_DOWNHILL.get());
             DownhillShapes line = DownhillShapes.plan(ground::height, start.getX() + .5, start.getZ() + .5,
                     finish.getX() + .5, finish.getZ() + .5, params, start.asLong() * 31 + finish.asLong());
-            int blocks = TrailEdit.apply(level, player, plan(level, ground, line));
+            int blocks = TrailEdit.apply(level, player, plan(level, ground, line), false);   // creative / operator only: free
             level.playSound(null, start, SoundEvents.GRAVEL_PLACE, SoundSource.BLOCKS, .8f, .8f);
             message(player, "descentmtb.downhill.built", (int) Math.round(line.length()), line.jumps(), line.berms());
             return blocks > 0;
@@ -141,7 +148,7 @@ public final class DownhillBuilder {
             message(player, e.key(), e.args());
             return false;
         } catch (IllegalArgumentException e) {
-            player.displayClientMessage(Component.literal(e.getMessage()), true);
+            player.displayClientMessage(TrailEdit.describe(e), true);
             return false;
         }
     }

@@ -34,6 +34,7 @@ public class DescentMtb {
         NeoForge.EVENT_BUS.addListener(com.descentmtb.world.DevSableTests::register);
         NeoForge.EVENT_BUS.addListener(com.descentmtb.world.DevSableTests::tick);
         NeoForge.EVENT_BUS.addListener(com.descentmtb.trail.TrailRecords::onClone);
+        NeoForge.EVENT_BUS.addListener(com.descentmtb.trail.TrailSessions::onLogout);
         NeoForge.EVENT_BUS.addListener(Ragdolls::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(Ragdolls::onFall);
         NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.server.ServerStoppedEvent e)->{

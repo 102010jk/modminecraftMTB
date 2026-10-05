@@ -7,6 +7,7 @@ import com.descentmtb.registry.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -14,6 +15,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.HashMap;
@@ -52,11 +54,19 @@ public final class RampTuning {
     private static final int LINK_MAX_LENGTH = 32;
     private static final int LINK_MAX_DY = 8;
 
-    /** First block of a pending LINK per player. */
-    private static final Map<UUID, BlockPos> LINK_START = new HashMap<>();
+    /** First block of a pending LINK, and the dimension it is in. */
+    private record Start(ResourceKey<Level> dimension, BlockPos pos) {}
+
+    /** The pending LINK start per player. */
+    private static final Map<UUID, Start> LINK_START = new HashMap<>();
 
     public static void clearSession() {
         LINK_START.clear();
+    }
+
+    /** Forgets the pending LINK start of a player who left. */
+    static void forget(UUID player) {
+        LINK_START.remove(player);
     }
 
     /** Forgets the pending LINK start of the player (when the tool changes mode). */
@@ -100,7 +110,7 @@ public final class RampTuning {
             }
             return true;
         } catch (IllegalArgumentException e) {
-            player.displayClientMessage(Component.literal(e.getMessage()), true);
+            player.displayClientMessage(TrailEdit.describe(e), true);
             return false;
         }
     }
@@ -122,7 +132,13 @@ public final class RampTuning {
                 .setValue(RampBlock.START, 0)
                 .setValue(RampBlock.END, 16)
                 .setValue(RampBlock.PROFILE, RampBlock.Profile.CONCAVE);
-        TrailEdit.apply(level, player, Map.of(pos, new TrailEdit.Change(ramp, null, null, material, false)));
+        // the ramp replaces the whole shaped column: its other layers must not stay behind as a stale surface
+        Map<BlockPos, TrailEdit.Change> plan = new LinkedHashMap<>();
+        for (BlockPos other : ColumnEditor.otherLayers(level, pos)) {
+            plan.put(other, TrailEdit.Change.block(Blocks.AIR.defaultBlockState()));
+        }
+        plan.put(pos, new TrailEdit.Change(ramp, null, null, material, false));
+        TrailEdit.apply(level, player, plan);
         playClick(level, pos);
         message(player, "descentmtb.ramp_tune.made");
         return true;
@@ -194,10 +210,11 @@ public final class RampTuning {
      * the profile. Heights are clamped to 0..16.
      */
     private static void link(Level level, Player player, BlockPos pos, BlockState target, boolean restart) {
-        BlockPos first = LINK_START.get(player.getUUID());
+        Start start = LINK_START.get(player.getUUID());
+        BlockPos first = start == null || !start.dimension().equals(level.dimension()) ? null : start.pos();
         BlockState firstState = first == null || !level.isLoaded(first) ? null : level.getBlockState(first);
         if (restart || firstState == null || !isCopycatRamp(firstState)) {
-            LINK_START.put(player.getUUID(), pos);
+            LINK_START.put(player.getUUID(), new Start(level.dimension(), pos.immutable()));
             message(player, "descentmtb.ramp_tune.link.start_set");
             return;
         }
@@ -243,7 +260,7 @@ public final class RampTuning {
             int levelOffset = levelOffset(k, length, dy, h0, h1);
             BlockPos p = first.offset(facing.getStepX() * k, levelOffset, facing.getStepZ() * k);
             if (!level.isLoaded(p)) {
-                throw new IllegalArgumentException("Úsek rampy není načtený");
+                throw new TrailEdit.Rejected("descentmtb.ramp_tune.link.not_loaded");
             }
             BlockState existing = level.getBlockState(p);
             if (!isCopycatRamp(existing)) {

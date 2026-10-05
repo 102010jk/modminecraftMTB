@@ -66,7 +66,7 @@ public final class ColumnEditor {
 
     /** Block changes that give {@code column} the new corner heights, clearing / filling the layers around. */
     public static Map<BlockPos, TrailEdit.Change> rebuild(Level level, Column column, double[] newAbs) {
-        if(column.copycat())throw new IllegalArgumentException("Starou samostatnou rampu nelze tvarovat; odeber ji");
+        if(column.copycat())throw new TrailEdit.Rejected("descentmtb.edit.old_ramp");
         Map<BlockPos, TrailEdit.Change> changes = new LinkedHashMap<>();
         double[] occupied=newAbs.clone();
         double amplitude=column.decoration()==null?0:OverlayMath.amplitude(column.decoration().getInt("Overlay"));
@@ -98,7 +98,7 @@ public final class ColumnEditor {
                 } else {
                     changes.put(pos, new TrailEdit.Change(surface, null, new double[]{1, 1, 1, 1}, column.material(), false));
                 }
-            } else if (fillingAir && level.getBlockState(pos).isAir()) {
+            } else if (fillingAir && level.isLoaded(pos) && level.getBlockState(pos).isAir()) {
                 changes.put(pos, TrailEdit.Change.block(Blocks.DIRT.defaultBlockState()));
             } else {
                 break;
@@ -107,9 +107,29 @@ public final class ColumnEditor {
         return changes;
     }
 
+    /**
+     * The other layers of the shaped surface that {@code clicked} belongs to (above and below it, the same plane),
+     * so an edit that replaces the clicked block can remove the whole column in the same step.
+     */
+    public static java.util.List<BlockPos> otherLayers(Level level, BlockPos clicked) {
+        java.util.List<BlockPos> layers = new java.util.ArrayList<>();
+        if (!(level.getBlockEntity(clicked) instanceof TrailSurfaceEntity be)) {
+            return layers;
+        }
+        Column column = new Column(clicked.getX(), clicked.getZ(), ColumnShaper.absolute(clicked.getY(), be.corners()),
+                be.getMaterial(), be.deck());
+        for (int y = clicked.getY() - ColumnShaper.MAX_LAYERS; y <= clicked.getY() + ColumnShaper.MAX_LAYERS; y++) {
+            BlockPos pos = new BlockPos(clicked.getX(), y, clicked.getZ());
+            if (y != clicked.getY() && level.isLoaded(pos) && sameSurface(level, pos, column)) {
+                layers.add(pos);
+            }
+        }
+        return layers;
+    }
+
     /** Remove only layers of the old edited plane; a separate bridge is a different object. */
     private static boolean sameSurface(Level level,BlockPos pos,Column column) {
-        if(!(level.getBlockEntity(pos) instanceof TrailSurfaceEntity be)||be.deck()!=column.deck())return false;
+        if(!level.isLoaded(pos)||!(level.getBlockEntity(pos) instanceof TrailSurfaceEntity be)||be.deck()!=column.deck())return false;
         double[] old=ColumnShaper.absolute(pos.getY(),be.corners());
         for(int i=0;i<4;i++)if(Math.abs(old[i]-column.abs()[i])>EPS)return false;
         return true;
