@@ -1,6 +1,5 @@
 package com.descentmtb.client;
 
-import com.descentmtb.entity.MountainBikeEntity;
 import com.descentmtb.physics.Controls;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.logging.LogUtils;
@@ -8,7 +7,6 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.client.settings.KeyModifier;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWGamepadState;
 import org.lwjgl.system.MemoryStack;
@@ -16,7 +14,6 @@ import org.slf4j.Logger;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
-import java.util.Arrays;
 
 /**
  * Reads the controller (GLFW, no extra mods needed) and keyboard once per
@@ -53,50 +50,11 @@ public final class BikeInputHandler {
     public static volatile String controllerStatus = "none";
     public static boolean instantKeyboardSteering;
 
-    /** Edge detectors; they start "held" so a key already down when riding begins is not a fresh press. */
-    private static boolean prevRespawn = true, prevRespawnStart = true, prevCamera = true, prevResetCamera = true;
+    private static boolean prevRespawn, prevRespawnStart, prevCamera, prevResetCamera;
     private static boolean prevHopKey;
     private static float tableSide = 1;
     private static boolean tweakArmed;
     private static int hopStretchTicks;
-    /** The bike seen riding on the last client tick, to notice a (re)mount. */
-    private static MountainBikeEntity lastRiding;
-
-    /**
-     * Called every client tick (after the bike's own tick). Notices mounting, announces the detected controller
-     * once, and forgets all held / edge state while the player is not riding, a screen is open or the game is
-     * paused, so nothing fires on the first tick after a remount.
-     */
-    public static void clientTick() {
-        Minecraft mc = Minecraft.getInstance();
-        MountainBikeEntity riding = BikeClientController.riding();
-        if (riding != lastRiding) {
-            lastRiding = riding;
-            if (riding != null && mc.player != null) {
-                resetState();
-                announce(mc.player);
-            }
-        }
-        if (riding == null || mc.screen != null || mc.isPaused()) {
-            resetState();
-        }
-    }
-
-    /**
-     * Clears keyboard ramps, bunny-hop and tweak state and the pad helpers. The edge detectors start out "held" so a
-     * key that is still down when riding resumes does not count as a fresh press (it must be released first).
-     */
-    private static void resetState() {
-        keyboardSteer = 0;
-        instantKeyboardSteering = false;
-        prevHopKey = false;
-        hopStretchTicks = 0;
-        tweakArmed = false;
-        tableSide = 1;
-        padCrouchTicks = 0;
-        padPopTicks = 0;
-        prevRespawn = prevRespawnStart = prevCamera = prevResetCamera = true;
-    }
 
     public static Frame poll() {
         long win = Minecraft.getInstance().getWindow().getWindow();
@@ -232,19 +190,15 @@ public final class BikeInputHandler {
         return body;
     }
 
-    /** True while the binding's key (or mouse button) is held and, for a Ctrl / Shift / Alt binding, its modifier too. */
     private static boolean down(long win, KeyMapping k) {
         InputConstants.Key key = k.getKey();
-        boolean pressed;
         if (key.getType() == InputConstants.Type.KEYSYM && key.getValue() != InputConstants.UNKNOWN.getValue()) {
-            pressed = InputConstants.isKeyDown(win, key.getValue());
-        } else if (key.getType() == InputConstants.Type.MOUSE) {
-            pressed = GLFW.glfwGetMouseButton(win, key.getValue()) == GLFW.GLFW_PRESS;
-        } else {
-            return false;
+            return InputConstants.isKeyDown(win, key.getValue());
         }
-        KeyModifier modifier = k.getKeyModifier();
-        return pressed && (modifier == KeyModifier.NONE || modifier.isActive(k.getKeyConflictContext()));
+        if (key.getType() == InputConstants.Type.MOUSE) {
+            return GLFW.glfwGetMouseButton(win, key.getValue()) == GLFW.GLFW_PRESS;
+        }
+        return false;
     }
 
     private static float bigger(float a, float b) {
@@ -258,106 +212,59 @@ public final class BikeInputHandler {
         boolean a, b, x, y, lb, back;
     }
 
-    /** Per joystick and trigger (LT, RT): the first value seen and whether the trigger ever left it. */
-    private static final float[][] triggerFirst = new float[GLFW.GLFW_JOYSTICK_LAST + 1][2];
-    private static final boolean[][] triggerMoved = new boolean[GLFW.GLFW_JOYSTICK_LAST + 1][2];
-
-    static {
-        for (float[] first : triggerFirst) {
-            Arrays.fill(first, Float.NaN);
-        }
-    }
-
-    /**
-     * Reads the first usable controller: a device GLFW knows as a gamepad wins; the raw joystick layout (XInput
-     * order) is only a fallback when no gamepad is connected. Nothing is read while the window is not focused.
-     */
     private static Pad pollPad() {
-        if (!Minecraft.getInstance().isWindowActive()) {
-            return null;
-        }
-        boolean gamepadPresent = false;
         for (int jid = GLFW.GLFW_JOYSTICK_1; jid <= GLFW.GLFW_JOYSTICK_LAST; jid++) {
-            if (!GLFW.glfwJoystickPresent(jid)) {
-                forgetTriggers(jid);
-            } else if (GLFW.glfwJoystickIsGamepad(jid)) {
-                gamepadPresent = true;
-            }
-        }
-        for (int jid = GLFW.GLFW_JOYSTICK_1; jid <= GLFW.GLFW_JOYSTICK_LAST; jid++) {
-            if (GLFW.glfwJoystickPresent(jid) && GLFW.glfwJoystickIsGamepad(jid)) {
-                Pad p = readGamepad(jid);
-                if (p != null) {
-                    return p;
-                }
-            }
-        }
-        if (!gamepadPresent) {
-            for (int jid = GLFW.GLFW_JOYSTICK_1; jid <= GLFW.GLFW_JOYSTICK_LAST; jid++) {
-                if (GLFW.glfwJoystickPresent(jid)) {
-                    Pad p = readRaw(jid);
-                    if (p != null) {
+            if (!GLFW.glfwJoystickPresent(jid)) continue;
+            if (GLFW.glfwJoystickIsGamepad(jid)) {
+                try (MemoryStack stack = MemoryStack.stackPush()) {
+                    GLFWGamepadState gp = GLFWGamepadState.malloc(stack);
+                    if (GLFW.glfwGetGamepadState(jid, gp)) {
+                        Pad p = new Pad();
+                        float[] l = radial(gp.axes(GLFW.GLFW_GAMEPAD_AXIS_LEFT_X), gp.axes(GLFW.GLFW_GAMEPAD_AXIS_LEFT_Y));
+                        float[] r = radial(gp.axes(GLFW.GLFW_GAMEPAD_AXIS_RIGHT_X), gp.axes(GLFW.GLFW_GAMEPAD_AXIS_RIGHT_Y));
+                        p.lx = l[0];
+                        p.ly = l[1];
+                        p.rx = r[0];
+                        p.ry = r[1];
+                        p.lt = trigger(gp.axes(GLFW.GLFW_GAMEPAD_AXIS_LEFT_TRIGGER));
+                        p.rt = trigger(gp.axes(GLFW.GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER));
+                        p.a = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_A) == GLFW.GLFW_PRESS;
+                        p.b = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_B) == GLFW.GLFW_PRESS;
+                        p.x = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_X) == GLFW.GLFW_PRESS;
+                        p.y = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_Y) == GLFW.GLFW_PRESS;
+                        p.lb = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_LEFT_BUMPER) == GLFW.GLFW_PRESS;
+                        p.back = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_BACK) == GLFW.GLFW_PRESS;
+                        controllerStatus = "gamepad: " + name(GLFW.glfwGetGamepadName(jid));
                         return p;
                     }
                 }
             }
-        }
-        controllerStatus = "none";
-        return null;
-    }
-
-    private static Pad readGamepad(int jid) {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            GLFWGamepadState gp = GLFWGamepadState.malloc(stack);
-            if (!GLFW.glfwGetGamepadState(jid, gp)) {
-                return null;
-            }
+            // raw fallback (XInput order on Windows)
+            FloatBuffer axes = GLFW.glfwGetJoystickAxes(jid);
+            ByteBuffer btn = GLFW.glfwGetJoystickButtons(jid);
+            if (axes == null || axes.limit() < 4) continue;
             Pad p = new Pad();
-            float[] l = radial(gp.axes(GLFW.GLFW_GAMEPAD_AXIS_LEFT_X), gp.axes(GLFW.GLFW_GAMEPAD_AXIS_LEFT_Y));
-            float[] r = radial(gp.axes(GLFW.GLFW_GAMEPAD_AXIS_RIGHT_X), gp.axes(GLFW.GLFW_GAMEPAD_AXIS_RIGHT_Y));
+            float[] l = radial(axes.get(0), axes.get(1));
+            float[] r = radial(axes.get(2), axes.get(3));
             p.lx = l[0];
             p.ly = l[1];
             p.rx = r[0];
             p.ry = r[1];
-            p.lt = trigger(jid, 0, gp.axes(GLFW.GLFW_GAMEPAD_AXIS_LEFT_TRIGGER));
-            p.rt = trigger(jid, 1, gp.axes(GLFW.GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER));
-            p.a = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_A) == GLFW.GLFW_PRESS;
-            p.b = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_B) == GLFW.GLFW_PRESS;
-            p.x = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_X) == GLFW.GLFW_PRESS;
-            p.y = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_Y) == GLFW.GLFW_PRESS;
-            p.lb = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_LEFT_BUMPER) == GLFW.GLFW_PRESS;
-            p.back = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_BACK) == GLFW.GLFW_PRESS;
-            controllerStatus = "gamepad: " + name(GLFW.glfwGetGamepadName(jid));
+            p.lt = axes.limit() > 4 ? trigger(axes.get(4)) : 0;
+            p.rt = axes.limit() > 5 ? trigger(axes.get(5)) : 0;
+            if (btn != null) {
+                p.a = pressed(btn, 0);
+                p.b = pressed(btn, 1);
+                p.x = pressed(btn, 2);
+                p.y = pressed(btn, 3);
+                p.lb = pressed(btn, 4);
+                p.back = pressed(btn, 6);
+            }
+            controllerStatus = "joystick (raw): " + name(GLFW.glfwGetJoystickName(jid));
             return p;
         }
-    }
-
-    /** Raw joystick fallback (XInput order on Windows). */
-    private static Pad readRaw(int jid) {
-        FloatBuffer axes = GLFW.glfwGetJoystickAxes(jid);
-        ByteBuffer btn = GLFW.glfwGetJoystickButtons(jid);
-        if (axes == null || axes.limit() < 4) {
-            return null;
-        }
-        Pad p = new Pad();
-        float[] l = radial(axes.get(0), axes.get(1));
-        float[] r = radial(axes.get(2), axes.get(3));
-        p.lx = l[0];
-        p.ly = l[1];
-        p.rx = r[0];
-        p.ry = r[1];
-        p.lt = axes.limit() > 4 ? trigger(jid, 0, axes.get(4)) : 0;
-        p.rt = axes.limit() > 5 ? trigger(jid, 1, axes.get(5)) : 0;
-        if (btn != null) {
-            p.a = pressed(btn, 0);
-            p.b = pressed(btn, 1);
-            p.x = pressed(btn, 2);
-            p.y = pressed(btn, 3);
-            p.lb = pressed(btn, 4);
-            p.back = pressed(btn, 6);
-        }
-        controllerStatus = "joystick (raw): " + name(GLFW.glfwGetJoystickName(jid));
-        return p;
+        controllerStatus = "none";
+        return null;
     }
 
     private static boolean pressed(ByteBuffer b, int i) {
@@ -372,53 +279,32 @@ public final class BikeInputHandler {
         return new float[]{x * s, y * s};
     }
 
-    /**
-     * A trigger as 0..1. GLFW triggers rest at -1, but a pad that has not reported a trigger yet reads 0 (= half
-     * pressed), so a trigger counts as 0 until its value has changed once since the controller was connected.
-     */
-    private static float trigger(int jid, int which, float v) {
-        if (Float.isNaN(triggerFirst[jid][which])) {
-            triggerFirst[jid][which] = v;
-        } else if (Math.abs(v - triggerFirst[jid][which]) > 0.05f) {
-            triggerMoved[jid][which] = true;
-        }
-        if (!triggerMoved[jid][which]) {
-            return 0f;
-        }
+    /** GLFW triggers rest at -1. */
+    private static float trigger(float v) {
         float t = (v + 1f) * 0.5f;
         return t < 0.05f ? 0f : Math.min(1f, t);
-    }
-
-    private static void forgetTriggers(int jid) {
-        Arrays.fill(triggerFirst[jid], Float.NaN);
-        Arrays.fill(triggerMoved[jid], false);
     }
 
     private static String name(String n) {
         return n == null ? "?" : n;
     }
 
-    /** One chat line on mounting so the player can see what was detected (and which keys to use without a pad). */
-    private static void announce(LocalPlayer player) {
+    /** One chat line on mounting so the player can see what was detected. */
+    public static void announce(LocalPlayer player) {
         StringBuilder sb = new StringBuilder();
         int found = 0;
         for (int jid = GLFW.GLFW_JOYSTICK_1; jid <= GLFW.GLFW_JOYSTICK_LAST; jid++) {
             if (GLFW.glfwJoystickPresent(jid)) {
                 found++;
                 boolean pad = GLFW.glfwJoystickIsGamepad(jid);
-                String device = name(pad ? GLFW.glfwGetGamepadName(jid) : GLFW.glfwGetJoystickName(jid));
-                sb.append(Component.translatable(pad ? "descentmtb.input.gamepad" : "descentmtb.input.joystick", device)
-                        .getString()).append("  ");
+                sb.append(pad ? "gamepad \"" : "joystick \"")
+                        .append(name(pad ? GLFW.glfwGetGamepadName(jid) : GLFW.glfwGetJoystickName(jid))).append("\"  ");
             }
         }
-        String devices = sb.toString().trim();
         player.displayClientMessage(found == 0
-                ? Component.translatable("descentmtb.input.no_controller",
-                        ModKeyMappings.ACCELERATE.getTranslatedKeyMessage(), ModKeyMappings.BRAKE.getTranslatedKeyMessage(),
-                        ModKeyMappings.STEER_LEFT.getTranslatedKeyMessage(), ModKeyMappings.STEER_RIGHT.getTranslatedKeyMessage(),
-                        ModKeyMappings.BUNNY_HOP.getTranslatedKeyMessage(), ModKeyMappings.CAMERA.getTranslatedKeyMessage())
-                : Component.translatable("descentmtb.input.controller", devices), false);
-        LOG.info("[Descent MTB] controllers: {}", found == 0 ? "none" : devices);
+                ? Component.literal("§e[MTB] Ovladač nenalezen – klávesnice: Z plyn, mezerník brzda, šipky, X bunnyhop, V kamera.")
+                : Component.literal("§a[MTB] Ovladač: §f" + sb.toString().trim() + " §7(RT plyn, LT brzda, R dolů→nahoru = hop, LB+R triky)"), false);
+        LOG.info("[Descent MTB] controllers: {}", found == 0 ? "none" : sb.toString().trim());
     }
 
     private BikeInputHandler() {}

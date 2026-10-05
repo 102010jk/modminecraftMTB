@@ -8,16 +8,14 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
- * Rider → server: "I crashed". The server throws the player off the bike with
- * the rider's momentum and tells everyone to ragdoll them; the bike keeps
- * tumbling on its own (riderless physics on the server).
+ * Rider → server: "I crashed". If {@link BailRules} believe it, the server throws the player off the bike with
+ * the rider's momentum and tells everyone to ragdoll them; the bike keeps tumbling on its own (riderless
+ * physics on the server). See {@link RiderServer#onBail}.
  */
-public record BikeBailPayload(int entityId, double x, double y, double z, float vx, float vy, float vz)
+public record BikeBailPayload(int entityId, double x, double y, double z, float vx, float vy, float vz, int epoch)
         implements CustomPacketPayload {
 
     public static final Type<BikeBailPayload> TYPE =
@@ -32,9 +30,10 @@ public record BikeBailPayload(int entityId, double x, double y, double z, float 
                 b.writeFloat(m.vx);
                 b.writeFloat(m.vy);
                 b.writeFloat(m.vz);
+                b.writeVarInt(m.epoch);
             },
             b -> new BikeBailPayload(b.readVarInt(), b.readDouble(), b.readDouble(), b.readDouble(),
-                    b.readFloat(), b.readFloat(), b.readFloat()));
+                    b.readFloat(), b.readFloat(), b.readFloat(), b.readVarInt()));
 
     @Override
     public Type<? extends CustomPacketPayload> type() {
@@ -45,27 +44,6 @@ public record BikeBailPayload(int entityId, double x, double y, double z, float 
         if (!(ctx.player() instanceof ServerPlayer player)) return;
         Entity e = player.level().getEntity(m.entityId);
         if (!(e instanceof MountainBikeEntity bike) || player.getVehicle() != bike) return;
-        if (!Double.isFinite(m.x) || !Double.isFinite(m.y) || !Double.isFinite(m.z)
-                || player.distanceToSqr(m.x, m.y, m.z) > 16 * 16) return;
-        Vec3 v = new Vec3(clamp(m.vx), clamp(m.vy), clamp(m.vz));   // m/s
-
-        // Capture the final bike pose/momentum before detaching its rider.
-        // The state packet is sent before this bail packet by the client.
-        player.stopRiding();
-        // rider's centre of mass is ~0.9 m above the feet
-        Vec3 feet = com.descentmtb.world.SafeDismount.find(player.level(), player, new Vec3(m.x, m.y - .9, m.z));
-        player.teleportTo(feet.x, feet.y, feet.z);
-        player.getAbilities().flying = false;
-        player.onUpdateAbilities();
-        player.setDeltaMovement(v.scale(0.05));                   // retain the throw, no artificial upward kick
-        player.hurtMarked = true;
-        player.resetFallDistance();
-        RagdollPayload rag = new RagdollPayload(player.getId(), (float) v.x, (float) v.y, (float) v.z);
-        PacketDistributor.sendToPlayersTrackingEntityAndSelf(player, rag);
-        Ragdolls.start(player);
-    }
-
-    private static float clamp(float v) {
-        return Float.isFinite(v) ? Math.max(-40f, Math.min(40f, v)) : 0f;
+        RiderServer.onBail(player, bike, m);
     }
 }

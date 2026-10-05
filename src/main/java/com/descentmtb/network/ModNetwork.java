@@ -7,10 +7,11 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 public final class ModNetwork {
     public static void register(IEventBus modBus) {
         modBus.addListener(ModNetwork::onRegister);
+        RiderSessions.registerEvents();
     }
 
     private static void onRegister(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar r = event.registrar("7");
+        PayloadRegistrar r = event.registrar("8");
         r.playToServer(ShapeTunePayload.TYPE,ShapeTunePayload.CODEC,ShapeTunePayload::handle);
         r.playToServer(RagdollRecoveryPayload.TYPE,RagdollRecoveryPayload.CODEC,RagdollRecoveryPayload::handle);
         r.playToServer(TrailUndoPayload.TYPE, TrailUndoPayload.CODEC, TrailUndoPayload::handle);
@@ -19,6 +20,9 @@ public final class ModNetwork {
         r.playToClient(TrailBestPayload.TYPE, TrailBestPayload.CODEC, (m, ctx) -> TrailBestPayload.clientHandler.accept(m));
         r.playToServer(BikeStatePayload.TYPE, BikeStatePayload.CODEC, BikeStatePayload::handle);
         r.playToServer(BikeBailPayload.TYPE, BikeBailPayload.CODEC, BikeBailPayload::handle);
+        r.playToServer(BikeRespawnPayload.TYPE, BikeRespawnPayload.CODEC, BikeRespawnPayload::handle);
+        r.playToServer(BikeStartPointPayload.TYPE, BikeStartPointPayload.CODEC, BikeStartPointPayload::handle);
+        r.playToClient(BikeResyncPayload.TYPE, BikeResyncPayload.CODEC, (m, ctx) -> BikeResyncPayload.clientHandler.accept(m));
         r.playToClient(RagdollPayload.TYPE, RagdollPayload.CODEC, (m, ctx) -> RagdollPayload.clientHandler.accept(m));
     }
 

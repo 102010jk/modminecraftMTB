@@ -1,6 +1,8 @@
 package com.descentmtb.entity;
 
+import com.descentmtb.network.BikeStateLimits;
 import com.descentmtb.network.BikeStatePayload;
+import com.descentmtb.network.RiderSessions;
 import com.descentmtb.physics.BikeParams;
 import com.descentmtb.physics.BikeSim;
 import com.descentmtb.physics.BlockTerrain;
@@ -19,6 +21,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
@@ -41,6 +44,7 @@ import java.util.function.Consumer;
 public class MountainBikeEntity extends Entity {
     /** Entity position → frame centre of mass, metres. */
     public static final double COM_HEIGHT = 0.52;
+    public static final float DEFAULT_FRONT_PSI = 26f, DEFAULT_REAR_PSI = 28f, DEFAULT_FORK_PSI = 80f;
 
     /** Installed by the client mod; runs the local rider's simulation or remote interpolation. */
     public static Consumer<MountainBikeEntity> clientTicker = b -> {};
@@ -68,10 +72,11 @@ public class MountainBikeEntity extends Entity {
     public float frontPsi() { return entityData.get(D_FRONT_PSI); }
     public float rearPsi() { return entityData.get(D_REAR_PSI); }
     public float forkPsi() { return entityData.get(D_FORK_PSI); }
+    /** Sets the pressures (PSI); NaN or infinite values, e.g. from edited item NBT, fall back to the defaults. */
     public void setPressure(float front, float rear, float fork) {
-        entityData.set(D_FRONT_PSI, net.minecraft.util.Mth.clamp(front, 5, 65));
-        entityData.set(D_REAR_PSI, net.minecraft.util.Mth.clamp(rear, 5, 65));
-        entityData.set(D_FORK_PSI, net.minecraft.util.Mth.clamp(fork, 20, 180));
+        entityData.set(D_FRONT_PSI, BikeStateLimits.pressure(front, DEFAULT_FRONT_PSI, 5, 65));
+        entityData.set(D_REAR_PSI, BikeStateLimits.pressure(rear, DEFAULT_REAR_PSI, 5, 65));
+        entityData.set(D_FORK_PSI, BikeStateLimits.pressure(fork, DEFAULT_FORK_PSI, 20, 180));
         serverSim = null; restTicks = 0;
     }
 
@@ -95,13 +100,23 @@ public class MountainBikeEntity extends Entity {
     private BikeSim sim;
     private McColumns columns;
     private boolean simulating;
+    private boolean pendingTeleport;
 
     // ---------------- server: riderless physics ----------------
     private BikeSim serverSim;
     private McColumns serverColumns;
     private int restTicks;
+    /** How often (ticks) a settled bike is woken for one simulation step to check its ground is still there. */
+    private static final int SETTLED_TICKS = 60, GROUND_PROBE_INTERVAL = 20, SUPPORT_CHECK_INTERVAL = 5;
     private V3 lastVel = V3.ZERO;
     private double lastPitch, lastLean;
+    /** Angular velocity about the vertical axis and about the bike's right axis (BikeSim.omega), from the rider's last packets. */
+    private double lastYawOmega, lastPitchOmega;
+    private double prevReportYaw, prevReportPitch;
+    private long prevReportTick;
+    private boolean hasPrevReport;
+    /** The blocks under a settled bike, to notice when someone digs them away. */
+    private BlockState settledBelow, settledAt;
 
     // ---------------- render snapshots (all sides that render) ----------------
     public final BikeRenderState rsPrev = new BikeRenderState();
@@ -151,9 +166,14 @@ public class MountainBikeEntity extends Entity {
         rsPrev.copyFrom(rsCur);
     }
 
-    /** Puts the bike back on the ground at a spot (respawn). Rider's client only. */
+    /**
+     * Puts the bike back on the ground at a spot (the server's respawn / resync answer, or the dev autopilot).
+     * Rider's client only. The next state packet carries the TELEPORT flag, which only a development
+     * server honours; a real server has already moved the bike itself.
+     */
     public void respawnAt(double x, double groundY, double z, double yawRad) {
         if (!simulating) startSim();
+        pendingTeleport = true;
         sim.place(x, groundY, z, yawRad);
         syncEntityFromSim();
         rsCur.fromSim(sim, null);
@@ -181,41 +201,87 @@ public class MountainBikeEntity extends Entity {
     }
 
     /** Builds the payload describing this tick's state for the server. */
-    public BikeStatePayload statePayload(boolean teleport) {
+    public BikeStatePayload statePayload(int epoch) {
         byte flags = 0;
         if (sim.airborne) flags |= BikeStatePayload.AIRBORNE;
         if (sim.bailed) flags |= BikeStatePayload.BAILED;
-        if (teleport) flags |= BikeStatePayload.TELEPORT;
+        if (pendingTeleport) flags |= BikeStatePayload.TELEPORT;
+        pendingTeleport = false;
         if (sim.wallRide) flags |= BikeStatePayload.WALL_RIDE;
         return new BikeStatePayload(getId(), sim.pos.x, sim.pos.y, sim.pos.z, (float) sim.yaw, (float) sim.pitch,
                 (float) sim.lean, (float) sim.steerAngle, (float) sim.front.compression, (float) sim.rear.compression,
                 (float) sim.riderUp, (float) sim.riderFwd, (float) sim.crankAngle, flags,
                 (float) sim.vel.x, (float) sim.vel.y, (float) sim.vel.z,
-                sim.tricks.trick.ordinal(), (float) sim.tricks.amount, (float) sim.tricks.progress, sim.tricks.side, (float) sim.brake);
+                sim.tricks.trick.ordinal(), (float) sim.tricks.amount, (float) sim.tricks.progress, sim.tricks.side, (float) sim.brake,
+                epoch);
     }
 
-    /** Server: accept the rider's simulated state. */
+    /**
+     * Server: accept the rider's simulated state. The caller has checked the position and velocity; every
+     * visual value is clamped here (see {@link BikeStateLimits}) because it is shown to all other players.
+     */
     public void applyRiderState(BikeStatePayload m) {
+        double yaw = BikeStateLimits.wrapAngle(m.yaw());
+        float pitch = BikeStateLimits.wrapAngle(m.pitch());
         setPos(m.x(), m.y() - COM_HEIGHT, m.z());
-        setYRot((float) Math.toDegrees(m.yaw()));
-        setXRot((float) -Math.toDegrees(m.pitch()));
-        entityData.set(D_PITCH, m.pitch());
-        entityData.set(D_LEAN, m.lean());
-        entityData.set(D_STEER, m.steer());
-        entityData.set(D_COMP_F, m.compF());
-        entityData.set(D_COMP_R, m.compR());
-        entityData.set(D_RIDER_UP, m.riderUp());
-        entityData.set(D_RIDER_FWD, m.riderFwd());
-        entityData.set(D_CRANK, m.crank());
-        entityData.set(D_FLAGS, m.flags());
-        entityData.set(D_TRICK, m.trickId());
-        entityData.set(D_TRICK_AMOUNT, m.trickAmount());
-        entityData.set(D_TRICK_PROGRESS, m.trickProgress());
-        entityData.set(D_TRICK_SIDE, m.trickSide());
-        entityData.set(D_BRAKE, m.brake());
-        lastVel = new V3(m.vx(), m.vy(), m.vz());
-        lastPitch = m.pitch();
-        lastLean = m.lean();
+        setYRot((float) Math.toDegrees(yaw));
+        setXRot((float) -Math.toDegrees(pitch));
+        float lean = BikeStateLimits.lean(m.lean());
+        entityData.set(D_PITCH, pitch);
+        entityData.set(D_LEAN, lean);
+        entityData.set(D_STEER, BikeStateLimits.steer(m.steer()));
+        entityData.set(D_COMP_F, BikeStateLimits.compression(m.compF()));
+        entityData.set(D_COMP_R, BikeStateLimits.compression(m.compR()));
+        entityData.set(D_RIDER_UP, BikeStateLimits.rider(m.riderUp()));
+        entityData.set(D_RIDER_FWD, BikeStateLimits.rider(m.riderFwd()));
+        entityData.set(D_CRANK, BikeStateLimits.crank(m.crank()));
+        entityData.set(D_FLAGS, BikeStateLimits.maskFlags(m.flags()));
+        entityData.set(D_TRICK, BikeStateLimits.trickId(m.trickId(), com.descentmtb.trick.Trick.values().length));
+        entityData.set(D_TRICK_AMOUNT, BikeStateLimits.unit(m.trickAmount()));
+        entityData.set(D_TRICK_PROGRESS, BikeStateLimits.unit(m.trickProgress()));
+        entityData.set(D_TRICK_SIDE, BikeStateLimits.trickSide(m.trickSide()));
+        entityData.set(D_BRAKE, BikeStateLimits.unit(m.brake()));
+        double vx = m.vx(), vy = m.vy(), vz = m.vz();
+        double scale = BikeStateLimits.speedScale(vx * vx + vy * vy + vz * vz, BikeStateLimits.MAX_HANDOFF_SPEED);
+        lastVel = new V3(vx * scale, vy * scale, vz * scale);
+        lastPitch = pitch;
+        lastLean = lean;
+        trackAngularVelocity(yaw, pitch);
+    }
+
+    /**
+     * Estimates the bike's angular velocity from consecutive state packets, for the moment a bailed bike is
+     * handed to the riderless simulation (otherwise it would stop tumbling the instant the rider leaves).
+     */
+    private void trackAngularVelocity(double yaw, double pitch) {
+        long now = level().getGameTime();
+        if (hasPrevReport && now == prevReportTick) return;       // several packets in one tick: wait for the next
+        if (hasPrevReport) {
+            int ticks = (int) Math.min(now - prevReportTick, 100);
+            lastYawOmega = -BikeStateLimits.angularRate(prevReportYaw, yaw, ticks);   // BikeSim: omega.y = -yaw rate
+            lastPitchOmega = BikeStateLimits.angularRate(prevReportPitch, pitch, ticks);
+        }
+        prevReportYaw = yaw;
+        prevReportPitch = pitch;
+        prevReportTick = now;
+        hasPrevReport = true;
+    }
+
+    /** Server: the rider asked to respawn; put the bike (and so its rider) on the ground at the chosen spot. */
+    public void moveForRespawn(double x, double groundY, double z, double yawDeg) {
+        setPos(x, groundY, z);
+        setYRot((float) yawDeg);
+        setXRot(0);
+        setOldPosAndRot();
+        entityData.set(D_PITCH, 0f);
+        entityData.set(D_LEAN, 0f);
+        entityData.set(D_STEER, 0f);
+        entityData.set(D_FLAGS, (byte) 0);
+        entityData.set(D_TRICK, 0);
+        entityData.set(D_TRICK_AMOUNT, 0f);
+        lastVel = V3.ZERO;
+        lastYawOmega = lastPitchOmega = 0;
+        hasPrevReport = false;
     }
 
     /** Everyone who is not riding this bike: interpolate the server's view of it. */
@@ -243,16 +309,24 @@ public class MountainBikeEntity extends Entity {
             serverSim = new BikeSim(params(), serverColumns.terrain());
             serverSim.riderless = true;
             serverSim.place(getX(), getY(), getZ(), Math.toRadians(getYRot()));
-            if (lastVel.lengthSq() > 0.01) {    // just bailed / hopped off: keep the motion
+            if (lastVel.lengthSq() > 0.01) {    // just bailed / hopped off: keep the motion, spin included
                 serverSim.pos = new V3(getX(), getY() + COM_HEIGHT, getZ());
                 serverSim.pitch = lastPitch;
                 serverSim.lean = lastLean;
                 serverSim.vel = lastVel;
+                V3 right = new V3(-Math.sin(serverSim.yaw), 0, Math.cos(serverSim.yaw)).cross(V3.Y);
+                serverSim.omega = V3.Y.mul(lastYawOmega).addScaled(right, lastPitchOmega);
             }
             lastVel = V3.ZERO;
+            lastYawOmega = lastPitchOmega = 0;
+            hasPrevReport = false;
             restTicks = 0;
         }
-        if (restTicks > 60) return;                 // settled: stop simulating
+        // A settled bike sleeps, but not for good: every GROUND_PROBE_INTERVAL ticks, or as soon as a block
+        // next to it changes, it takes one simulation step to find out whether its ground is still there.
+        boolean settled = restTicks > SETTLED_TICKS;
+        if (settled && tickCount % GROUND_PROBE_INTERVAL != 0
+                && !(tickCount % SUPPORT_CHECK_INTERVAL == 0 && supportChanged())) return;
         serverColumns.newTick();
         serverSim.tick(Controls.NONE, 0.05);
         serverSim.events.clear();
@@ -268,7 +342,18 @@ public class MountainBikeEntity extends Entity {
         entityData.set(D_FLAGS, s.airborne ? BikeStatePayload.AIRBORNE : 0);
         entityData.set(D_TRICK, 0);
         entityData.set(D_TRICK_AMOUNT, 0f);
-        restTicks = (s.speed() < 0.05 && s.grounded() && Math.abs(Math.abs(s.lean) - 1.38) < 0.05) ? restTicks + 1 : 0;
+        boolean atRest = s.speed() < 0.05 && s.grounded() && Math.abs(Math.abs(s.lean) - 1.38) < 0.05;
+        restTicks = atRest ? Math.min(restTicks + 1, SETTLED_TICKS + 1) : 0;   // moved: awake again
+        if (restTicks > SETTLED_TICKS) rememberSupport();
+    }
+
+    private void rememberSupport() {
+        settledAt = level().getBlockState(blockPosition());
+        settledBelow = level().getBlockState(blockPosition().below());
+    }
+
+    private boolean supportChanged() {
+        return level().getBlockState(blockPosition()) != settledAt || level().getBlockState(blockPosition().below()) != settledBelow;
     }
 
     // synced visual accessors for remote rendering
@@ -306,6 +391,23 @@ public class MountainBikeEntity extends Entity {
             le.yBodyRotO = yaw;
             le.yHeadRotO = yaw;
             le.resetFallDistance();
+        }
+    }
+
+    @Override
+    protected void addPassenger(Entity passenger) {
+        super.addPassenger(passenger);
+        if (!level().isClientSide && passenger instanceof net.minecraft.server.level.ServerPlayer player) {
+            hasPrevReport = false;
+            RiderSessions.onMount(player);
+        }
+    }
+
+    @Override
+    protected void removePassenger(Entity passenger) {
+        super.removePassenger(passenger);
+        if (!level().isClientSide && passenger instanceof net.minecraft.server.level.ServerPlayer player) {
+            RiderSessions.onDismount(player);
         }
     }
 
@@ -359,7 +461,8 @@ public class MountainBikeEntity extends Entity {
     @Override
     public boolean hurt(DamageSource source, float amount) {
         if (isRemoved() || level().isClientSide) return false;
-        if (source.getEntity() instanceof Player player && !isVehicle()) {
+        // only players who may break things (not adventure / spectator); creative breaks it instantly
+        if (source.getEntity() instanceof Player player && player.mayBuild() && !isVehicle()) {
             if (!player.getAbilities().instabuild) {
                 var stack = new net.minecraft.world.item.ItemStack(bikeType() == BikeType.HARDTAIL ? ModItems.HARDTAIL_BIKE.get() : ModItems.MOUNTAIN_BIKE.get());
                 net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA, stack, tag -> {
@@ -415,7 +518,7 @@ public class MountainBikeEntity extends Entity {
         b.define(D_TRICK_AMOUNT, 0f);
         b.define(D_TRICK_PROGRESS, 0f);
         b.define(D_TRICK_SIDE, 1);
-        b.define(D_FRONT_PSI, 26f); b.define(D_REAR_PSI, 28f); b.define(D_FORK_PSI, 80f);
+        b.define(D_FRONT_PSI, DEFAULT_FRONT_PSI); b.define(D_REAR_PSI, DEFAULT_REAR_PSI); b.define(D_FORK_PSI, DEFAULT_FORK_PSI);
         b.define(D_BRAKE, 0f);
     }
 

@@ -220,9 +220,13 @@
   "descentmtb.downhill.too_close": "Start a cíl jsou moc blízko",
   "descentmtb.downhill.too_long": "Trať je moc dlouhá (nejvíc %s m)",
   "descentmtb.downhill.no_ground": "Na startu nebo v cíli není na čem stavět",
-  "descentmtb.input.gamepad": "gamepad \"%s\"",
-  "descentmtb.input.joystick": "joystick \"%s\"",
-  "descentmtb.input.no_controller": "§e[MTB] Ovladač nenalezen – klávesnice: %1$s plyn, %2$s brzda, %3$s / %4$s zatáčení, %5$s bunnyhop, %6$s kamera.",
-  "descentmtb.input.controller": "§a[MTB] Ovladač: §f%s §7(RT plyn, LT brzda, pravá páčka dolů→nahoru = hop, LB + pravá páčka = triky)",
-  "descentmtb.shape.click_hint": "Klikni na režim pro výběr – Esc nebo klik mimo menu zavře"
+  "descentmtb.msg.bail": "PÁD! %s",
+  "descentmtb.msg.respawned": "Vráceno zpět",
+  "descentmtb.msg.back_to_start": "Zpět na start",
+  "descentmtb.msg.air": "%s s ve vzduchu",
+  "descentmtb.msg.air_trick": "%s  %s s ve vzduchu",
+  "descentmtb.msg.landed": "PŘISTÁNÍ  •  %s s VE VZDUCHU",
+  "descentmtb.msg.in_the_air": "VE VZDUCHU",
+  "descentmtb.kick.flood": "Příliš mnoho neplatných aktualizací kola - zkontroluj připojení nebo mody",
+  "descentmtb.bike.respawn_denied": "Kolo teď nejde bezpečně nikam vrátit"
 }

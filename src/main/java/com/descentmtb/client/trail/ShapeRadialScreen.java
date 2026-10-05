@@ -4,7 +4,6 @@ import com.descentmtb.client.ModKeyMappings;
 import com.descentmtb.network.ShapeTunePayload;
 import com.descentmtb.trail.ShapeMode;
 import com.descentmtb.trail.ShapeToolItem;
-import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -12,14 +11,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-import org.lwjgl.glfw.GLFW;
-
 import java.util.List;
 
 /**
  * Radial menu of the Trail Shaper. Hold the menu key, move the mouse to a mode and release (or click).
- * When the key is already up as the screen opens (a quick tap) it works as a plain click menu instead: it stays
- * open until a mode is clicked, or until a click on empty space or Esc closes it.
  * The tabs on top switch between jumps, berms, manual edits (and copying), copycat ramps and whole lines.
  */
 public final class ShapeRadialScreen extends Screen {
@@ -29,31 +24,11 @@ public final class ShapeRadialScreen extends Screen {
     private final ShapeMode current;
     private int category;
     private ShapeMode hover;
-    private boolean started, clickMode;
 
     public ShapeRadialScreen() {
         super(Component.translatable("descentmtb.shape.title"));
         current = ShapeToolItem.mode(Minecraft.getInstance().player.getMainHandItem());
         category = current.category;
-    }
-
-    @Override
-    protected void init() {
-        if (!started) {
-            started = true;
-            clickMode = !menuKeyHeld();
-        }
-    }
-
-    /** Whether the menu key is still down; {@code KeyMapping.isDown} is useless here, opening a screen releases all keys. */
-    private boolean menuKeyHeld() {
-        InputConstants.Key key = ModKeyMappings.TRAIL_MENU.getKey();
-        long window = minecraft.getWindow().getWindow();
-        return switch (key.getType()) {
-            case KEYSYM -> InputConstants.isKeyDown(window, key.getValue());
-            case MOUSE -> GLFW.glfwGetMouseButton(window, key.getValue()) == GLFW.GLFW_PRESS;
-            default -> false;
-        };
     }
 
     @Override
@@ -76,9 +51,6 @@ public final class ShapeRadialScreen extends Screen {
         drawTabs(g);
         drawModes(g, mouseX, mouseY, cx, cy);
         drawCentre(g, cx, cy);
-        if (clickMode) {
-            g.drawCenteredString(font, Component.translatable("descentmtb.shape.click_hint"), cx, height - 18, 0xff9aa6a8);
-        }
     }
 
     private int tabsLeft() {
@@ -155,10 +127,6 @@ public final class ShapeRadialScreen extends Screen {
         }
         if (button == 0 && hover != null) {
             choose(hover);
-            return true;
-        }
-        if (clickMode && button == 0) {
-            onClose();   // a click on empty space dismisses the menu
             return true;
         }
         return super.mouseClicked(mx, my, button);

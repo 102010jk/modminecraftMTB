@@ -17,7 +17,7 @@ import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * Client side of the Trail Shaper: the radial menu key, the undo key (Ctrl+Z), Shift + wheel mode cycling, the HUD and
+ * Client side of the Trail Shaper: the radial menu key, the undo key, Shift + wheel mode cycling, the HUD and
  * the sign editor hook.
  */
 public final class TrailClient {
@@ -32,27 +32,15 @@ public final class TrailClient {
                 && !(mc.player.getVehicle() instanceof MountainBikeEntity);
     }
 
-    /**
-     * Every client tick. Both keys are drained unconditionally: a press made while riding (Z accelerates, Ctrl+Z
-     * undoes) or with a screen open must not stay queued and fire later; only a press made while the shaper is held
-     * and no screen is open does anything.
-     */
     public static void tick() {
         var mc = Minecraft.getInstance();
-        boolean menu = false, undo = false;
-        while (ModKeyMappings.TRAIL_MENU.consumeClick()) {
-            menu = true;
-        }
-        while (ModKeyMappings.TRAIL_UNDO.consumeClick()) {
-            undo = true;
-        }
         if (mc.screen != null || !holdingShaper(mc)) {
             return;
         }
-        if (menu) {
+        if (ModKeyMappings.TRAIL_MENU.consumeClick()) {
             mc.setScreen(new ShapeRadialScreen());
         }
-        if (undo) {
+        if (ModKeyMappings.TRAIL_UNDO.consumeClick()) {
             PacketDistributor.sendToServer(new TrailUndoPayload());
         }
     }
