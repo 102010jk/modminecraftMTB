@@ -124,6 +124,8 @@ public final class BikeSim {
 
     /** Places the bike standing on the ground at (x, groundY, z), at rest, with suspension at sag. */
     public void place(double x, double groundY, double z, double yawRad) {
+        lastGoodPos = new V3(x, groundY, z);
+        lastGoodYaw = yawRad;
         this.yaw = yawRad;
         this.pitch = 0;
         this.lean = 0;
@@ -172,7 +174,18 @@ public final class BikeSim {
             substep(in, h);
             substepTime += h;
         }
+        if (stateFinite()) {
+            lastGoodPos = pos;
+            lastGoodYaw = yaw;
+        } else {
+            // a corrupted state (NaN / infinity) would poison everything downstream: put the bike back
+            events.add(new Event(Event.Type.HIT, 0, "physics state reset"));
+            place(lastGoodPos.x, lastGoodPos.y + .5, lastGoodPos.z, lastGoodYaw);
+        }
     }
+
+    private V3 lastGoodPos = V3.ZERO;
+    private double lastGoodYaw;
 
     private void substep(Controls c, double h) {
         axes();
@@ -187,12 +200,12 @@ public final class BikeSim {
         if (c.brake > 0.5 && Math.abs(c.steer) > 0.8) {
             demand *= p.driftDemandBoost;
         }
-        // Right stick X on the ground leans the body sideways. Into the turn: a tighter carve.
-        // Against the turn (bike leaned in, body out) with hard steering: the rear steps out into a drift.
         // weight shifted forward unloads the rear: ask a little less of the tyres so it doesn't wash out by itself
         if (c.lean > 0) {
             demand *= 1 - 0.25 * c.lean;
         }
+        // Right stick X on the ground leans the body sideways. Into the turn: a tighter carve.
+        // Against the turn (bike leaned in, body out) with hard steering: the rear steps out into a drift.
         double bodyLean = c.trickMod ? 0 : c.tweak;
         double into = bodyLean * Math.signum(c.steer);
         leanDrift = into < -0.5 && Math.abs(c.steer) > 0.5 && Math.abs(vFwd) > 3;
@@ -710,7 +723,7 @@ public final class BikeSim {
                 double jt = Math.min(vtl / invMass(pt, td), 0.6 * (jn + p.bikeMass * p.gravity * h));
                 applyImpulse(pt, td.mul(-jt));
             }
-            pos = pos.addScaled(n, Math.min(pen * (riderless ? .8 : .3), riderless ? .15 : .05));
+            shiftFrame(n.mul(Math.min(pen * (riderless ? .8 : .3), riderless ? .15 : .05)));
             // saddle/bars on the ground only counts as a crash if the bike is clearly over
             // (looped out or nose-planted), not when it just scrapes a steep bank
             boolean over = Math.abs(wrap(pitch - groundPitch(n))) > Math.toRadians(65);
@@ -759,14 +772,14 @@ public final class BikeSim {
             na = a + (aT - a) * k;
         } else {
             // no spin input: stop turning, and ease the nose toward the direction of flight (yaw error < 60°)
-            na = a * Math.exp(-h / p.airSpinDamping);
             double hs = vel.horizontalLength();
-            if (hs > 2) {
-                double err = wrap(Math.atan2(-vel.x, vel.z) - yaw);
-                if (Math.abs(err) < Math.toRadians(60)) {
-                    double align = -err * p.airYawAlignRate * p.airAlignAssist;   // omega.Y is -yaw rate
-                    na += (align - na) * (1 - Math.exp(-h / 0.12));
-                }
+            double err = hs > 2 ? wrap(Math.atan2(-vel.x, vel.z) - yaw) : Double.NaN;
+            if (!Double.isNaN(err) && Math.abs(err) < Math.toRadians(60)) {
+                // the target rate is proportional to the error, so it also brakes any leftover spin
+                double align = -err * p.airYawAlignRate * p.airAlignAssist;      // omega.Y is -yaw rate
+                na = a + (align - a) * (1 - Math.exp(-h / 0.12));
+            } else {
+                na = a * Math.exp(-h / p.airSpinDamping);
             }
         }
         double nb = b + (bT - b) * k;
@@ -797,7 +810,21 @@ public final class BikeSim {
         }
     }
 
+    /** Consecutive substeps without / with wheel contact (debounce of take-off and touch-down). */
+    private int airSteps, groundSteps;
+
     private void airState(boolean grounded, double h) {
+        airSteps = grounded ? 0 : airSteps + 1;
+        groundSteps = grounded ? groundSteps + 1 : 0;
+        // a tyre leaving the ground for one 4 ms substep is not a jump, and grazing the ground for one
+        // substep at the end of a flip is not a landing (it would wipe the trick)
+        if (!grounded && !airborne && airSteps < 3) {
+            return;
+        }
+        if (grounded && airborne && groundSteps < 2) {
+            airTime += h;
+            return;
+        }
         if (!grounded) {
             if (!airborne) {
                 airborne = true;
@@ -912,7 +939,7 @@ public final class BikeSim {
         // gentle positional fix if a wheel is buried (fast landings)
         for (Wheel w : new Wheel[]{front, rear}) {
             if (w.contact && w.penetration > 0.02) {
-                pos = pos.addScaled(w.normal, Math.min((w.penetration - 0.02) * 0.35, 0.05));
+                shiftFrame(w.normal.mul(Math.min((w.penetration - 0.02) * 0.35, 0.05)));
             }
         }
 
@@ -941,7 +968,8 @@ public final class BikeSim {
             }
         }
         if (lift > .12) {
-            if (airborne && !riderless && floorSurface!=Terrain.Surface.AIRBAG && -vel.y > p.bailImpactSpeed) bail("landed too hard");
+            if (airborne && airTime > 0.25 && !riderless && floorSurface != Terrain.Surface.AIRBAG
+                    && -vel.y > p.bailImpactSpeed) bail("landed too hard");
             pos = pos.addScaled(V3.Y, lift);
             if (!riderless) riderPos = riderPos.addScaled(V3.Y, lift);
             if (vel.y < 0) vel = new V3(vel.x, 0, vel.z);
@@ -1109,8 +1137,30 @@ public final class BikeSim {
     }
 
     static double wrap(double a) {
-        while (a > Math.PI) a -= 2 * Math.PI;
-        while (a <= -Math.PI) a += 2 * Math.PI;
-        return a;
+        if (!Double.isFinite(a)) {
+            return 0;
+        }
+        double r = Math.IEEEremainder(a, 2 * Math.PI);
+        return r <= -Math.PI ? r + 2 * Math.PI : r;
+    }
+
+    /** Moves the frame and carries the rider with it (position fixes must not tear the two apart). */
+    private void shiftFrame(V3 d) {
+        pos = pos.add(d);
+        if (!riderless) {
+            // vertical part only: the rider stays seated (no sinking into the bike after rough landings), while a
+            // sideways nudge off a block edge is absorbed by the rider's lateral constraint as before
+            riderPos = riderPos.add(new V3(0, d.y, 0));
+        }
+    }
+
+    private static boolean finite(V3 v) {
+        return Double.isFinite(v.x) && Double.isFinite(v.y) && Double.isFinite(v.z);
+    }
+
+    /** True when the state is usable; a corrupted (NaN / infinite) state is reported so the caller can respawn. */
+    public boolean stateFinite() {
+        return finite(pos) && finite(vel) && finite(omega) && finite(riderPos) && finite(riderVel)
+                && Double.isFinite(yaw) && Double.isFinite(pitch) && Double.isFinite(lean);
     }
 }

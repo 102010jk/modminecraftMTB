@@ -57,8 +57,6 @@ public final class ClientConfig {
         SPEC = b.build();
     }
 
-    private static final BikeParams DEFAULTS = new BikeParams();
-
     private static ModConfigSpec.DoubleValue number(ModConfigSpec.Builder b, String key, String comment, double value, double min, double max) {
         return b.comment(comment).translation("descentmtb.config."+key).defineInRange(key, value, min, max);
     }
@@ -68,14 +66,14 @@ public final class ClientConfig {
         if (!SPEC.isLoaded()) return;
         BikeParams p = bike.params();
         BikeParams defaults = bike.bikeType().params();
-        p.manualAssist = MANUAL_ASSIST.get() ? DEFAULTS.manualAssist * MANUAL_ASSIST_STRENGTH.get() : 0;
-        p.landingAssistRate = LANDING_ASSIST.get() ? DEFAULTS.landingAssistRate : 0;
+        p.manualAssist = MANUAL_ASSIST.get() ? defaults.manualAssist * MANUAL_ASSIST_STRENGTH.get() : 0;
+        p.landingAssistRate = LANDING_ASSIST.get() ? defaults.landingAssistRate : 0;
         double tol = BAIL_TOLERANCE.get();
-        p.bailPitchError = Math.min(Math.toRadians(175), DEFAULTS.bailPitchError * tol);
-        p.bailYawError = Math.min(Math.toRadians(175), DEFAULTS.bailYawError * tol);
+        p.bailPitchError = Math.min(Math.toRadians(175), defaults.bailPitchError * tol);
+        p.bailYawError = Math.min(Math.toRadians(175), defaults.bailYawError * tol);
         p.bailImpactSpeed = defaults.bailImpactSpeed * tol;
-        p.crashSpeed = DEFAULTS.crashSpeed * tol;
-        p.wallCrashSpeed = DEFAULTS.wallCrashSpeed * tol;
+        p.crashSpeed = defaults.crashSpeed * tol;
+        p.wallCrashSpeed = defaults.wallCrashSpeed * tol;
         p.pedalPower = PEDAL_POWER.get(); p.pedalMaxForce = PEDAL_FORCE.get();
         p.pedalSpinOut = PEDAL_SPEED.get() / 3.6;
         p.brakeForce = defaults.brakeForce * BRAKE_STRENGTH.get();

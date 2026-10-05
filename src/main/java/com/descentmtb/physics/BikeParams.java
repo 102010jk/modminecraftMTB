@@ -104,7 +104,7 @@ public final class BikeParams {
     /** With no spin input the yaw rate dies with this time constant (s) ... */
     public double airSpinDamping = 0.15;
     /** ... and the bike turns toward its flight direction at this rate (1/s), Descenders-style. */
-    public double airYawAlignRate = 2.2;
+    public double airYawAlignRate = 1.4;
 
     // ---------------- landing / bails ----------------
     public double bailPitchError = Math.toRadians(100);   // only landing on your back / nose

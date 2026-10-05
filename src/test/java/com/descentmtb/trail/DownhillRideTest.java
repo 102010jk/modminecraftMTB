@@ -215,6 +215,9 @@ class DownhillRideTest {
                     String what = hill.name() + " " + style + " " + width + " m wide";
                     assertFalse(r.bailed, what + " bailed: " + r.why);
                     assertTrue(r.progress > .97, what + " only reached " + r.progress);
+                    if (r.maxOff >= 1.5) {
+                        r.events().stream().filter(e -> !e.startsWith("TRACE")).forEach(e -> System.out.println("[debug] " + what + ": " + e));
+                    }
                     assertTrue(r.maxOff < 1.5, what + " left the line by " + r.maxOff);
                 }
             }
