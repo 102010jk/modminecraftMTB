@@ -18,7 +18,8 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Development-only: the Trail Shaper through its real item code paths (placing full blocks, jump and berm
- * presets, manual edits, plain ground, undo). Called from {@link DevTrailTests} on a prepared grass field at y.
+ * presets, manual edits, plain ground, undo), then the berm, downhill, jump builder and block editor tests.
+ * Called from {@link DevTrailTests} on a prepared grass field at y.
  * The key assertion: a preset changes ONLY the clicked block, never its neighbours.
  */
 final class DevSculptTests {
@@ -78,6 +79,8 @@ final class DevSculptTests {
         copyAndPaste(p, l, x, y, bz + 2);
         DevBermTests.run(p, l, x, y, z);
         DevDownhillTests.run(p, l, x, y, z);
+        DevJumpTests.run(p, l, x, y, z);
+        DevBlockEditorTests.run(p, l, x, y, z);
         DescentMtb.LOG.info("[sculpttest] ALL PASSED");
     }
 
