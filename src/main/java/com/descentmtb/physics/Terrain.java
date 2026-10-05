@@ -110,12 +110,13 @@ public interface Terrain {
 
     /** Surface classes with their tyre properties (feel spec F4). */
     enum Surface {
-        DIRT(1.00, 0.020),
-        TRAIL(1.05, 0.015),
-        GRASS(0.85, 0.035),
-        GRAVEL(0.70, 0.030),
-        ROCK(0.95, 0.015),
-        WOOD(0.90, 0.012),
+        // rolling resistance tuned for game feel (hard-packed trail, fast tyres): momentum carries like Descenders
+        DIRT(1.00, 0.013),
+        TRAIL(1.05, 0.009),
+        GRASS(0.85, 0.026),
+        GRAVEL(0.70, 0.022),
+        ROCK(0.95, 0.010),
+        WOOD(0.90, 0.008),
         SAND(0.55, 0.080),
         MUD(0.50, 0.060),
         SNOW(0.45, 0.050),

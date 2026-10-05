@@ -50,7 +50,7 @@ public final class BikeParams {
     public double gearRatio = 2.6;            // wheel revs per crank rev
 
     // ---------------- aero ----------------
-    public double dragArea = 0.55;            // CdA m²
+    public double dragArea = 0.45;            // CdA m² (attack position)
     public double airDensity = 1.2;
     /** Above this speed an extra "rough terrain" drag kicks in (Descenders-ish speed cap). */
     public double softSpeedCap = 19.0;        // ≈ 68 km/h
