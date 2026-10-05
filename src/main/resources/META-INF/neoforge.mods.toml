@@ -30,3 +30,11 @@ type = "required"
 versionRange = "[1.21,1.22)"
 ordering = "NONE"
 side = "BOTH"
+
+# Sable moving platforms: the bike rides on them when the mod is present, nothing else needs it
+[[dependencies.descentmtb]]
+modId = "sable"
+type = "optional"
+versionRange = "[0,)"
+ordering = "AFTER"
+side = "BOTH"

@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    [
+      {
+        "item": "minecraft:cobblestone"
+      },
+      {
+        "item": "minecraft:andesite"
+      }
+    ],
+    {
+      "item": "minecraft:moss_block"
+    }
+  ],
+  "result": {
+    "id": "descentmtb:trail_rock",
+    "count": 2
+  }
+}

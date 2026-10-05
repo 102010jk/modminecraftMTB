@@ -92,6 +92,9 @@ public final class ModBlocks {
             ITEMS.addAlias(ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, retired),
                     ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "trail_dirt"));
         }
+        // the old stake block became the tape post: placed stakes keep standing instead of vanishing from old worlds
+        BLOCKS.addAlias(ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "trail_stake"),
+                ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "barrier_post"));
         BLOCKS.register(bus);
         BLOCK_ENTITIES.register(bus);
         ITEMS.register(bus);
