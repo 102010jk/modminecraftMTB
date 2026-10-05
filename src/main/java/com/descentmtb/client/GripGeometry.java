@@ -35,14 +35,18 @@ public final class GripGeometry {
      * (radians, positive = right, the same angle the bike model uses).
      */
     public static Vector3f gripOffset(BikeType type, boolean left, float steer) {
+        return gripOffset(type, left, steer, new Vector3f());
+    }
+
+    /** Same as {@link #gripOffset(BikeType, boolean, float)} but writes the result into {@code out} (no allocation). */
+    public static Vector3f gripOffset(BikeType type, boolean left, float steer, Vector3f out) {
         Steering s = type == BikeType.HARDTAIL ? HARDTAIL : ENDURO;
-        Vector3f grip = new Vector3f(s.gripLeft());
-        if (!left) {
-            grip.x = -grip.x;
-        }
-        Vector3f r = grip.sub(s.pivot());
-        Vector3f turned = new Vector3f(r).rotateAxis(steer, s.axisDown().x, s.axisDown().y, s.axisDown().z);
-        return turned.sub(r);
+        // r = grip - pivot, with the right grip mirrored from the left one
+        float rx = (left ? s.gripLeft().x : -s.gripLeft().x) - s.pivot().x;
+        float ry = s.gripLeft().y - s.pivot().y;
+        float rz = s.gripLeft().z - s.pivot().z;
+        Vector3f axis = s.axisDown();
+        return out.set(rx, ry, rz).rotateAxis(steer, axis.x, axis.y, axis.z).sub(rx, ry, rz);
     }
 
     /**
@@ -50,9 +54,15 @@ public final class GripGeometry {
      * the bike (in the air the bike lays over in a table while the rider stays upright). Pivot: the feet (y = 24).
      */
     public static Vector3f intoRiderRoll(Vector3f point, float riderLean, float bikeLean) {
-        Vector3f p = new Vector3f(point.x, point.y - 24f, point.z).rotateZ(riderLean - bikeLean);
-        p.y += 24f;
-        return p;
+        return intoRiderRollInPlace(new Vector3f(point), riderLean, bikeLean);
+    }
+
+    /** Same as {@link #intoRiderRoll} but rotates {@code point} itself and returns it (no allocation). */
+    public static Vector3f intoRiderRollInPlace(Vector3f point, float riderLean, float bikeLean) {
+        point.y -= 24f;
+        point.rotateZ(riderLean - bikeLean);
+        point.y += 24f;
+        return point;
     }
 
     private GripGeometry() {}

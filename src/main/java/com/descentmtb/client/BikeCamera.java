@@ -5,6 +5,7 @@ import com.descentmtb.entity.MountainBikeEntity;
 import com.descentmtb.physics.V3;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -40,11 +41,11 @@ public final class BikeCamera {
     public static void cycle() {
         mode = Mode.values()[(mode.ordinal() + 1) % Mode.values().length];
         applyCameraType();
-        BikeClientController.toast(switch (mode) {
-            case HELMET -> "Kamera: první osoba";
-            case CHASE -> "Kamera: třetí osoba";
-            case CHASE_FAR -> "Kamera: třetí osoba (daleko)";
-        });
+        BikeClientController.toast(Component.translatable(switch (mode) {
+            case HELMET -> "descentmtb.camera.first_person";
+            case CHASE -> "descentmtb.camera.third_person";
+            case CHASE_FAR -> "descentmtb.camera.third_person_far";
+        }).getString());
     }
 
     public static Mode mode() {

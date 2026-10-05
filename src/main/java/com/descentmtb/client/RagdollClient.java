@@ -6,6 +6,7 @@ import com.mojang.math.Axis;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ClipContext;
@@ -33,26 +34,37 @@ public final class RagdollClient {
         float lie, lieO;        // 0 = upright/tumbling height, 1 = lying flat
         int age, downTicks, getUp = -1;
         boolean landed;
+        /** The local player's camera and forced pose from before the first ragdoll, put back when it ends. */
+        boolean local;
         CameraType savedCamera;
         net.minecraft.world.entity.Pose savedPose;
     }
 
     private static final Map<Integer, State> STATES = new HashMap<>();
     private static float camYaw;
+    private static ClientLevel lastLevel;
 
     public static void onPayload(RagdollPayload m) {
         State s = new State();
         double speed = Math.sqrt(m.vx() * m.vx() + m.vy() * m.vy() + m.vz() * m.vz());
         s.yaw = (float) Math.atan2(-m.vx(), m.vz());
         s.spin = (float) Math.max(0.08, Math.min(0.32, speed * 0.018));
-        STATES.put(m.playerId(), s);
+        State previous = STATES.put(m.playerId(), s);
         if (DevAutopilot.ENABLED) com.descentmtb.DescentMtb.LOG.info("[ragdoll] received for {}", m.playerId());
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null && m.playerId() == mc.player.getId()) {
             camYaw = s.yaw;
-            s.savedCamera = BikeCamera.originalCameraType();
+            s.local = true;
             mc.player.getAbilities().flying = false;
-            s.savedPose = mc.player.getForcedPose();
+            if (previous != null && previous.local) {
+                // a second payload replaces the state: what we saved before the FIRST ragdoll is still the truth
+                // (the camera and pose we would read now are the ones this class forced)
+                s.savedCamera = previous.savedCamera;
+                s.savedPose = previous.savedPose;
+            } else {
+                s.savedCamera = BikeCamera.originalCameraType();
+                s.savedPose = mc.player.getForcedPose();
+            }
             mc.player.setForcedPose(net.minecraft.world.entity.Pose.SWIMMING);
         }
     }
@@ -76,17 +88,24 @@ public final class RagdollClient {
 
     static void tick() {
         Minecraft mc = Minecraft.getInstance();
+        if (mc.level != lastLevel) {
+            // disconnect or dimension change: the old level's tumbles are over, the forced pose / camera must not stay
+            lastLevel = mc.level;
+            endAll(mc);
+        }
         if (mc.level == null) {
-            STATES.clear();
             return;
         }
         STATES.entrySet().removeIf(en -> {
             Entity e = mc.level.getEntity(en.getKey());
             State s = en.getValue();
-            if (!(e instanceof LivingEntity)) return true;
+            if (!(e instanceof LivingEntity) || !e.isAlive()) {   // gone, or dead
+                restore(mc, s);
+                return true;
+            }
             // The animation packet can reach the client before vanilla's
             // passenger update. Give that dismount time to arrive.
-            if (e.isPassenger() && s.age > 10) { restore(mc, e, s); return true; }
+            if (e.isPassenger() && s.age > 10) { restore(mc, s); return true; }
             if (e.isPassenger()) { s.age++; return false; }
             s.age++;
             s.angleO = s.angle;
@@ -110,7 +129,7 @@ public final class RagdollClient {
                 float target = nearestLying(s.angle) - (float) (Math.PI / 2);   // stand up
                 s.angle += (target - s.angle) * 0.3f;
                 if (s.getUp >= GET_UP) {
-                    restore(mc, e, s);
+                    restore(mc, s);
                     return true;
                 }
             }
@@ -121,12 +140,30 @@ public final class RagdollClient {
         }
     }
 
-    private static void restore(Minecraft mc, Entity e, State s) {
-        if (e == mc.player) {
-            mc.player.setForcedPose(s.savedPose);
-            net.neoforged.neoforge.network.PacketDistributor.sendToServer(new com.descentmtb.network.RagdollRecoveryPayload());
-            if (s.savedCamera != null) mc.options.setCameraType(s.savedCamera);
+    /** Ends every ragdoll at once (level change, disconnect). */
+    private static void endAll(Minecraft mc) {
+        for (State s : STATES.values()) {
+            restore(mc, s);
         }
+        STATES.clear();
+    }
+
+    /**
+     * The one way a ragdoll of the local player ends, whatever the reason (got up, entity gone, death, new level,
+     * disconnect): the forced pose and camera go back, and the server is told the get-up is over so its collision
+     * pose and crash-damage grace are released.
+     */
+    private static void restore(Minecraft mc, State s) {
+        if (!s.local) {
+            return;
+        }
+        if (mc.player != null) {
+            mc.player.setForcedPose(s.savedPose);
+            if (mc.getConnection() != null) {
+                net.neoforged.neoforge.network.PacketDistributor.sendToServer(new com.descentmtb.network.RagdollRecoveryPayload());
+            }
+        }
+        if (s.savedCamera != null) mc.options.setCameraType(s.savedCamera);
     }
 
     private static float nearestLying(float a) {

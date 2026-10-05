@@ -25,6 +25,9 @@ import java.util.Set;
  * The trail timer. Riding a bike past a START sign starts the clock for that trail and makes it the
  * "respawn at start" point; riding past the FINISH sign of the same trail stops it and reports the time to the
  * server, which keeps the personal best. A bail does not stop the clock; respawning at the start re-arms it.
+ *
+ * <p>Time is counted in game ticks (50 ms each, plus the partial tick for the on-screen clock), not wall-clock time,
+ * so the pause menu and lag spikes do not count: the same run takes the same time as the simulation saw.
  */
 public final class TrailTimer {
     /** Idle: nothing running. Armed: back at the start, the clock starts when the bike moves. */
@@ -40,13 +43,16 @@ public final class TrailTimer {
     private static final double START_SPEED = 0.3;
     /** Where the rider is placed relative to a START sign when respawning at the start (blocks). */
     private static final double START_OFFSET = 1.6;
-    private static final long FINISH_SHOWN_NANOS = 6_000_000_000L;
-    private static final long GIVE_UP_NANOS = 30L * 60 * 1_000_000_000L;
+    private static final long MS_PER_TICK = 50;
+    private static final long FINISH_SHOWN_TICKS = 6 * 20;
+    private static final long GIVE_UP_TICKS = 30L * 60 * 20;
     private static final String DEFAULT_NAME = "Trail";
 
     private static State state = State.IDLE;
     private static String trail = "";
-    private static long startNanos, finishNanos;
+    /** Unpaused client ticks since the game started; the clock everything below is measured on. */
+    private static long clock;
+    private static long startTick, finishTick;
     private static long finalMs;
     /** Verdict from the server for the finished run; null until it arrives. */
     private static TrailBestPayload verdict;
@@ -62,10 +68,14 @@ public final class TrailTimer {
         return trail;
     }
 
-    /** Milliseconds on the clock: live while running, frozen once finished, 0 otherwise. */
+    /**
+     * Milliseconds on the clock: live while running (smoothed with the partial tick), frozen once finished, 0
+     * otherwise.
+     */
     public static long elapsedMs() {
         return switch (state) {
-            case RUNNING -> (System.nanoTime() - startNanos) / 1_000_000;
+            case RUNNING -> Math.round((clock - startTick + Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false))
+                    * MS_PER_TICK);
             case FINISHED -> finalMs;
             default -> 0;
         };
@@ -87,11 +97,14 @@ public final class TrailTimer {
             reset();
             lastLevel = mc.level;
         }
-        long now = System.nanoTime();
-        if (state == State.FINISHED && now - finishNanos > FINISH_SHOWN_NANOS) {
+        if (mc.isPaused()) {
+            return;   // the pause menu does not run the clock
+        }
+        clock++;
+        if (state == State.FINISHED && clock - finishTick > FINISH_SHOWN_TICKS) {
             state = State.IDLE;
         }
-        if (state == State.RUNNING && now - startNanos > GIVE_UP_NANOS) {
+        if (state == State.RUNNING && clock - startTick > GIVE_UP_TICKS) {
             state = State.IDLE;
         }
         MountainBikeEntity bike = BikeClientController.riding();
@@ -100,12 +113,12 @@ public final class TrailTimer {
         }
         if (state == State.ARMED && bike.sim().speed() > LAUNCH_SPEED) {
             state = State.RUNNING;
-            startNanos = now;
+            startTick = clock;
         }
-        passSigns(mc, bike, now);
+        passSigns(mc, bike);
     }
 
-    private static void passSigns(Minecraft mc, MountainBikeEntity bike, long now) {
+    private static void passSigns(Minecraft mc, MountainBikeEntity bike) {
         Set<BlockPos> current = new HashSet<>();
         for (TrailSignEntity sign : TrailSignRegistry.near(mc.level, bike.getX(), bike.getY(), bike.getZ(), SCAN_RANGE,
                 SignContent.Type.START, SignContent.Type.FINISH)) {
@@ -119,16 +132,16 @@ public final class TrailTimer {
                 continue;
             }
             if (sign.content().type() == SignContent.Type.START) {
-                passStart(sign, bike, now);
+                passStart(sign, bike);
             } else {
-                passFinish(sign, now);
+                passFinish(sign);
             }
         }
         INSIDE.clear();
         INSIDE.addAll(current);
     }
 
-    private static void passStart(TrailSignEntity sign, MountainBikeEntity bike, long now) {
+    private static void passStart(TrailSignEntity sign, MountainBikeEntity bike) {
         Direction heading = TrailSignBlock.rideHeading(sign.getBlockState());
         var velocity = bike.sim().vel;
         double towardsTrail = velocity.x * heading.getStepX() + velocity.z * heading.getStepZ();
@@ -138,20 +151,20 @@ public final class TrailTimer {
         String name = nameOf(sign);
         state = State.RUNNING;
         trail = name;
-        startNanos = now;
+        startTick = clock;
         verdict = null;
         setRespawnPoint(sign);
         BikeClientController.toast(Component.translatable("descentmtb.trail.started", name).getString());
         PacketDistributor.sendToServer(new TrailTimePayload(name, 0));
     }
 
-    private static void passFinish(TrailSignEntity sign, long now) {
+    private static void passFinish(TrailSignEntity sign) {
         if (state != State.RUNNING || !TrailTimes.key(nameOf(sign)).equals(TrailTimes.key(trail))) {
             return;
         }
-        long ms = (now - startNanos) / 1_000_000;
+        long ms = (clock - startTick) * MS_PER_TICK;
         state = State.FINISHED;
-        finishNanos = now;
+        finishTick = clock;
         finalMs = ms;
         verdict = null;
         if (TrailTimes.isValid(ms)) {

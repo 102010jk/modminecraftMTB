@@ -93,7 +93,7 @@ public final class DevAutopilot {
                 finished = true;
                 BikeCamera.debugSide = 0;
                 mc.options.hideGui = false;
-                BikeClientController.toast("Testy prošly — můžeš jezdit");
+                BikeClientController.toast(net.minecraft.network.chat.Component.translatable("descentmtb.dev.tests_passed").getString());
                 shot(mc, "remounted");
                 if (!KEEP_OPEN) mc.stop();
                 return;

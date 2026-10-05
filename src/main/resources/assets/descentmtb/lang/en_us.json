@@ -233,5 +233,11 @@
   "descentmtb.input.joystick": "joystick \"%s\"",
   "descentmtb.input.no_controller": "§e[MTB] No controller found - keyboard: %1$s accelerate, %2$s brake, %3$s / %4$s steer, %5$s bunny hop, %6$s camera.",
   "descentmtb.input.controller": "§a[MTB] Controller: §f%s §7(RT accelerate, LT brake, right stick down then up = hop, LB + right stick = tricks)",
-  "descentmtb.shape.click_hint": "Click a mode to choose it - Esc or a click outside closes the menu"
+  "descentmtb.shape.click_hint": "Click a mode to choose it - Esc or a click outside closes the menu",
+  "descentmtb.camera.first_person": "Camera: first person",
+  "descentmtb.camera.third_person": "Camera: third person",
+  "descentmtb.camera.third_person_far": "Camera: third person (far)",
+  "descentmtb.hud.speed": "%s km/h",
+  "descentmtb.hud.air": "AIR %s s",
+  "descentmtb.dev.tests_passed": "Tests passed - you can ride"
 }

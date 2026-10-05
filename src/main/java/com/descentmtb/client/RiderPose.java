@@ -8,8 +8,12 @@ import com.descentmtb.trick.TrickAnimation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.world.entity.LivingEntity;
+import org.joml.Vector3f;
+
+import java.util.Collections;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 /**
  * Poses the player model on the bike every frame: feet on the pedals (turning
@@ -20,10 +24,32 @@ import net.minecraft.world.entity.LivingEntity;
  * <p>Model space is the vanilla player model: pixels, y down, forward = -Z,
  * feet at y = 24, rider's right arm/leg at -X. The player renderer scales by
  * 0.9375, so 1 m = 17.07 px.
+ *
+ * <p>The player model is shared by every player, and vanilla's {@code setupAnim} does not reset everything this
+ * class writes (the body / head depth, the limb scales and the sleeves' and pants' copies of them). Each model that
+ * was posed is remembered, and {@link #reset} puts back what {@link #apply} changed the next time that model
+ * animates someone who is not riding. Everything here runs on the render thread, which is why the scratch storage
+ * below can be static.
  */
 public final class RiderPose {
     private static final float PX = 16f / 0.9375f;
     private static final float CRANK_PX = 0.17f * PX;
+
+    /** What {@link #apply} did to one model, so {@link #reset} can undo it. */
+    private static final class Applied {
+        /** The model was posed since the last reset. */
+        boolean posed;
+        /** The helmet camera hid the head and hat, whose visibility was {@code headVisible} / {@code hatVisible}. */
+        boolean headHidden, headVisible, hatVisible;
+    }
+
+    private static final Map<PlayerModel<?>, Applied> APPLIED = Collections.synchronizedMap(new WeakHashMap<>());
+
+    // scratch storage reused every frame (render thread only)
+    private static final ModelPart[] LIMBS = new ModelPart[4];
+    private static final float[][] NORMAL = new float[4][6];
+    private static final float[] SCALE = new float[4];
+    private static final Vector3f RIGHT_GRIP = new Vector3f(), LEFT_GRIP = new Vector3f(), GRIP_OFFSET = new Vector3f();
 
     /** Body stance in model px: how far the shoulders drop, how far forward they sit, torso pitch. */
     public record Stance(float bend, float shoulderFwd, float theta) {
@@ -48,9 +74,11 @@ public final class RiderPose {
         float crank = (float) BikeRenderState.lerp(pt, a.crank, b.crank);
         float steer = (float) BikeRenderState.lerp(pt, a.steer, b.steer);
         float brake = (float) BikeRenderState.lerp(pt, a.brake, b.brake);
-        float progress = (float) BikeRenderState.lerp(pt, a.trickProgress, b.trickProgress);
+        // never blend the progress / amount of one trick into another's: the new trick starts from its own values
+        boolean sameTrick = a.trick == b.trick;
+        float progress = sameTrick ? (float) BikeRenderState.lerp(pt, a.trickProgress, b.trickProgress) : (float) b.trickProgress;
         Trick trick = b.trick;
-        float amount = (float) TrickAnimation.ease(BikeRenderState.lerp(pt, a.trickAmount, b.trickAmount));
+        float amount = (float) TrickAnimation.ease(sameTrick ? BikeRenderState.lerp(pt, a.trickAmount, b.trickAmount) : b.trickAmount);
         BikeType type = bike.bikeType();
         boolean bailed = b.bailed;
 
@@ -85,18 +113,25 @@ public final class RiderPose {
         // grips turn about the raked head tube; when the rider rolls less than the bike (table) follow the bike
         float bikeLean = (float) BikeRenderState.lerp(pt, a.lean, b.lean);
         float riderLean = (float) BikeRenderState.lerp(pt, a.riderLean, b.riderLean);
-        org.joml.Vector3f right = new org.joml.Vector3f(-gx, gy, gz).add(GripGeometry.gripOffset(type, false, steer));
-        org.joml.Vector3f left = new org.joml.Vector3f(gx, gy, gz).add(GripGeometry.gripOffset(type, true, steer));
-        right = GripGeometry.intoRiderRoll(right, riderLean, bikeLean);
-        left = GripGeometry.intoRiderRoll(left, riderLean, bikeLean);
+        Vector3f right = RIGHT_GRIP.set(-gx, gy, gz).add(GripGeometry.gripOffset(type, false, steer, GRIP_OFFSET));
+        Vector3f left = LEFT_GRIP.set(gx, gy, gz).add(GripGeometry.gripOffset(type, true, steer, GRIP_OFFSET));
+        GripGeometry.intoRiderRollInPlace(right, riderLean, bikeLean);
+        GripGeometry.intoRiderRollInPlace(left, riderLean, bikeLean);
         armTo(m.rightArm, -5f, shoulderY, sz, right.x, right.y, right.z);
         armTo(m.leftArm, 5f, shoulderY, sz, left.x, left.y, left.z);
 
         // ---------------- tricks ----------------
-        ModelPart[] limbs = {m.rightArm, m.leftArm, m.rightLeg, m.leftLeg};
-        PartPose[] normal = new PartPose[limbs.length];
-        float[] scale = new float[limbs.length];
-        for (int i = 0; i < limbs.length; i++) { normal[i] = limbs[i].storePose(); scale[i] = limbs[i].yScale; }
+        ModelPart[] limbs = LIMBS;
+        limbs[0] = m.rightArm;
+        limbs[1] = m.leftArm;
+        limbs[2] = m.rightLeg;
+        limbs[3] = m.leftLeg;
+        for (int i = 0; i < limbs.length; i++) {
+            ModelPart limb = limbs[i];
+            float[] n = NORMAL[i];
+            n[0] = limb.x; n[1] = limb.y; n[2] = limb.z; n[3] = limb.xRot; n[4] = limb.yRot; n[5] = limb.zRot;
+            SCALE[i] = limb.yScale;
+        }
         if (trick == Trick.NO_HANDER || trick == Trick.TABLETOP || bailed) {
             m.rightArm.yScale = 1f;
             m.leftArm.yScale = 1f;
@@ -159,10 +194,11 @@ public final class RiderPose {
             default -> {}
         }
         for (int i = 0; i < limbs.length; i++) {
-            ModelPart part = limbs[i]; PartPose n = normal[i];
-            part.x = mix(n.x, part.x, amount); part.y = mix(n.y, part.y, amount); part.z = mix(n.z, part.z, amount);
-            part.xRot = mix(n.xRot, part.xRot, amount); part.yRot = mix(n.yRot, part.yRot, amount); part.zRot = mix(n.zRot, part.zRot, amount);
-            part.yScale = mix(scale[i], part.yScale, amount);
+            ModelPart part = limbs[i];
+            float[] n = NORMAL[i];
+            part.x = mix(n[0], part.x, amount); part.y = mix(n[1], part.y, amount); part.z = mix(n[2], part.z, amount);
+            part.xRot = mix(n[3], part.xRot, amount); part.yRot = mix(n[4], part.yRot, amount); part.zRot = mix(n[5], part.zRot, amount);
+            part.yScale = mix(SCALE[i], part.yScale, amount);
         }
         // Keep braking visible even without an active trick.
         m.rightArm.xRot -= brake * .09f; m.leftArm.xRot -= brake * .09f;
@@ -175,7 +211,19 @@ public final class RiderPose {
         }
 
         // first-person helmet cam: we render our own body, but not the head we are looking out of
-        m.head.visible = m.hat.visible = !(entity == Minecraft.getInstance().player && BikeCamera.helmet());
+        Applied applied = APPLIED.computeIfAbsent(m, k -> new Applied());
+        applied.posed = true;
+        boolean hideHead = entity == Minecraft.getInstance().player && BikeCamera.helmet();
+        if (hideHead) {
+            if (!applied.headHidden || m.head.visible) {
+                applied.headVisible = m.head.visible;      // what the skin settings made of them
+                applied.hatVisible = m.hat.visible;
+            }
+            applied.headHidden = true;
+            m.head.visible = m.hat.visible = false;
+        } else if (applied.headHidden) {
+            restoreHead(m, applied);
+        }
 
         m.hat.copyFrom(m.head);
         m.jacket.copyFrom(m.body);
@@ -218,12 +266,61 @@ public final class RiderPose {
         arm.yScale = clamp(len / 11.0f, 0.6f, 1.0f);   // bent elbows: hands end on the grips
     }
 
-    /** Undo our limb scaling for anyone not on a bike (the player model is shared). */
+    /**
+     * Undoes what {@link #apply} did to a model that now animates someone not on a bike. Runs after vanilla's
+     * {@code setupAnim}, which already restored every rotation and most offsets, so only what vanilla never writes
+     * is put back: body / head depth and roll, the leg spread, the limb scales and the head / hat visibility if the
+     * helmet camera hid them. Costs one map lookup when the model was not posed on a bike.
+     */
     public static void reset(PlayerModel<?> m) {
-        m.head.visible = m.hat.visible = true;
-        if (m.rightLeg.yScale == 1f && m.leftLeg.yScale == 1f && m.rightArm.yScale == 1f && m.leftArm.yScale == 1f) return;
-        m.rightLeg.yScale = m.leftLeg.yScale = m.rightArm.yScale = m.leftArm.yScale = 1f;
-        m.rightPants.yScale = m.leftPants.yScale = m.rightSleeve.yScale = m.leftSleeve.yScale = 1f;
+        Applied applied = APPLIED.get(m);
+        if (applied == null || !applied.posed) {
+            return;
+        }
+        applied.posed = false;
+        if (applied.headHidden) {
+            restoreHead(m, applied);
+        }
+        restoreOrigin(m.body);
+        restoreOrigin(m.head);
+        m.rightLeg.x = m.rightLeg.getInitialPose().x;
+        m.leftLeg.x = m.leftLeg.getInitialPose().x;
+        unscale(m.rightArm);
+        unscale(m.leftArm);
+        unscale(m.rightLeg);
+        unscale(m.leftLeg);
+        // vanilla copied the stale parts onto the overlay layers before we got here
+        m.hat.copyFrom(m.head);
+        m.jacket.copyFrom(m.body);
+        m.rightSleeve.copyFrom(m.rightArm);
+        m.leftSleeve.copyFrom(m.leftArm);
+        m.rightPants.copyFrom(m.rightLeg);
+        m.leftPants.copyFrom(m.leftLeg);
+    }
+
+    /**
+     * Shows the head and hat again, but only while they are still in the state the helmet camera left them in: the
+     * player renderer sets every part's visibility from the skin settings before each player is animated, and a
+     * visible head means that already happened for the player now drawn, whose own hat setting must win.
+     */
+    private static void restoreHead(PlayerModel<?> m, Applied applied) {
+        if (!m.head.visible && !m.hat.visible) {
+            m.head.visible = applied.headVisible;
+            m.hat.visible = applied.hatVisible;
+        }
+        applied.headHidden = false;
+    }
+
+    /** Back to the model's own x, z and roll (vanilla animates the other rotations and y every frame). */
+    private static void restoreOrigin(ModelPart part) {
+        var initial = part.getInitialPose();
+        part.x = initial.x;
+        part.z = initial.z;
+        part.zRot = initial.zRot;
+    }
+
+    private static void unscale(ModelPart part) {
+        part.xScale = part.yScale = part.zScale = 1f;
     }
 
     private static float mix(float a, float b, float t) { return a + (b - a) * t; }

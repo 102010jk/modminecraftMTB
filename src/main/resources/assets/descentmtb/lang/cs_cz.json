@@ -233,5 +233,11 @@
   "descentmtb.input.joystick": "joystick \"%s\"",
   "descentmtb.input.no_controller": "§e[MTB] Ovladač nenalezen – klávesnice: %1$s plyn, %2$s brzda, %3$s / %4$s zatáčení, %5$s bunnyhop, %6$s kamera.",
   "descentmtb.input.controller": "§a[MTB] Ovladač: §f%s §7(RT plyn, LT brzda, pravá páčka dolů→nahoru = hop, LB + pravá páčka = triky)",
-  "descentmtb.shape.click_hint": "Klikni na režim pro výběr – Esc nebo klik mimo menu zavře"
+  "descentmtb.shape.click_hint": "Klikni na režim pro výběr – Esc nebo klik mimo menu zavře",
+  "descentmtb.camera.first_person": "Kamera: první osoba",
+  "descentmtb.camera.third_person": "Kamera: třetí osoba",
+  "descentmtb.camera.third_person_far": "Kamera: třetí osoba (daleko)",
+  "descentmtb.hud.speed": "%s km/h",
+  "descentmtb.hud.air": "VE VZDUCHU %s s",
+  "descentmtb.dev.tests_passed": "Testy prošly – můžeš jezdit"
 }
