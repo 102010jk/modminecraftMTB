@@ -12,7 +12,11 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -24,11 +28,30 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  * code the server runs, so the preview matches the result). Copy mode: a line box around the selection and, once
  * something is copied, around the place the clipboard will land. Berm and downhill modes: a diamond on every point
  * placed so far.
+ *
+ * <p>Nothing is recomputed per frame: the tool's data is copied only when its custom data component changes, and the
+ * block preset's plan only when the aim, the mode, the facing or Shift changed, or a game tick passed (so an edit of
+ * the aimed blocks shows up). All of it runs on the render thread.
  */
 public final class ShapingHighlight {
     private static final float RADIUS = .16f;
     private static final int COLOR = 0xd8f2c14a;
     private static final int POINT_COLOR = 0xe6f2c14a;
+
+    /** The custom data component the cached tool state below was read from (compared by identity, it is immutable). */
+    private static CustomData cachedData;
+    private static CompoundTag data = new CompoundTag();
+    private static ShapeMode mode;
+
+    /** Inputs of the cached plan; {@code planPos == null} means nothing is cached. */
+    private static BlockPos planPos;
+    private static Vec3 planHit;
+    private static ShapeMode planMode;
+    private static Direction planFacing;
+    private static boolean planShift;
+    private static long planTick;
+    private static Level planLevel;
+    private static ShapePresets.Plan plan;
 
     public static void render(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
@@ -39,7 +62,12 @@ public final class ShapingHighlight {
             return;
         }
         var stack = mc.player.getMainHandItem();
-        ShapeMode mode = ShapeToolItem.mode(stack);
+        CustomData custom = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
+        if (custom != cachedData || mode == null) {
+            cachedData = custom;
+            data = ShapeToolItem.data(stack);
+            mode = ShapeToolItem.mode(stack);
+        }
         BlockHitResult hit = mc.hitResult instanceof BlockHitResult block && block.getType() == HitResult.Type.BLOCK ? block : null;
         Vec3 camera = event.getCamera().getPosition();
         PoseStack pose = event.getPoseStack();
@@ -47,9 +75,9 @@ public final class ShapingHighlight {
 
         switch (mode.kind) {
             case COLUMN -> previewBlock(mc, hit, mode, camera, pose, source);
-            case COPY -> previewCopy(ShapeToolItem.data(stack), hit == null ? null : hit.getBlockPos(), camera, pose, source);
-            case BERM -> previewPoints(ShapeToolItem.data(stack).getLongArray(com.descentmtb.trail.BermBuilder.POINTS_TAG), camera, pose, source);
-            case DOWNHILL -> previewPoints(ShapeToolItem.data(stack).getLongArray(com.descentmtb.trail.DownhillBuilder.POINTS_TAG), camera, pose, source);
+            case COPY -> previewCopy(data, hit == null ? null : hit.getBlockPos(), camera, pose, source);
+            case BERM -> previewPoints(data.getLongArray(com.descentmtb.trail.BermBuilder.POINTS_TAG), camera, pose, source);
+            case DOWNHILL -> previewPoints(data.getLongArray(com.descentmtb.trail.DownhillBuilder.POINTS_TAG), camera, pose, source);
             case RAMP -> { }
         }
     }
@@ -60,7 +88,7 @@ public final class ShapingHighlight {
             return;
         }
         var pos = hit.getBlockPos();
-        var plan = ShapePresets.plan(mc.level, pos, mode, hit.getLocation(), mc.player.getDirection(), mc.player.isShiftKeyDown());
+        var plan = plan(mc, pos, hit.getLocation(), mode);
         if (plan == null) {
             return;
         }
@@ -70,6 +98,25 @@ public final class ShapingHighlight {
             diamond(vc, pose, x - camera.x, plan.newAbs()[corner] + .03 - camera.y, z - camera.z, RADIUS, COLOR);
         }
         source.endBatch(RenderType.debugQuads());
+    }
+
+    /** The preset's plan for the aimed block, from the cache while nothing it depends on changed. */
+    private static ShapePresets.Plan plan(Minecraft mc, BlockPos pos, Vec3 hitAt, ShapeMode mode) {
+        Direction facing = mc.player.getDirection();
+        boolean shift = mc.player.isShiftKeyDown();
+        long tick = mc.level.getGameTime();
+        if (planPos == null || !planPos.equals(pos) || !planHit.equals(hitAt) || planMode != mode || planFacing != facing
+                || planShift != shift || planTick != tick || planLevel != mc.level) {
+            planPos = pos.immutable();
+            planHit = hitAt;
+            planMode = mode;
+            planFacing = facing;
+            planShift = shift;
+            planTick = tick;
+            planLevel = mc.level;
+            plan = ShapePresets.plan(mc.level, planPos, mode, hitAt, facing, shift);
+        }
+        return plan;
     }
 
     /** Corner A and the box to the aimed block; the footprint of the clipboard at the aimed block. */

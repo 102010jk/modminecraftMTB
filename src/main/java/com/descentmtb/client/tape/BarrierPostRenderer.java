@@ -17,10 +17,18 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
+
 /**
  * Draws the tapes of a {@link BarrierPostEntity} as red and white striped ribbons that sag a little and are
  * twisted along their length. Every tape is drawn once, from the post with the smaller position; the ribbon is a
  * front and a back strip so each side is lit correctly. Light is blended between the two ends.
+ *
+ * <p>The geometry of the tapes and the bounding box are computed once per post and rebuilt only when its links
+ * change; a frame only blends the light and writes the vertices.
  */
 public final class BarrierPostRenderer implements BlockEntityRenderer<BarrierPostEntity> {
     private static final ResourceLocation TEXTURE =
@@ -32,7 +40,40 @@ public final class BarrierPostRenderer implements BlockEntityRenderer<BarrierPos
     /** Largest tilt of the ribbon from vertical, in radians, and how quickly it turns along the tape. */
     private static final double TWIST = 0.55, TWIST_PER_BLOCK = 1.9;
 
+    /**
+     * Everything about one tape that does not change with the light: the sagging centre line, the ribbon offsets,
+     * the strip normals and the texture coordinates along the tape.
+     */
+    private record Tape(BlockPos to, double[][] centre, double[][] offset, float[][] normal, float[] u) {}
+
+    /** The tapes of one post and the box around them, valid while the post's links stay the same. */
+    private record Shape(List<BlockPos> links, List<Tape> tapes, AABB box) {}
+
+    private final Map<BarrierPostEntity, Shape> cache = new WeakHashMap<>();
+
     public BarrierPostRenderer(BlockEntityRendererProvider.Context context) {}
+
+    /** The cached shape of the post; rebuilt when its links changed. */
+    private Shape shape(BarrierPostEntity post) {
+        Shape shape = cache.get(post);
+        if (shape == null || !shape.links.equals(post.links())) {
+            shape = build(post.getBlockPos(), List.copyOf(post.links()));
+            cache.put(post, shape);
+        }
+        return shape;
+    }
+
+    private static Shape build(BlockPos from, List<BlockPos> links) {
+        List<Tape> tapes = new ArrayList<>(links.size());
+        AABB box = new AABB(from).expandTowards(0, 1, 0);
+        for (BlockPos to : links) {
+            box = box.minmax(new AABB(to).expandTowards(0, 1, 0));
+            if (from.asLong() < to.asLong()) {   // every tape is drawn once, from the post with the smaller position
+                tapes.add(buildTape(from, to));
+            }
+        }
+        return new Shape(links, List.copyOf(tapes), box);
+    }
 
     @Override
     public void render(BarrierPostEntity post, float partialTick, PoseStack pose, MultiBufferSource buffers,
@@ -43,14 +84,14 @@ public final class BarrierPostRenderer implements BlockEntityRenderer<BarrierPos
         }
         BlockPos from = post.getBlockPos();
         VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE));
-        for (BlockPos to : post.links()) {
-            if (from.asLong() < to.asLong() && level.getBlockState(to).is(ModBlocks.BARRIER_POST.get())) {
-                drawTape(consumer, pose, from, to, LevelRenderer.getLightColor(level, from), LevelRenderer.getLightColor(level, to));
+        for (Tape tape : shape(post).tapes) {
+            if (level.getBlockState(tape.to).is(ModBlocks.BARRIER_POST.get())) {
+                drawTape(consumer, pose, tape, LevelRenderer.getLightColor(level, from), LevelRenderer.getLightColor(level, tape.to));
             }
         }
     }
 
-    private static void drawTape(VertexConsumer vc, PoseStack pose, BlockPos from, BlockPos to, int lightFrom, int lightTo) {
+    private static Tape buildTape(BlockPos from, BlockPos to) {
         double[] a = {.5, TapeCurve.HEIGHT, .5};
         double[] b = {to.getX() - from.getX() + .5, to.getY() - from.getY() + TapeCurve.HEIGHT, to.getZ() - from.getZ() + .5};
         double length = Math.sqrt(Math.pow(b[0] - a[0], 2) + Math.pow(b[1] - a[1], 2) + Math.pow(b[2] - a[2], 2));
@@ -58,32 +99,41 @@ public final class BarrierPostRenderer implements BlockEntityRenderer<BarrierPos
 
         double[][] centre = new double[n + 1][];
         double[][] offset = new double[n + 1][];
+        float[] u = new float[n + 1];
         for (int i = 0; i <= n; i++) {
             centre[i] = TapeCurve.point(a, b, i / (double) n);
+            u[i] = (float) (length * (i / (double) n) / TILE_LENGTH);
         }
         for (int i = 0; i <= n; i++) {
             double[] before = centre[Math.max(i - 1, 0)], after = centre[Math.min(i + 1, n)];
             offset[i] = ribbonOffset(after[0] - before[0], after[1] - before[1], after[2] - before[2], length * i / n);
         }
-
-        var last = pose.last();
+        // normal of each strip: along-tape direction x across-tape offset
+        float[][] normal = new float[n][];
         for (int i = 0; i < n; i++) {
-            double t0 = i / (double) n, t1 = (i + 1) / (double) n;
-            float u0 = (float) (length * t0 / TILE_LENGTH), u1 = (float) (length * t1 / TILE_LENGTH);
-            int l0 = TapeCurve.blendLight(lightFrom, lightTo, t0), l1 = TapeCurve.blendLight(lightFrom, lightTo, t1);
-            // normal of the strip: along-tape direction x across-tape offset
             double[] along = {centre[i + 1][0] - centre[i][0], centre[i + 1][1] - centre[i][1], centre[i + 1][2] - centre[i][2]};
-            float[] normal = cross(along, offset[i]);
+            normal[i] = cross(along, offset[i]);
+        }
+        return new Tape(to.immutable(), centre, offset, normal, u);
+    }
+
+    private static void drawTape(VertexConsumer vc, PoseStack pose, Tape tape, int lightFrom, int lightTo) {
+        var last = pose.last();
+        int n = TapeCurve.SEGMENTS;
+        for (int i = 0; i < n; i++) {
+            int l0 = TapeCurve.blendLight(lightFrom, lightTo, i / (double) n);
+            int l1 = TapeCurve.blendLight(lightFrom, lightTo, (i + 1) / (double) n);
+            float[] normal = tape.normal[i];
             for (int side = 0; side < 2; side++) {
                 float k = side == 0 ? 1 : -1; // the back strip faces the other way
                 // corners in order: bottom/top at the start, top/bottom at the end (reversed for the back)
-                double[][] corner = {
-                        {i, -1, u0, l0}, {i, 1, u0, l0}, {i + 1, 1, u1, l1}, {i + 1, -1, u1, l1}};
                 for (int c = 0; c < 4; c++) {
-                    double[] q = corner[side == 0 ? c : 3 - c];
-                    int at = (int) q[0];
-                    vertex(vc, last, centre[at], offset[at], q[1], (float) q[2], q[1] < 0 ? 1 : 0, (int) q[3],
-                            k * normal[0], k * normal[1], k * normal[2]);
+                    int corner = side == 0 ? c : 3 - c;
+                    boolean atEnd = corner >= 2;
+                    int at = atEnd ? i + 1 : i;
+                    double sign = corner == 0 || corner == 3 ? -1 : 1;
+                    vertex(vc, last, tape.centre[at], tape.offset[at], sign, tape.u[at], sign < 0 ? 1 : 0,
+                            atEnd ? l1 : l0, k * normal[0], k * normal[1], k * normal[2]);
                 }
             }
         }
@@ -124,11 +174,7 @@ public final class BarrierPostRenderer implements BlockEntityRenderer<BarrierPos
     /** The box around the post and every tape drawn from it, so the tapes are not culled with their post off screen. */
     @Override
     public AABB getRenderBoundingBox(BarrierPostEntity post) {
-        AABB box = new AABB(post.getBlockPos()).expandTowards(0, 1, 0);
-        for (BlockPos other : post.links()) {
-            box = box.minmax(new AABB(other).expandTowards(0, 1, 0));
-        }
-        return box;
+        return shape(post).box;
     }
 
     @Override

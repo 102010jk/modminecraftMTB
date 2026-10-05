@@ -19,6 +19,8 @@ import net.neoforged.neoforge.client.model.IDynamicBakedModel;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,6 +29,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * Model of ramps and trail surfaces: the geometry is generated from the block's shape (see {@link ShapedQuads})
  * with the sprites of its copycat material, and cached per shape. Because it is a normal model, the blocks are
  * meshed once into the chunk instead of being re-drawn block by block every frame.
+ *
+ * <p>The quads are handed out for one render type only, the material's own (the first of its chunk render types),
+ * so a material with several layers is not meshed twice. The shape cache is a least-recently-used map shared by the
+ * chunk-meshing threads; when it is full the shape used longest ago goes, not the whole cache.
  */
 final class ShapedBakedModel implements IDynamicBakedModel {
     private static final int MAX_CACHED_SHAPES = 8192;
@@ -36,7 +42,15 @@ final class ShapedBakedModel implements IDynamicBakedModel {
 
     private final TextureAtlasSprite particle;
     private final Map<BlockState, ShapedQuads.Faces> faceCache = new ConcurrentHashMap<>();
-    private final Map<CacheKey, List<BakedQuad>> quadCache = new ConcurrentHashMap<>();
+    /** The render type each material's quads go to. */
+    private final Map<BlockState, RenderType> layerCache = new ConcurrentHashMap<>();
+    private final Map<CacheKey, ShapedQuads.Built> quadCache = Collections.synchronizedMap(
+            new LinkedHashMap<>(256, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<CacheKey, ShapedQuads.Built> eldest) {
+                    return size() > MAX_CACHED_SHAPES;
+                }
+            });
 
     ShapedBakedModel(TextureAtlasSprite particle) {
         this.particle = particle;
@@ -50,23 +64,41 @@ final class ShapedBakedModel implements IDynamicBakedModel {
     @Override
     public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand,
                                     ModelData data, @Nullable RenderType renderType) {
-        if (state == null || side != null) {
-            return List.of();   // everything is returned as unculled quads
+        if (state == null || (side != null && side != Direction.DOWN)) {
+            return List.of();   // only the ramp's full bottom is cullable, see ShapedQuads.Built
         }
         ShapeKey shape = shapeOf(data);
+        if (renderType != null && renderType != layer(shape.material())) {
+            return List.of();
+        }
         if (!(state.getBlock() instanceof com.descentmtb.trail.TrailSurfaceBlock)) {
             shape = ShapeKey.ramp(shape.material());   // ramps depend only on state + material: share cache entries
         }
         CacheKey key = new CacheKey(state, shape);
-        List<BakedQuad> cached = quadCache.get(key);
-        if (cached == null) {
-            if (quadCache.size() > MAX_CACHED_SHAPES) {
-                quadCache.clear();
-            }
-            cached = ShapedQuads.build(state, shape, faces(shape.material()),shape.overlay()==0?null:faces(shape.overlay()==1?Blocks.OAK_LOG.defaultBlockState():Blocks.STONE.defaultBlockState()));
-            quadCache.put(key, cached);
+        ShapedQuads.Built built = quadCache.get(key);
+        if (built == null) {
+            // built outside the lock: two threads may build the same shape at once, which is harmless
+            built = ShapedQuads.build(state, shape, faces(shape.material()), overlayFaces(shape.overlay()));
+            quadCache.put(key, built);
         }
-        return cached;
+        return side == null ? built.unculled() : built.down();
+    }
+
+    /** Faces of the overlay material (1 = roots, drawn with oak log; 2 = rocks, drawn with stone), or null for none. */
+    @Nullable
+    private ShapedQuads.Faces overlayFaces(int overlay) {
+        if (overlay == 0) {
+            return null;
+        }
+        return faces(overlay == 1 ? Blocks.OAK_LOG.defaultBlockState() : Blocks.STONE.defaultBlockState());
+    }
+
+    /** The one render type the material's quads are meshed in. */
+    private RenderType layer(BlockState material) {
+        return layerCache.computeIfAbsent(material, m -> {
+            ChunkRenderTypeSet layers = ItemBlockRenderTypes.getRenderLayers(m);
+            return layers.isEmpty() ? RenderType.solid() : layers.iterator().next();
+        });
     }
 
     private ShapedQuads.Faces faces(BlockState material) {
@@ -92,7 +124,7 @@ final class ShapedBakedModel implements IDynamicBakedModel {
 
     @Override
     public ChunkRenderTypeSet getRenderTypes(BlockState state, RandomSource rand, ModelData data) {
-        return ItemBlockRenderTypes.getRenderLayers(shapeOf(data).material());
+        return ChunkRenderTypeSet.of(layer(shapeOf(data).material()));
     }
 
     @Override

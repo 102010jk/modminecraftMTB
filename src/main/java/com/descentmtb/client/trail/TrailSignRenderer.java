@@ -16,6 +16,7 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.network.chat.Component;
+import net.minecraft.locale.Language;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.HashMap;
@@ -42,6 +43,8 @@ public final class TrailSignRenderer implements BlockEntityRenderer<TrailSignEnt
 
     private final Font font;
     private final Map<TrailSignEntity, Cached> cache = new WeakHashMap<>();
+    private Language labelsLanguage;
+    private String startLabel = "", finishLabel = "";
 
     /** Layout of one sign, valid while its content and the label words stay the same. */
     private record Cached(SignContent content, String startLabel, String finishLabel, List<SignLayout.Item> items) {}
@@ -76,9 +79,18 @@ public final class TrailSignRenderer implements BlockEntityRenderer<TrailSignEnt
         pose.popPose();
     }
 
+    /**
+     * The layout of the sign, from the cache while its content and the label words are unchanged. The label words
+     * are looked up again only when the active language changed ({@link Language#getInstance()} is replaced on every
+     * language switch and resource reload), not on every frame.
+     */
     private List<SignLayout.Item> layout(TrailSignEntity sign, SignContent content) {
-        String startLabel = Component.translatable("descentmtb.sign.label.start").getString();
-        String finishLabel = Component.translatable("descentmtb.sign.label.finish").getString();
+        Language language = Language.getInstance();
+        if (language != labelsLanguage) {
+            labelsLanguage = language;
+            startLabel = Component.translatable("descentmtb.sign.label.start").getString();
+            finishLabel = Component.translatable("descentmtb.sign.label.finish").getString();
+        }
         Cached cached = cache.get(sign);
         if (cached == null || cached.content != content || !cached.startLabel.equals(startLabel)
                 || !cached.finishLabel.equals(finishLabel)) {

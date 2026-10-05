@@ -18,6 +18,15 @@ import java.util.List;
  * (results are cached by {@link ShapedBakedModel}); keep it free of shared mutable state.
  */
 final class ShapedQuads {
+    /**
+     * The quads of one shape. {@code unculled} are always drawn; {@code down} is the ramp's full bottom face, which
+     * may be culled against a block below: it covers the whole block face and the ramp's shape covers the whole
+     * bottom too, so vanilla only hides it when the neighbour really covers it. The other boundary faces (side walls,
+     * the trail surface's edges) follow a sloped outline the stepped block shape does not match, so they stay
+     * unculled - culling them could punch holes.
+     */
+    record Built(List<BakedQuad> unculled, List<BakedQuad> down) {}
+
     /** Per face sprite and tint index of the copycat material. */
     record Faces(TextureAtlasSprite[] sprite, int[] tint) {
         int index(Direction d) {
@@ -30,22 +39,26 @@ final class ShapedQuads {
     private static final Direction[] SIDES = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
 
     private Faces faces;
-    private final List<BakedQuad> out = new ArrayList<>();
+    private List<BakedQuad> out = new ArrayList<>();
+    private final List<BakedQuad> down = new ArrayList<>();
     private final float[] q = new float[12];
 
     private ShapedQuads(Faces faces) {
         this.faces = faces;
     }
 
-    static List<BakedQuad> build(BlockState state, ShapeKey key, Faces faces,Faces overlay) {
+    static Built build(BlockState state, ShapeKey key, Faces faces, Faces overlay) {
         ShapedQuads b = new ShapedQuads(faces);
         if (state.getBlock() instanceof com.descentmtb.trail.TrailSurfaceBlock) {
             b.surface(key);
         } else {
             b.ramp(state);
         }
-        if(overlay!=null&&key.overlay()!=0){b.faces=overlay;b.overlay(key);}
-        return List.copyOf(b.out);
+        if (overlay != null && key.overlay() != 0) {
+            b.faces = overlay;
+            b.overlay(key);
+        }
+        return new Built(List.copyOf(b.out), List.copyOf(b.down));
     }
 
     private void overlay(ShapeKey key) {
@@ -126,12 +139,16 @@ final class ShapedQuads {
         emit(face, face.getStepX(), 0f, face.getStepZ());
     }
 
+    /** The full bottom face, emitted as a cullable {@link Direction#DOWN} quad (see {@link Built}). */
     private void bottom() {
         set(0, 0, 0, 0);
         set(3, 1, 0, 0);
         set(6, 1, 0, 1);
         set(9, 0, 0, 1);
+        List<BakedQuad> unculled = out;
+        out = down;
         emit(Direction.DOWN, 0f, -1f, 0f);
+        out = unculled;
     }
 
     /** Block-local position for along coordinate t, lateral w, height y. */
