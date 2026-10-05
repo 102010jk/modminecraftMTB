@@ -1,5 +1,6 @@
 package com.descentmtb.trail;
 
+import it.unimi.dsi.fastutil.longs.Long2DoubleOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.Level;
@@ -7,8 +8,6 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.Shapes;
 
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * The terrain of a hillside as the downhill planner sees it: the top of the ground in every block column, with
@@ -20,7 +19,8 @@ final class HillGround {
     private static final int SEARCH_DEPTH = 48;
 
     private final Level level;
-    private final Map<Long, Double> columns = new HashMap<>();
+    /** Every column is scanned once per plan (the planner asks for the same columns again and again). */
+    private final Long2DoubleOpenHashMap columns = new Long2DoubleOpenHashMap();
 
     HillGround(Level level) {
         this.level = level;
@@ -28,7 +28,13 @@ final class HillGround {
 
     /** Top of the ground of the block column (x, z) as an absolute height; NaN when there is none to build on. */
     double column(int x, int z) {
-        return columns.computeIfAbsent(BlockPos.asLong(x, 0, z), key -> scan(x, z));
+        long key = BlockPos.asLong(x, 0, z);
+        if (columns.containsKey(key)) {
+            return columns.get(key);
+        }
+        double top = scan(x, z);
+        columns.put(key, top);
+        return top;
     }
 
     private double scan(int x, int z) {

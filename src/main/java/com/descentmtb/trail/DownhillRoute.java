@@ -20,12 +20,15 @@ public final class DownhillRoute {
     private static final double STEEP = .65;
     /** Steps with a steeper slope than this are not passable at all. */
     private static final double CLIFF = 3.5;
+    /** The most cells the search may expand before the terrain is declared too complex (keeps a server tick short). */
+    public static final int MAX_EXPANDED = 60_000;
     private static final int[][] MOVES = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1},
             {2, 1}, {2, -1}, {-2, 1}, {-2, -1}, {1, 2}, {1, -2}, {-1, 2}, {-1, -2}};
 
     /**
      * @param ground terrain height at (x, z) (absolute Y); NaN where nothing can be ridden
      * @return the centre line as {@code {x, z}} points {@link #STEP} apart, from the start to the finish
+     * @throws DownhillShapes.Rejected when the search needs more than {@link #MAX_EXPANDED} cells
      */
     public static double[][] find(DoubleBinaryOperator ground, double startX, double startZ, double finishX, double finishZ) {
         double length = Math.hypot(finishX - startX, finishZ - startZ);
@@ -185,6 +188,7 @@ public final class DownhillRoute {
             Arrays.fill(cost, Double.POSITIVE_INFINITY);
             Arrays.fill(parent, -1);
             PriorityQueue<double[]> open = new PriorityQueue<>((a, b) -> Double.compare(a[0], b[0]));
+            int expanded = 0;
             cost[start] = 0;
             open.add(new double[]{heuristic(start, fx, fz), start});
             double dx = fx - sx, dz = fz - sz, len = Math.max(1e-6, Math.hypot(dx, dz));
@@ -204,6 +208,9 @@ public final class DownhillRoute {
                 }
                 if (top[0] - heuristic(node, fx, fz) > cost[node] + 1e-9) {
                     continue;   // a stale queue entry
+                }
+                if (++expanded > MAX_EXPANDED) {
+                    throw new DownhillShapes.Rejected("descentmtb.downhill.too_complex");
                 }
                 int x = x(node), z = z(node);
                 for (int[] move : MOVES) {

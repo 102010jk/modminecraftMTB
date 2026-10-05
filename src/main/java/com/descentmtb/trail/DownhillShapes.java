@@ -92,6 +92,12 @@ public final class DownhillShapes {
     private static final double LANDING_POWER = 2.4;
     /** Length (m) of the fall behind the lip. */
     private static final double PIT = 1.5;
+    /**
+     * The most the grade may flatten out under a kicker (change of rise over run from the run-in to the lip). The
+     * kicker then has to turn the rider further than it was planned for, the bike does not follow all of it and
+     * leaves the lip too flat, so it lands short, on the face of the landing.
+     */
+    private static final double MAX_FLATTENING = .1;
 
     /** A feature that is added to the grade of the line as a bump. */
     private interface Placed {
@@ -526,7 +532,12 @@ public final class DownhillShapes {
             }
         }
         Jump jump = new Jump(table, from, lip, kicker, gap, face, landingHeight, landing);
-        return free(from - 2, from + jump.length() + 2, total) ? jump : null;
+        return free(from - 2, from + jump.length() + 2, total) && (table || steadyRunIn(from, start)) ? jump : null;
+    }
+
+    /** True when the grade does not flatten out by more than {@link #MAX_FLATTENING} between the run-in and the lip. */
+    private boolean steadyRunIn(double from, double lip) {
+        return slopeAt(lip) - slopeAt(from - 2) <= MAX_FLATTENING;
     }
 
     /** Height (m) of the flight path above the grade {@code x} metres after the lip. */
