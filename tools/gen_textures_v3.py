@@ -6,10 +6,11 @@ Descent MTB textures v3 - in the style of the Create mod.
 * GUI icons (radial menu / HUD): Create-like light glyphs - a small isometric block in near-white greys that shows
   the shape a mode makes, brass accents for direction, a dark rim and a soft drop shadow, no plate.
 
-    python tools/gen_textures_v3.py [--install]
+    python tools/gen_textures_v3.py
 
-Without --install everything goes to tools/preview/v3/ (plus a contact sheet); with it the files are written into
-src/main/resources/assets/descentmtb/textures.
+OBSOLETE as a generator: tools/gen_textures_v4.py is the current one and imports this module only for its drawing
+helpers (Canvas, iso, line, noise). Running this file writes previews to tools/preview/v3/ and never installs:
+--install refuses, so it cannot overwrite the current assets.
 """
 import math
 import os
@@ -287,9 +288,6 @@ def shape_icons():
     reset.set(11, 1, ACCENT)
     icons['reset'] = reset
 
-    icons['category_jumps'] = icons['ramp_full']
-    icons['category_berms'] = icons['bank_right_full']
-    icons['category_manual'] = icons['auto']
     return {k: glyph_finish(v) for k, v in icons.items()}
 
 
@@ -958,8 +956,9 @@ def contact_sheet(files, path):
 
 
 def main():
-    install = '--install' in sys.argv
-    root = ASSETS if install else STAGE
+    if '--install' in sys.argv:
+        sys.exit('gen_textures_v3 is obsolete and would overwrite the current textures. Use tools/gen_textures_v4.py instead.')
+    root = STAGE
     files = outputs()
     if '--only-sign' in sys.argv:
         files = sign_outputs()

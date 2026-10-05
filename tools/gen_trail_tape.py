@@ -1,4 +1,4 @@
-"""Draws the textures of the trail tape: the striped ribbon (entity texture, 16 x 4) and the barrier post (16 x 16)."""
+"""Draws the barrier post texture (16 x 16). The ribbon (entity/trail_tape.png) is made by gen_textures_v4.py and is not touched here."""
 import os
 import random
 from PIL import Image
@@ -13,19 +13,6 @@ ORANGE = [(196, 78, 14), (240, 112, 22), (255, 146, 48)]
 
 def shade(colour, factor):
     return tuple(max(0, min(255, round(c * factor))) for c in colour)
-
-
-def tape():
-    """Diagonal red / white stripes, tileable horizontally; woven-fabric speckle and a darker hem on both edges."""
-    rng = random.Random(7)
-    im = Image.new('RGBA', (16, 4))
-    for y in range(4):
-        for x in range(16):
-            base = RED if ((x + y) // 4) % 2 == 0 else WHITE
-            factor = 0.84 if y in (0, 3) else 1.0
-            factor *= 1 + rng.uniform(-0.04, 0.04)
-            im.putpixel((x, y), shade(base, factor) + (255,))
-    return im
 
 
 def post():
@@ -50,11 +37,9 @@ def post():
 
 
 def main():
-    entity = os.path.join(ASSETS, 'entity', 'trail_tape.png')
     block = os.path.join(ASSETS, 'block', 'barrier_post.png')
-    tape().save(entity)
     post().save(block)
-    print('wrote', entity, block)
+    print('wrote', block)
 
 
 if __name__ == '__main__':
