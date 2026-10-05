@@ -58,7 +58,7 @@ public final class BarrierPostBlock extends BaseEntityBlock {
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock()) && !level.isClientSide && level.getBlockEntity(pos) instanceof BarrierPostEntity post) {
             for (BlockPos other : post.links()) {
-                if (level.getBlockEntity(other) instanceof BarrierPostEntity partner) {
+                if (level.isLoaded(other) && level.getBlockEntity(other) instanceof BarrierPostEntity partner) {   // never load a chunk from here
                     partner.removeLink(pos);
                 }
             }

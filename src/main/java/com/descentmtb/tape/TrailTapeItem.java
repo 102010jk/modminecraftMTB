@@ -71,17 +71,34 @@ public final class TrailTapeItem extends Item {
         if (!player.mayBuild()) {
             return InteractionResult.FAIL;
         }
+        if (!level.isLoaded(clicked) || !level.mayInteract(player, clicked)) {
+            return InteractionResult.FAIL;
+        }
         boolean isPost = level.getBlockState(clicked).is(ModBlocks.BARRIER_POST.get());
         BlockPos target = isPost || level.getBlockState(clicked).canBeReplaced() ? clicked : clicked.relative(face);
+        if (!level.isInWorldBounds(target) || !level.isLoaded(target) || !level.mayInteract(player, target)) {
+            say(player, "descentmtb.tape.blocked");
+            return InteractionResult.FAIL;
+        }
         boolean created = !level.getBlockState(target).is(ModBlocks.BARRIER_POST.get());
-        if (created && (!level.getBlockState(target).canBeReplaced() || !level.isInWorldBounds(target))) {
+        if (created && !level.getBlockState(target).canBeReplaced()) {
             say(player, "descentmtb.tape.blocked");
             return InteractionResult.FAIL;
         }
 
         BlockPos first = pending(stack, level);
-        if (first != null && !level.getBlockState(first).is(ModBlocks.BARRIER_POST.get())) {
-            first = null; // the first post was broken meanwhile: start over
+        if (first != null) {
+            // look at the first post only if it can be a real one: close enough, and in a chunk that is loaded
+            if (first.distSqr(target) > MAX_LENGTH * MAX_LENGTH) {
+                say(player, "descentmtb.tape.too_far", (int) MAX_LENGTH);
+                return InteractionResult.FAIL;
+            }
+            if (!level.isLoaded(first) || !level.getBlockState(first).is(ModBlocks.BARRIER_POST.get())) {
+                first = null; // the first post was broken meanwhile: start over
+            } else if (!level.mayInteract(player, first)) {
+                say(player, "descentmtb.tape.blocked");   // the tape would change a post the player may not touch
+                return InteractionResult.FAIL;
+            }
         }
 
         if (first == null) {
