@@ -20,6 +20,20 @@ public final class ModComponents {
                     .networkSynchronized(BikeBuild.STREAM_CODEC)
                     .build());
 
+    /** A finished GPS track recorded with the GPS unit ({@code trail_gps}). */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<com.descentmtb.map.TrailTrack>> TRAIL_TRACK =
+            COMPONENTS.register("trail_track", () -> DataComponentType.<com.descentmtb.map.TrailTrack>builder()
+                    .persistent(com.descentmtb.map.TrailTrack.CODEC)
+                    .networkSynchronized(com.descentmtb.map.TrailTrack.STREAM_CODEC)
+                    .build());
+
+    /** Whether the GPS unit is recording, and which recording it is. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<com.descentmtb.map.GpsState>> GPS_STATE =
+            COMPONENTS.register("gps_state", () -> DataComponentType.<com.descentmtb.map.GpsState>builder()
+                    .persistent(com.descentmtb.map.GpsState.CODEC)
+                    .networkSynchronized(com.descentmtb.map.GpsState.STREAM_CODEC)
+                    .build());
+
     private ModComponents() {}
 
     public static void register(IEventBus bus) {

@@ -626,5 +626,18 @@
   "descentmtb.config.windSound": "Wind sound",
   "descentmtb.config.windSound.tooltip": "Wind rushing past the rider; stronger with speed and in the air.",
   "descentmtb.config.screamSound": "Rider scream",
-  "descentmtb.config.screamSound.tooltip": "The rider screams shortly before a crash that cannot be avoided."
+  "descentmtb.config.screamSound.tooltip": "The rider screams shortly before a crash that cannot be avoided.",
+  "item.descentmtb.trail_gps": "Trail GPS",
+  "descentmtb.gps.started": "GPS recording started. Keep it in your hotbar and ride; right-click again to stop.",
+  "descentmtb.gps.stopped": "GPS recording stopped.",
+  "descentmtb.gps.saved": "Track saved: %s m long, %s m of descent. Right-click a trail sign to link it.",
+  "descentmtb.gps.too_short": "Track too short - discarded.",
+  "descentmtb.gps.hud": "GPS recording: %s m",
+  "descentmtb.gps.tooltip.recording": "Recording...",
+  "descentmtb.gps.tooltip.empty": "No track recorded yet",
+  "descentmtb.gps.tooltip.length": "Length: %s m",
+  "descentmtb.gps.tooltip.descent": "Descent: %s m",
+  "descentmtb.gps.tooltip.ascent": "Ascent: %s m",
+  "descentmtb.gps.tooltip.grade": "Average grade: %s %%",
+  "descentmtb.gps.tooltip.hint": "Right-click: start/stop recording. Right-click a trail sign: link the track."
 }

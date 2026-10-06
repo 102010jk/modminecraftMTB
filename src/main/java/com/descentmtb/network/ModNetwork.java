@@ -29,6 +29,7 @@ public final class ModNetwork {
         r.playToServer(WorkshopApplyPayload.TYPE, WorkshopApplyPayload.CODEC, WorkshopApplyPayload::handle);
         r.playToServer(WorkshopTakePayload.TYPE, WorkshopTakePayload.CODEC, WorkshopTakePayload::handle);
         r.playToServer(BikeBellPayload.TYPE, BikeBellPayload.CODEC, BikeBellPayload::handle);
+        r.playToServer(TrackUploadPayload.TYPE, TrackUploadPayload.CODEC, TrackUploadPayload::handle);
         r.playToClient(RagdollPayload.TYPE, RagdollPayload.CODEC, (m, ctx) -> RagdollPayload.clientHandler.accept(m));
     }
 

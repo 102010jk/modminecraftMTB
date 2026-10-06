@@ -29,6 +29,9 @@ public final class ModItems {
                     new Item.Properties().stacksTo(1));
     public static final DeferredItem<com.descentmtb.item.BikePumpItem> BIKE_PUMP =
             ITEMS.registerItem("bike_pump", com.descentmtb.item.BikePumpItem::new, new Item.Properties().stacksTo(1));
+    /** The GPS unit: records a ride as a trail track, see {@link com.descentmtb.map.TrailMarkerItem}. */
+    public static final DeferredItem<com.descentmtb.map.TrailMarkerItem> TRAIL_GPS =
+            ITEMS.registerItem("trail_gps", com.descentmtb.map.TrailMarkerItem::new, new Item.Properties().stacksTo(1));
 
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TAB =
             TABS.register("main", () -> CreativeModeTab.builder()
@@ -38,6 +41,7 @@ public final class ModItems {
                         output.accept(MOUNTAIN_BIKE.get());
                         output.accept(HARDTAIL_BIKE.get());
                         output.accept(BIKE_PUMP.get());
+                        output.accept(TRAIL_GPS.get());
                         ModBlocks.TAB_ITEMS.forEach(s -> output.accept(s.get()));
                     })
                     .build());

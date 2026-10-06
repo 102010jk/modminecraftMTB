@@ -626,5 +626,18 @@
   "descentmtb.config.windSound": "Zvuk větru",
   "descentmtb.config.windSound.tooltip": "Vítr ve vlasech; silnější s rychlostí a ve vzduchu.",
   "descentmtb.config.screamSound": "Křik jezdce",
-  "descentmtb.config.screamSound.tooltip": "Jezdec křičí krátce před pádem, kterému se už nedá zabránit."
+  "descentmtb.config.screamSound.tooltip": "Jezdec křičí krátce před pádem, kterému se už nedá zabránit.",
+  "item.descentmtb.trail_gps": "Trailová GPS",
+  "descentmtb.gps.started": "Záznam GPS spuštěn. Drž ji v liště předmětů a jeď; dalším pravým klikem ho zastavíš.",
+  "descentmtb.gps.stopped": "Záznam GPS zastaven.",
+  "descentmtb.gps.saved": "Trasa uložena: %s m, klesání %s m. Pravým klikem na cedulku trailu ji propojíš.",
+  "descentmtb.gps.too_short": "Trasa je příliš krátká – zahozena.",
+  "descentmtb.gps.hud": "Záznam GPS: %s m",
+  "descentmtb.gps.tooltip.recording": "Nahrává...",
+  "descentmtb.gps.tooltip.empty": "Zatím žádná zaznamenaná trasa",
+  "descentmtb.gps.tooltip.length": "Délka: %s m",
+  "descentmtb.gps.tooltip.descent": "Klesání: %s m",
+  "descentmtb.gps.tooltip.ascent": "Stoupání: %s m",
+  "descentmtb.gps.tooltip.grade": "Průměrný sklon: %s %%",
+  "descentmtb.gps.tooltip.hint": "Pravý klik: spustit/zastavit záznam. Pravý klik na cedulku trailu: propojit trasu."
 }
