@@ -51,9 +51,9 @@ public record BikeBuild(
 
     /** A sticker on a frame tube: t along the tube (0..1), side (-1 left, 0 both, 1 right), rotation, scale, tint. */
     public record Sticker(StickerDesign design, Tube tube, float t, int side, float rotation, float scale, int tint,
-                          String text,float across,boolean mirrored) {
+                          String text,float across,boolean mirrored,String texture,boolean wrap,boolean textSticker) {
         public Sticker(StickerDesign design,Tube tube,float t,int side,float rotation,float scale,int tint) {
-            this(design,tube,t,side,rotation,scale,tint,"",0,false);
+            this(design,tube,t,side,rotation,scale,tint,"",0,false,"",false,false);
         }
         public static final Codec<Sticker> CODEC = RecordCodecBuilder.create(i -> i.group(
                 enumCodec(StickerDesign.class, StickerDesign.LOGO_DESCENT).fieldOf("design").forGetter(Sticker::design),
@@ -65,22 +65,34 @@ public record BikeBuild(
                 Codec.INT.optionalFieldOf("tint", 0xFFFFFF).forGetter(Sticker::tint),
                 Codec.STRING.optionalFieldOf("text", "").forGetter(Sticker::text),
                 Codec.FLOAT.optionalFieldOf("across", 0f).forGetter(Sticker::across),
-                Codec.BOOL.optionalFieldOf("mirrored", false).forGetter(Sticker::mirrored)
+                Codec.BOOL.optionalFieldOf("mirrored", false).forGetter(Sticker::mirrored),
+                Codec.STRING.optionalFieldOf("texture", "").forGetter(Sticker::texture),
+                Codec.BOOL.optionalFieldOf("wrap", false).forGetter(Sticker::wrap),
+                Codec.BOOL.optionalFieldOf("is_text", false).forGetter(Sticker::textSticker)
         ).apply(i, Sticker::new));
 
         Sticker sanitized() {
             return new Sticker(design, tube, clamp(t, 0, 1), Math.max(-1, Math.min(1, side)),
                     Float.isFinite(rotation) ? ((rotation % 360) + 360) % 360 : 0, clamp(scale, .4f, 2.5f), tint & 0xFFFFFF,
-                    cleanText(text,32),clamp(across,-.9f,.9f),mirrored);
+                    cleanText(text,32),clamp(across,-.9f,.9f),mirrored,cleanTexture(texture),wrap,textSticker);
         }
         /** Preserve the additional decal settings when a legacy seven-field editor changes a core value. */
         public Sticker changed(StickerDesign design,Tube tube,float t,int side,float rotation,float scale,int tint) {
-            return new Sticker(design,tube,t,side,rotation,scale,tint,text,across,mirrored);
+            return new Sticker(design,tube,t,side,rotation,scale,tint,text,across,mirrored,texture,wrap,textSticker);
         }
-        public Sticker withText(String value) { return new Sticker(design,tube,t,side,rotation,scale,tint,cleanText(value,32),across,mirrored); }
-        public Sticker withAcross(float value) { return new Sticker(design,tube,t,side,rotation,scale,tint,text,value,mirrored); }
-        public Sticker flipImage() { return new Sticker(design,tube,t,side,rotation,scale,tint,text,across,!mirrored); }
-        public Sticker opposite() { return new Sticker(design,tube,t,-side,rotation,scale,tint,text,across,mirrored); }
+        public boolean isText() { return textSticker || !text.isBlank(); }
+        public Sticker withText(String value) { return new Sticker(design,tube,t,side,rotation,scale,tint,cleanText(value,32),across,mirrored,texture,wrap,true); }
+        public Sticker withAcross(float value) { return new Sticker(design,tube,t,side,rotation,scale,tint,text,value,mirrored,texture,wrap,textSticker); }
+        public Sticker flipImage() { return new Sticker(design,tube,t,side,rotation,scale,tint,text,across,!mirrored,texture,wrap,textSticker); }
+        public Sticker opposite() { return new Sticker(design,tube,t,-side,rotation,scale,tint,text,across,mirrored,texture,wrap,textSticker); }
+        public Sticker withTexture(String value) { return new Sticker(design,tube,t,side,rotation,scale,tint,text,across,mirrored,cleanTexture(value),wrap,textSticker); }
+        public Sticker withWrap(boolean value) { return new Sticker(design,tube,t,side,rotation,scale,tint,text,across,mirrored,texture,value,textSticker); }
+        private static String cleanTexture(String value) {
+            if(value==null || value.length()>256) return "";
+            var id=net.minecraft.resources.ResourceLocation.tryParse(value);
+            return id!=null && (id.getPath().startsWith("textures/sticker/") || id.getPath().startsWith("textures/stickers/"))
+                    && id.getPath().endsWith(".png") ? id.toString() : "";
+        }
     }
 
     // ------------------------------------------------------------------ defaults (the stock look of each bike)

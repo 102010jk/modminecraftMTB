@@ -100,6 +100,8 @@ public final class WorkshopScreen extends Screen {
     private float yaw = DEFAULT_YAW, pitch = DEFAULT_PITCH, zoom = 1f;
     private boolean paintTarget = true;           // frame tab: true = paint colour, false = accent colour
     private StickerDesign selDesign;
+    private String selTexture="";
+    private int stickerRevision=-1;
     private int selSticker = -1;
     private Pending pending = Pending.NONE;
     private int savedFlash;
@@ -406,6 +408,7 @@ public final class WorkshopScreen extends Screen {
     @Override
     public void tick() {
         bells.tick();
+        if(stickerRevision!=StickerAssets.revision) { stickerRevision=StickerAssets.revision;rebuild(); }
         if (savedFlash > 0) {
             savedFlash--;
         }
@@ -703,10 +706,15 @@ public final class WorkshopScreen extends Screen {
         list.add(new Header(t("section.designs")));
         List<Swatch> designs = new ArrayList<>();
         for (StickerDesign d : StickerDesign.values()) {
-            designs.add(new Swatch(0, name(d.key()), selDesign == d, () -> {
-                selDesign = selDesign == d ? null : d;
+            designs.add(new Swatch(0, name(d.key()), selDesign == d && selTexture.isEmpty(), () -> {
+                selDesign = selDesign == d && selTexture.isEmpty() ? null : d;selTexture="";
                 rebuild();
             }, (g, x, y, size) -> StickerIcons.paint(g, d, x, y, size)));
+        }
+        for(var asset:StickerAssets.extra()) {
+            designs.add(new Swatch(0,Component.literal(asset.label()+" ("+asset.id()+")"),selDesign!=null && selTexture.equals(asset.id().toString()),()->{
+                selDesign=StickerDesign.LOGO_DESCENT;selTexture=asset.id().toString();rebuild();
+            },(g,x,y,size)->StickerAssets.paint(g,asset,x,y,size)));
         }
         list.add(new Swatches(designs, 24));
         list.add(new Chips(List.of(new Chip(t("sticker.add_text"),false,stickers.size()<BikeBuild.MAX_STICKERS,-1,()->{
@@ -717,7 +725,7 @@ public final class WorkshopScreen extends Screen {
         if (stickers.size() >= BikeBuild.MAX_STICKERS) {
             list.add(new Note(t("note.sticker_limit", BikeBuild.MAX_STICKERS), 0xffe07a5f));
         } else if (selDesign != null) {
-            list.add(new Note(t("note.sticker_place", name(selDesign.key())), VALUE));
+            list.add(new Note(t("note.sticker_place",selTexture.isEmpty() ? name(selDesign.key()) : Component.literal(selTexture)), VALUE));
         } else {
             list.add(new Note(t("note.sticker_pick"), DIM));
         }
@@ -725,9 +733,15 @@ public final class WorkshopScreen extends Screen {
         Sticker sel = sticker(selSticker);
         if (sel != null) {
             int index = selSticker;
-            list.add(new Header(t("section.selected", name(sel.design().key()))));
-            list.add(new Note(t("sticker.text"),LABEL));list.add(stickerTextField);
-            list.add(new Note(t("sticker.text_hint"),DIM));
+            list.add(new Header(t("section.selected",stickerLabel(sel))));
+            if(sel.isText()) {
+                list.add(new Note(t("sticker.text"),LABEL));list.add(stickerTextField);
+                list.add(new Note(t("sticker.text_hint"),DIM));
+            }
+            if(!sel.texture().isEmpty() && StickerAssets.of(sel).missing())
+                list.add(new Note(t("sticker.missing",sel.texture()),0xffe07a5f));
+            list.add(new Chips(List.of(Chip.of(t("sticker.wrap"),sel.wrap(),()->editSticker(index,s->s.withWrap(!s.wrap()),null)))));
+            if(sel.wrap()) list.add(new Note(t("sticker.wrap_hint"),DIM));
             list.add(new Slider("slider.pos", t("sticker.position"), 0, 1, 0.01, () -> cur(index).t(),
                     v -> Math.round(v * 100) + " %",
                     v -> editSticker(index, s -> s.changed(s.design(), s.tube(), (float) v, s.side(), s.rotation(), s.scale(), s.tint()), "pos" + index),
@@ -777,7 +791,7 @@ public final class WorkshopScreen extends Screen {
             for (int i = 0; i < stickers.size(); i++) {
                 Sticker s = stickers.get(i);
                 int index = i;
-                rows.add(new Option(Component.literal((i + 1) + ". ").append(s.text().isBlank() ? name(s.design().key()) : Component.literal(s.text())),
+                rows.add(new Option(Component.literal((i + 1) + ". ").append(stickerLabel(s)),
                         Component.empty().append(name(s.tube().key())).append(" - ").append(sideName(s.side())), null, 0,
                         s.tint(), i == selSticker, true, () -> {
                             selSticker = index;
@@ -801,6 +815,12 @@ public final class WorkshopScreen extends Screen {
     private Sticker cur(int index) {
         Sticker s = sticker(index);
         return s != null ? s : new Sticker(StickerDesign.LOGO_DESCENT, Tube.DOWN, 0.5f, 0, 0f, 1f, 0xFFFFFF);
+    }
+
+    private static Component stickerLabel(Sticker sticker) {
+        if(sticker.isText()) return sticker.text().isBlank() ? t("sticker.text") : Component.literal(sticker.text());
+        if(!sticker.texture().isEmpty()) return Component.literal(sticker.texture());
+        return name(sticker.design().key());
     }
 
     // ================================================================== preview
@@ -918,7 +938,7 @@ public final class WorkshopScreen extends Screen {
             StickerAnchors.Pick pick = StickerAnchors.pick(fullSuspension, shape, modelX(mx), modelY(my));
             if (pick != null) {
                 List<Sticker> list = new ArrayList<>(stickers);
-                list.add(new Sticker(selDesign, pick.tube(), pick.t(), 0, 0f, 1f, 0xFFFFFF));
+                list.add(new Sticker(selDesign, pick.tube(), pick.t(), 0, 0f, 1f, 0xFFFFFF).withTexture(selTexture));
                 selSticker = list.size() - 1;
                 selDesign = null;
                 commit(build().with(b -> b.stickers(list)), null);

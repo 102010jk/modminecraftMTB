@@ -88,6 +88,11 @@ for item,default in [('mountain_bike',0),('hardtail_bike',3)]:
 
 # Powder-coated repair stand: metal edges, rubber pads and a brass clamp adjuster.
 assets=Path('src/main/resources/assets/descentmtb')
+# Explicit fallback for a saved PNG absent from the enabled resource packs.
+missing=Image.new('RGBA',(16,16));mp=missing.load()
+for y in range(16):
+ for x in range(16):mp[x,y]=(210,65,190,255) if (x//4+y//4)%2==0 else (38,31,40,255)
+missing.save(assets/'textures/sticker/missing.png')
 for name,base in [('stand_metal',(55,67,72)),('stand_rubber',(27,30,31)),('stand_brass',(176,135,64))]:
  im=Image.new('RGB',(16,16));p=im.load()
  for y in range(16):

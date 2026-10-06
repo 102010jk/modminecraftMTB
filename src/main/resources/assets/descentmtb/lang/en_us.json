@@ -562,5 +562,8 @@
   "descentmtb.custom.shape.cube_stereo_one77": "Cube Stereo ONE77",
   "descentmtb.custom.shape.commencal_meta_sx": "Commencal META SX V5",
   "descentmtb.custom.shape.yt_capra": "YT Capra",
-  "descentmtb.custom.shape.specialized_stumpjumper": "Specialized Stumpjumper 15"
+  "descentmtb.custom.shape.specialized_stumpjumper": "Specialized Stumpjumper 15",
+  "descentmtb.workshop.sticker.wrap": "Wrap around tube",
+  "descentmtb.workshop.sticker.wrap_hint": "Covers all faces. Across rotates the seam; Left/Right chooses a stay or fork leg.",
+  "descentmtb.workshop.sticker.missing": "Missing PNG: %s — enable its resource pack."
 }
