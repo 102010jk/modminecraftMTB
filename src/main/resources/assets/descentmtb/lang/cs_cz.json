@@ -653,5 +653,14 @@
   "descentmtb.audio.disc": "Přehrát desku",
   "descentmtb.audio.close": "Zavřít",
   "descentmtb.audio.no_disc": "Měj hudební desku v inventáři.",
-  "descentmtb.audio.equip": "Nejdřív nasaď sluchátka pravým klikem."
+  "descentmtb.audio.equip": "Nejdřív nasaď sluchátka pravým klikem.",
+  "item.descentmtb.trail_map": "Mapa trailů",
+  "descentmtb.map.title": "Trasy bikeparku",
+  "descentmtb.map.added": "Přidaná trasa: %s",
+  "descentmtb.map.count": "%s uložených tras",
+  "descentmtb.map.hint": "Klikni na ceduli s GPS trasou, nebo měj ve druhé ruce nahrané GPS / jinou mapu pro kopírování. Kolečkem v mapě vybíráš trasu.",
+  "descentmtb.map.empty": "Nahraj GPS trasu a připoj ji k ceduli.",
+  "descentmtb.map.wrong_dimension": "Tahle trasa vznikla v jiné dimenzi.",
+  "descentmtb.map.linked": "GPS trasa připojená k ceduli.",
+  "descentmtb.map.copied": "Trasy zkopírované na tuto mapu."
 }

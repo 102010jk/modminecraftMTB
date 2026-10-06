@@ -53,6 +53,7 @@ public final class TrailMarkerItem extends Item {
             stack.set(ModComponents.GPS_STATE.get(), state.stopped());
             player.displayClientMessage(Component.translatable("descentmtb.gps.stopped"), true);
         } else {
+            stack.set(ModComponents.RECORD_DIMENSION.get(),player.level().dimension().location());
             long session = player.getRandom().nextLong();
             stack.set(ModComponents.GPS_STATE.get(), new GpsState(session == 0 ? 1 : session, true));
             player.displayClientMessage(Component.translatable("descentmtb.gps.started"), true);
@@ -80,6 +81,7 @@ public final class TrailMarkerItem extends Item {
             return;
         }
         unit.set(ModComponents.TRAIL_TRACK.get(), new TrailTrack(track));
+        unit.set(ModComponents.TRACK_DIMENSION.get(),unit.getOrDefault(ModComponents.RECORD_DIMENSION.get(),player.level().dimension().location()));
         player.displayClientMessage(Component.translatable("descentmtb.gps.saved", meters(stats.length()), meters(stats.descent())), true);
     }
 
@@ -92,6 +94,21 @@ public final class TrailMarkerItem extends Item {
             }
         }
         return null;
+    }
+
+    @Override public net.minecraft.world.InteractionResult useOn(net.minecraft.world.item.context.UseOnContext c) {
+        if (!(c.getLevel().getBlockEntity(c.getClickedPos()) instanceof com.descentmtb.trail.TrailSignEntity sign)) return net.minecraft.world.InteractionResult.PASS;
+        TrailTrack track=track(c.getItemInHand());
+        if (!c.getLevel().isClientSide && c.getPlayer()!=null && c.getPlayer().mayBuild() && track!=null && !state(c.getItemInHand()).active()) {
+            var dim=c.getItemInHand().getOrDefault(ModComponents.TRACK_DIMENSION.get(),c.getLevel().dimension().location());
+            if (!dim.equals(c.getLevel().dimension().location())) {
+                c.getPlayer().displayClientMessage(Component.translatable("descentmtb.map.wrong_dimension"),true);
+            } else {
+                sign.setTrack(track,dim);
+                c.getPlayer().displayClientMessage(Component.translatable("descentmtb.map.linked"),true);
+            }
+        }
+        return net.minecraft.world.InteractionResult.sidedSuccess(c.getLevel().isClientSide);
     }
 
     public static String meters(double value) {

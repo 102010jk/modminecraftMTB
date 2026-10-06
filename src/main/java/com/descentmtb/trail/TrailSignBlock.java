@@ -179,6 +179,12 @@ public final class TrailSignBlock extends BaseEntityBlock {
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
+    @Override protected net.minecraft.world.ItemInteractionResult useItemOn(ItemStack stack,BlockState state,Level level,BlockPos pos,Player player,net.minecraft.world.InteractionHand hand,BlockHitResult hit) {
+        if(stack.getItem() instanceof com.descentmtb.map.TrailMarkerItem || stack.getItem() instanceof com.descentmtb.map.TrailMapItem)
+            return net.minecraft.world.ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+        return super.useItemOn(stack,state,level,pos,player,hand,hit);
+    }
+
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         return SHAPES[shapeIndex(state.getValue(FACING), state.getValue(WALL))];

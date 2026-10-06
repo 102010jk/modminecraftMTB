@@ -653,5 +653,14 @@
   "descentmtb.audio.disc": "Play held disc",
   "descentmtb.audio.close": "Close",
   "descentmtb.audio.no_disc": "Carry a music disc in your inventory.",
-  "descentmtb.audio.equip": "Equip headphones first (right-click)."
+  "descentmtb.audio.equip": "Equip headphones first (right-click).",
+  "item.descentmtb.trail_map": "Trail map",
+  "descentmtb.map.title": "Bikepark routes",
+  "descentmtb.map.added": "Added route: %s",
+  "descentmtb.map.count": "%s saved routes",
+  "descentmtb.map.hint": "Use on a linked sign, or hold a recorded GPS / another map in the other hand to copy. Scroll in the map to select a route.",
+  "descentmtb.map.empty": "Record a GPS route and link a trail sign.",
+  "descentmtb.map.wrong_dimension": "This route was recorded in another dimension.",
+  "descentmtb.map.linked": "GPS route linked to sign.",
+  "descentmtb.map.copied": "Routes copied to this map."
 }

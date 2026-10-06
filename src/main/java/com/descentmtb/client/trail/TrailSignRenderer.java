@@ -76,6 +76,11 @@ public final class TrailSignRenderer implements BlockEntityRenderer<TrailSignEnt
                 case SignLayout.Art art -> drawArt(art, content, pose, buffers, light);
             }
         }
+        if (sign.track()!=null) {
+            pose.pushPose();pose.translate(72,2,LIFT+.03f);pose.scale(.5f,.5f,1);
+            font.drawInBatch("GPS",0,0,0xff306444,false,pose.last().pose(),buffers,Font.DisplayMode.POLYGON_OFFSET,0,light);
+            pose.popPose();
+        }
         pose.popPose();
     }
 

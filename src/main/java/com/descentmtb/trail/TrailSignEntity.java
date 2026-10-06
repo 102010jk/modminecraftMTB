@@ -26,6 +26,14 @@ public final class TrailSignEntity extends BlockEntity {
     private static final String PIXELS = "Pixels";
 
     private SignContent content = SignContent.blank();
+    private com.descentmtb.map.TrailTrack track;
+    private net.minecraft.resources.ResourceLocation trackDimension=net.minecraft.resources.ResourceLocation.withDefaultNamespace("overworld");
+    public com.descentmtb.map.TrailTrack track(){return track;}
+    public net.minecraft.resources.ResourceLocation trackDimension(){return trackDimension;}
+    public void setTrack(com.descentmtb.map.TrailTrack track,net.minecraft.resources.ResourceLocation dimension) {
+        this.track=new com.descentmtb.map.TrailTrack(com.descentmtb.map.TrackGeometry.simplifyTo(track.pts(),.15,512));
+        this.trackDimension=dimension;setContent(content);
+    }
 
     public TrailSignEntity(BlockPos pos, BlockState state) {
         super(ModBlocks.SIGN_BE.get(), pos, state);
@@ -68,11 +76,15 @@ public final class TrailSignEntity extends BlockEntity {
         tag.putString(WARNING, content.warning().name());
         tag.putString(TEXT, content.text());
         tag.putByteArray(PIXELS, content.pixels());
+        if(track!=null){tag.putIntArray("GpsTrack",track.pts());tag.putString("TrackDimension",trackDimension.toString());}
     }
 
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
+        int[] points=tag.getIntArray("GpsTrack");
+        track=com.descentmtb.map.TrackGeometry.valid(points)&&points.length>=6?new com.descentmtb.map.TrailTrack(com.descentmtb.map.TrackGeometry.simplifyTo(points,.15,512)):null;
+        trackDimension=java.util.Optional.ofNullable(net.minecraft.resources.ResourceLocation.tryParse(tag.getString("TrackDimension"))).orElse(net.minecraft.resources.ResourceLocation.withDefaultNamespace("overworld"));
         byte[] pixels = tag.getByteArray(PIXELS);
         if (!tag.contains(TYPE, Tag.TAG_STRING)) {
             // saved before sign types existed: it was only pixel art

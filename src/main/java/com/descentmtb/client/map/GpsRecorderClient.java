@@ -55,13 +55,13 @@ public final class GpsRecorderClient {
     private static long activeSession(Player player, long preferred) {
         long found = 0;
         for (int slot = 0; slot < 9; slot++) {
-            found = pick(player.getInventory().getItem(slot), preferred, found);
+            found = pick(player, player.getInventory().getItem(slot), preferred, found);
         }
-        found = pick(player.getOffhandItem(), preferred, found);
+        found = pick(player, player.getOffhandItem(), preferred, found);
         return found;
     }
 
-    private static long pick(ItemStack stack, long preferred, long found) {
+    private static long pick(Player player, ItemStack stack, long preferred, long found) {
         if (!(stack.getItem() instanceof TrailMarkerItem)) {
             return found;
         }
@@ -69,6 +69,8 @@ public final class GpsRecorderClient {
         if (!state.active()) {
             return found;
         }
+        var dimension=stack.get(com.descentmtb.registry.ModComponents.RECORD_DIMENSION.get());
+        if (dimension!=null && !dimension.equals(player.level().dimension().location())) return found;
         return state.session() == preferred ? preferred : found == 0 ? state.session() : found;
     }
 

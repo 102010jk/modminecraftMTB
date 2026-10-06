@@ -35,6 +35,12 @@ public final class ModComponents {
                     .build());
 
     private ModComponents() {}
+    public static final DeferredHolder<DataComponentType<?>,DataComponentType<com.descentmtb.map.BikeparkMap>> BIKEPARK_MAP =
+            COMPONENTS.register("bikepark_map",()->DataComponentType.<com.descentmtb.map.BikeparkMap>builder().persistent(com.descentmtb.map.BikeparkMap.CODEC).networkSynchronized(com.descentmtb.map.BikeparkMap.STREAM_CODEC).build());
+    public static final DeferredHolder<DataComponentType<?>,DataComponentType<net.minecraft.resources.ResourceLocation>> TRACK_DIMENSION =
+            COMPONENTS.register("track_dimension",()->DataComponentType.<net.minecraft.resources.ResourceLocation>builder().persistent(net.minecraft.resources.ResourceLocation.CODEC).networkSynchronized(net.minecraft.resources.ResourceLocation.STREAM_CODEC).build());
+    public static final DeferredHolder<DataComponentType<?>,DataComponentType<net.minecraft.resources.ResourceLocation>> RECORD_DIMENSION =
+            COMPONENTS.register("record_dimension",()->DataComponentType.<net.minecraft.resources.ResourceLocation>builder().persistent(net.minecraft.resources.ResourceLocation.CODEC).networkSynchronized(net.minecraft.resources.ResourceLocation.STREAM_CODEC).build());
 
     public static void register(IEventBus bus) {
         COMPONENTS.register(bus);
