@@ -28,14 +28,14 @@ public final class DeviceSound extends AbstractTickableSoundInstance {
     }
     @Override public boolean canStartSilent() { return true; }
     @Override public CompletableFuture<AudioStream> getStream(SoundBufferLibrary library, Sound sound, boolean looping) {
-        return ring == null ? super.getStream(library, sound, looping) : CompletableFuture.completedFuture(new PcmStream(ring, rate));
+        return ring == null ? super.getStream(library, sound, looping) : CompletableFuture.completedFuture(new PcmStream(ring, rate, headphones ? 2 : 1));
     }
     @Override public void tick() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) { stop(); return; }
         Vec3 at = headphones ? mc.player.position() : BoomboxServer.position(mc.level, state.emitter());
         if (at == null) { stop(); return; }
-        x = at.x; y = at.y; z = at.z;
+        x = headphones ? 0 : at.x; y = headphones ? 0 : at.y; z = headphones ? 0 : at.z;
         double distance = headphones ? 0 : mc.gameRenderer.getMainCamera().getPosition().distanceTo(at);
         double gain = Math.max(0, 1 - distance / state.radius());
         volume = (float) (state.volume() * AudioClient.musicVolume() * gain * gain);
