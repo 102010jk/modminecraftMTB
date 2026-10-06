@@ -114,7 +114,7 @@ public final class WorkshopScreen extends Screen {
 
     private WorkshopPanel panel;
     private ColorPicker framePicker, tintPicker;
-    private WorkshopPanel.TextField bikeNameField,designNameField;
+    private WorkshopPanel.TextField bikeNameField,designNameField,stickerTextField;
     private String designName="",libraryError="";
     private List<BikeDesignStore.Design> designs=List.of();
     private Button undoButton, redoButton, stockButton, randomButton, applyButton, takeButton, resetViewButton;
@@ -183,6 +183,9 @@ public final class WorkshopScreen extends Screen {
         designNameField=new WorkshopPanel.TextField("design.name",font,t("design_name"),48,()->{});
         designNameField.bind(()->designName,s->{ designName=s;rebuild(); });
         reloadDesigns();
+        stickerTextField=new WorkshopPanel.TextField("sticker.text",font,t("sticker.text"),32,history::endGesture);
+        stickerTextField.bind(()->sticker(selSticker)==null ? "" : sticker(selSticker).text(),
+                s->editSticker(selSticker,old->old.withText(s),"sticker.text"+selSticker));
 
         // bottom bar: undo, redo, stock, random on the left; apply, take on the right
         undoButton = button("undo", b -> undo());
@@ -686,7 +689,7 @@ public final class WorkshopScreen extends Screen {
 
     private void setStickerTint(int rgb) {
         int sel = selSticker;
-        editSticker(sel, s -> new Sticker(s.design(), s.tube(), s.t(), s.side(), s.rotation(), s.scale(), rgb & 0xFFFFFF), "tint" + sel);
+        editSticker(sel, s -> s.changed(s.design(), s.tube(), s.t(), s.side(), s.rotation(), s.scale(), rgb & 0xFFFFFF), "tint" + sel);
     }
 
     private static Component sideName(int side) {
@@ -706,6 +709,11 @@ public final class WorkshopScreen extends Screen {
             }, (g, x, y, size) -> StickerIcons.paint(g, d, x, y, size)));
         }
         list.add(new Swatches(designs, 24));
+        list.add(new Chips(List.of(new Chip(t("sticker.add_text"),false,stickers.size()<BikeBuild.MAX_STICKERS,-1,()->{
+            List<Sticker> next=new ArrayList<>(build().stickers());
+            next.add(new Sticker(StickerDesign.LOGO_DESCENT,Tube.DOWN,.5f,0,0,1,0xFFFFFF).withText(t("sticker.default_text").getString()));
+            selSticker=next.size()-1;selDesign=null;commit(build().with(bb->bb.stickers(next)),null);
+        }))));
         if (stickers.size() >= BikeBuild.MAX_STICKERS) {
             list.add(new Note(t("note.sticker_limit", BikeBuild.MAX_STICKERS), 0xffe07a5f));
         } else if (selDesign != null) {
@@ -718,33 +726,41 @@ public final class WorkshopScreen extends Screen {
         if (sel != null) {
             int index = selSticker;
             list.add(new Header(t("section.selected", name(sel.design().key()))));
+            list.add(new Note(t("sticker.text"),LABEL));list.add(stickerTextField);
+            list.add(new Note(t("sticker.text_hint"),DIM));
             list.add(new Slider("slider.pos", t("sticker.position"), 0, 1, 0.01, () -> cur(index).t(),
                     v -> Math.round(v * 100) + " %",
-                    v -> editSticker(index, s -> new Sticker(s.design(), s.tube(), (float) v, s.side(), s.rotation(), s.scale(), s.tint()), "pos" + index),
+                    v -> editSticker(index, s -> s.changed(s.design(), s.tube(), (float) v, s.side(), s.rotation(), s.scale(), s.tint()), "pos" + index),
                     history::endGesture));
+            list.add(new Slider("slider.across",t("sticker.across"),-.9,.9,.05,()->cur(index).across(),
+                    v->Math.round(v*100)+" %",v->editSticker(index,s->s.withAcross((float)v),"across"+index),history::endGesture));
             List<Chip> tubes = new ArrayList<>();
             for (Tube tube : Tube.values()) {
                 tubes.add(Chip.of(name(tube.key()), sel.tube() == tube, () -> editSticker(index,
-                        s -> new Sticker(s.design(), tube, s.t(), s.side(), s.rotation(), s.scale(), s.tint()), null)));
+                        s -> s.changed(s.design(), tube, s.t(), s.side(), s.rotation(), s.scale(), s.tint()), null)));
             }
             list.add(new Chips(tubes));
             List<Chip> sides = new ArrayList<>();
             for (int side = -1; side <= 1; side++) {
                 int sd = side;
                 sides.add(Chip.of(sideName(side), sel.side() == side, () -> editSticker(index,
-                        s -> new Sticker(s.design(), s.tube(), s.t(), sd, s.rotation(), s.scale(), s.tint()), null)));
+                        s -> s.changed(s.design(), s.tube(), s.t(), sd, s.rotation(), s.scale(), s.tint()), null)));
             }
             list.add(new Chips(sides));
             list.add(new Slider("slider.rot", t("sticker.rotation"), 0, 360, 5, () -> cur(index).rotation(),
                     v -> Math.round(v) + "°",
-                    v -> editSticker(index, s -> new Sticker(s.design(), s.tube(), s.t(), s.side(), (float) (v % 360), s.scale(), s.tint()), "rot" + index),
+                    v -> editSticker(index, s -> s.changed(s.design(), s.tube(), s.t(), s.side(), (float) (v % 360), s.scale(), s.tint()), "rot" + index),
                     history::endGesture));
             list.add(new Slider("slider.scale", t("sticker.scale"), 0.4, 2.5, 0.05, () -> cur(index).scale(),
                     v -> String.format(Locale.ROOT, "%.2f x", v),
-                    v -> editSticker(index, s -> new Sticker(s.design(), s.tube(), s.t(), s.side(), s.rotation(), (float) v, s.tint()), "scale" + index),
+                    v -> editSticker(index, s -> s.changed(s.design(), s.tube(), s.t(), s.side(), s.rotation(), (float) v, s.tint()), "scale" + index),
                     history::endGesture));
             list.add(new Note(t("sticker.tint"), LABEL));
             list.add(tintPicker);
+            list.add(new Chips(List.of(
+                    new Chip(t("sticker.duplicate"),false,stickers.size()<BikeBuild.MAX_STICKERS,-1,()->duplicateSticker(index,false)),
+                    new Chip(t("sticker.opposite"),false,stickers.size()<BikeBuild.MAX_STICKERS && sel.side()!=0,-1,()->duplicateSticker(index,true)),
+                    Chip.of(t("sticker.flip"),sel.mirrored(),()->editSticker(index,Sticker::flipImage,null)))));
             list.add(new Chips(List.of(Chip.of(t("sticker.delete"), false, () -> {
                 List<Sticker> rest = new ArrayList<>(build().stickers());
                 rest.remove(index);
@@ -761,7 +777,7 @@ public final class WorkshopScreen extends Screen {
             for (int i = 0; i < stickers.size(); i++) {
                 Sticker s = stickers.get(i);
                 int index = i;
-                rows.add(new Option(Component.literal((i + 1) + ". ").append(name(s.design().key())),
+                rows.add(new Option(Component.literal((i + 1) + ". ").append(s.text().isBlank() ? name(s.design().key()) : Component.literal(s.text())),
                         Component.empty().append(name(s.tube().key())).append(" - ").append(sideName(s.side())), null, 0,
                         s.tint(), i == selSticker, true, () -> {
                             selSticker = index;
@@ -772,6 +788,14 @@ public final class WorkshopScreen extends Screen {
             list.add(new Options(rows));
         }
         return list;
+    }
+
+    private void duplicateSticker(int index,boolean opposite) {
+        Sticker old=sticker(index);
+        if(old==null || build().stickers().size()>=BikeBuild.MAX_STICKERS) return;
+        List<Sticker> next=new ArrayList<>(build().stickers());
+        next.add(opposite ? old.opposite() : old.changed(old.design(),old.tube(),Math.min(1,old.t()+.05f),old.side(),old.rotation(),old.scale(),old.tint()));
+        selSticker=next.size()-1;commit(build().with(b->b.stickers(next)),null);
     }
 
     private Sticker cur(int index) {
@@ -1023,7 +1047,7 @@ public final class WorkshopScreen extends Screen {
         if (draggingSticker && selSticker >= 0) {
             StickerAnchors.Pick pick = StickerAnchors.nearest(fullSuspension, build().shape(), modelX(mx), modelY(my));
             int index = selSticker;
-            editSticker(index, s -> new Sticker(s.design(), pick.tube(), pick.t(), s.side(), s.rotation(), s.scale(), s.tint()), "move" + index);
+            editSticker(index, s -> s.changed(s.design(), pick.tube(), pick.t(), s.side(), s.rotation(), s.scale(), s.tint()), "move" + index);
             return true;
         }
         return super.mouseDragged(mx, my, button, dx, dy);

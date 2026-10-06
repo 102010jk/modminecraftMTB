@@ -548,5 +548,13 @@
   "descentmtb.workshop.design_save": "Uložit design",
   "descentmtb.workshop.design_delete": "Smazat design",
   "descentmtb.workshop.design_portable": "Knihovna hráče je společná pro všechny světy. Načtený návrh potvrdíš přes Uložit.",
-  "descentmtb.workshop.design_error": "Knihovnu nelze načíst nebo uložit; podrobnosti jsou v logu. Původní data zůstala zachována."
+  "descentmtb.workshop.design_error": "Knihovnu nelze načíst nebo uložit; podrobnosti jsou v logu. Původní data zůstala zachována.",
+  "descentmtb.workshop.sticker.text": "Vlastní text (32 znaků)",
+  "descentmtb.workshop.sticker.text_hint": "Prázdný text zobrazí původní obrázek. Nápis vidí i ostatní hráči.",
+  "descentmtb.workshop.sticker.add_text": "Přidat textovou nálepku",
+  "descentmtb.workshop.sticker.default_text": "Jezdi dál",
+  "descentmtb.workshop.sticker.across": "Posun napříč povrchem trubky",
+  "descentmtb.workshop.sticker.duplicate": "Duplikovat",
+  "descentmtb.workshop.sticker.opposite": "Kopie na opačnou stranu",
+  "descentmtb.workshop.sticker.flip": "Zrcadlit obrázek"
 }

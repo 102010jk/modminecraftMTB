@@ -41,15 +41,27 @@ public final class BikeDecorations {
                 pose.pushPose();
                 pose.translate(side*(spec.sx()/32+.0015),y,z);
                 if(tube==Tube.FORK_LEG) pose.mulPose(Axis.XP.rotationDegrees(90));
+                pose.translate(0,sticker.across()*(tube==Tube.FORK_LEG ? spec.sz() : spec.sy())/32,0);
                 pose.mulPose(Axis.XP.rotationDegrees(side*sticker.rotation()));
+                if(!sticker.text().isBlank()) {
+                    var font=net.minecraft.client.Minecraft.getInstance().font;
+                    float width=Math.max(1,font.width(sticker.text()));
+                    float scale=.11f*sticker.scale()/width;
+                    pose.mulPose(Axis.YP.rotationDegrees(side*90));
+                    pose.scale(sticker.mirrored() ? -scale : scale,scale,scale);
+                    font.drawInBatch(sticker.text(),-width/2,-4,0xFF000000|sticker.tint(),false,pose.last().pose(),buffers,
+                            net.minecraft.client.gui.Font.DisplayMode.NORMAL,0,light);
+                    pose.popPose();continue;
+                }
                 float halfW=.055f*sticker.scale(),halfH=halfW/StickerIcons.aspectRatio(sticker.design());
                 var vc=buffers.getBuffer(RenderType.entityCutoutNoCull(STICKERS.get(sticker.design())));
                 var p=pose.last();int color=0xFF000000|sticker.tint();
+                int u0=sticker.mirrored() ? 1 : 0,u1=1-u0;
                 // Each outward side reads left-to-right and top-to-bottom, including text decals.
-                vc.addVertex(p,0,-halfH,side*halfW).setColor(color).setUv(0,0).setOverlay(overlay).setLight(light).setNormal(p,side,0,0);
-                vc.addVertex(p,0,halfH,side*halfW).setColor(color).setUv(0,1).setOverlay(overlay).setLight(light).setNormal(p,side,0,0);
-                vc.addVertex(p,0,halfH,-side*halfW).setColor(color).setUv(1,1).setOverlay(overlay).setLight(light).setNormal(p,side,0,0);
-                vc.addVertex(p,0,-halfH,-side*halfW).setColor(color).setUv(1,0).setOverlay(overlay).setLight(light).setNormal(p,side,0,0);
+                vc.addVertex(p,0,-halfH,side*halfW).setColor(color).setUv(u0,0).setOverlay(overlay).setLight(light).setNormal(p,side,0,0);
+                vc.addVertex(p,0,halfH,side*halfW).setColor(color).setUv(u0,1).setOverlay(overlay).setLight(light).setNormal(p,side,0,0);
+                vc.addVertex(p,0,halfH,-side*halfW).setColor(color).setUv(u1,1).setOverlay(overlay).setLight(light).setNormal(p,side,0,0);
+                vc.addVertex(p,0,-halfH,-side*halfW).setColor(color).setUv(u1,0).setOverlay(overlay).setLight(light).setNormal(p,side,0,0);
                 pose.popPose();
             }
         }

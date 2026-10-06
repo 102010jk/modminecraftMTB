@@ -548,5 +548,13 @@
   "descentmtb.workshop.design_save": "Save design",
   "descentmtb.workshop.design_delete": "Delete design",
   "descentmtb.workshop.design_portable": "Your player library is shared across worlds. Loading only changes the draft; Apply confirms it.",
-  "descentmtb.workshop.design_error": "Could not read or save the library; check the log. Original data is preserved."
+  "descentmtb.workshop.design_error": "Could not read or save the library; check the log. Original data is preserved.",
+  "descentmtb.workshop.sticker.text": "Custom text (32 characters)",
+  "descentmtb.workshop.sticker.text_hint": "Leave empty to show the selected artwork. Text is visible to other players.",
+  "descentmtb.workshop.sticker.add_text": "Add text decal",
+  "descentmtb.workshop.sticker.default_text": "Ride on",
+  "descentmtb.workshop.sticker.across": "Across tube surface",
+  "descentmtb.workshop.sticker.duplicate": "Duplicate",
+  "descentmtb.workshop.sticker.opposite": "Copy to opposite side",
+  "descentmtb.workshop.sticker.flip": "Mirror artwork"
 }

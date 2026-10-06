@@ -50,7 +50,11 @@ public record BikeBuild(
     public static final int MAX_STICKERS = 24;
 
     /** A sticker on a frame tube: t along the tube (0..1), side (-1 left, 0 both, 1 right), rotation, scale, tint. */
-    public record Sticker(StickerDesign design, Tube tube, float t, int side, float rotation, float scale, int tint) {
+    public record Sticker(StickerDesign design, Tube tube, float t, int side, float rotation, float scale, int tint,
+                          String text,float across,boolean mirrored) {
+        public Sticker(StickerDesign design,Tube tube,float t,int side,float rotation,float scale,int tint) {
+            this(design,tube,t,side,rotation,scale,tint,"",0,false);
+        }
         public static final Codec<Sticker> CODEC = RecordCodecBuilder.create(i -> i.group(
                 enumCodec(StickerDesign.class, StickerDesign.LOGO_DESCENT).fieldOf("design").forGetter(Sticker::design),
                 enumCodec(Tube.class, Tube.DOWN).fieldOf("tube").forGetter(Sticker::tube),
@@ -58,13 +62,25 @@ public record BikeBuild(
                 Codec.INT.fieldOf("side").forGetter(Sticker::side),
                 Codec.FLOAT.optionalFieldOf("rotation", 0f).forGetter(Sticker::rotation),
                 Codec.FLOAT.optionalFieldOf("scale", 1f).forGetter(Sticker::scale),
-                Codec.INT.optionalFieldOf("tint", 0xFFFFFF).forGetter(Sticker::tint)
+                Codec.INT.optionalFieldOf("tint", 0xFFFFFF).forGetter(Sticker::tint),
+                Codec.STRING.optionalFieldOf("text", "").forGetter(Sticker::text),
+                Codec.FLOAT.optionalFieldOf("across", 0f).forGetter(Sticker::across),
+                Codec.BOOL.optionalFieldOf("mirrored", false).forGetter(Sticker::mirrored)
         ).apply(i, Sticker::new));
 
         Sticker sanitized() {
             return new Sticker(design, tube, clamp(t, 0, 1), Math.max(-1, Math.min(1, side)),
-                    Float.isFinite(rotation) ? ((rotation % 360) + 360) % 360 : 0, clamp(scale, .4f, 2.5f), tint & 0xFFFFFF);
+                    Float.isFinite(rotation) ? ((rotation % 360) + 360) % 360 : 0, clamp(scale, .4f, 2.5f), tint & 0xFFFFFF,
+                    cleanText(text,32),clamp(across,-.9f,.9f),mirrored);
         }
+        /** Preserve the additional decal settings when a legacy seven-field editor changes a core value. */
+        public Sticker changed(StickerDesign design,Tube tube,float t,int side,float rotation,float scale,int tint) {
+            return new Sticker(design,tube,t,side,rotation,scale,tint,text,across,mirrored);
+        }
+        public Sticker withText(String value) { return new Sticker(design,tube,t,side,rotation,scale,tint,cleanText(value,32),across,mirrored); }
+        public Sticker withAcross(float value) { return new Sticker(design,tube,t,side,rotation,scale,tint,text,value,mirrored); }
+        public Sticker flipImage() { return new Sticker(design,tube,t,side,rotation,scale,tint,text,across,!mirrored); }
+        public Sticker opposite() { return new Sticker(design,tube,t,-side,rotation,scale,tint,text,across,mirrored); }
     }
 
     // ------------------------------------------------------------------ defaults (the stock look of each bike)
