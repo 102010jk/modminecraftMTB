@@ -15,6 +15,15 @@ public interface Terrain {
     /** True if the point is inside solid geometry (walls, frame / head strikes). */
     boolean solidAt(double x, double y, double z);
 
+    /**
+     * Surface material of the solid block at (or just below) a point, e.g. the face a ray hit.
+     * Default: whatever the ground query reports near the point.
+     */
+    default Surface surfaceAt(double x, double y, double z) {
+        GroundHit g = new GroundHit();
+        return ground(x, z, y + 0.6, y - 0.6, g) ? g.surface : Surface.DIRT;
+    }
+
     /** First solid face along a segment. Adapters can provide exact collision-shape rays. */
     default boolean raycast(V3 from, V3 to, RayHit out) {
         V3 direction = to.sub(from).normalize();

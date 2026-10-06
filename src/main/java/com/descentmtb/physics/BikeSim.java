@@ -106,6 +106,9 @@ public final class BikeSim {
     /** Things that happened since the caller last drained the list. */
     public final List<Event> events = new ArrayList<>();
     private double loopTimer;
+    /** Seconds the bike stays "cushioned" after any airbag contact (wheels, frame, rider, probes): it cannot bail meanwhile. */
+    private double airbagTimer;
+    static final double AIRBAG_GRACE = .45;
 
     // ---------------- per-substep frame axes ----------------
     private V3 fH, right, fwd, up;
@@ -162,7 +165,7 @@ public final class BikeSim {
         this.steerAngle = 0;
         this.lean = 0;
         tricks.reset();
-        loopTimer = landAssistTimer = popMeter = 0;
+        loopTimer = landAssistTimer = popMeter = airbagTimer = 0;
         airPitchTravel = airYawTravel = airBudget = 0;
         maxWhip = maxTable = brake = 0;
         trickMask = 0;
@@ -202,6 +205,7 @@ public final class BikeSim {
         axes();
         double landingTime = landAssistTimer;
         landAssistTimer = Math.max(0, landAssistTimer - h);
+        airbagTimer = Math.max(0, airbagTimer - h);
         double g = p.gravity;
         double vFwd = vel.dot(fH);
         double speed = vel.length();
@@ -336,7 +340,11 @@ public final class BikeSim {
         }
 
         // ---------- obviously over: on its back or standing on its nose ----------
-        if (!riderless && (grounded || bodyGrounded)) {
+        if (!riderless && airbagTimer > 0) {
+            // an airbag never lets you crash: upside down / on the nose on the cushion, it rights the bike instead
+            loopTimer = 0;
+            rightOnAirbag(h, grounded ? (rear.contact ? rear.normal : front.normal) : bodyNormal);
+        } else if (!riderless && (grounded || bodyGrounded)) {
             V3 n = grounded ? (rear.contact ? rear.normal : front.normal) : bodyNormal;
             double rel = Math.abs(wrap(pitch - groundPitch(n)));
             loopTimer = rel > Math.toRadians(80) ? loopTimer + h : 0;
@@ -406,6 +414,7 @@ public final class BikeSim {
                 : (w.isFront ? p.forkRebDamp : p.shockRebDamp) * cdot;
         double load = Math.max(0, spring + damp);
         if(w.hit.surface==Terrain.Surface.AIRBAG){
+            airbagTimer = AIRBAG_GRACE;
             // The cushion removes impact energy, instead of storing it for a rebound.
             if(vel.y<0)vel=new V3(vel.x,vel.y*Math.exp(-h*12),vel.z);
             if(riderVel.y<0)riderVel=new V3(riderVel.x,riderVel.y*Math.exp(-h*12),riderVel.z);
@@ -723,6 +732,7 @@ public final class BikeSim {
             if (pen <= 0) continue;
             bodyGrounded = true;
             bodyNormal = bodyHit.normal;
+            if (bodyHit.surface == Terrain.Surface.AIRBAG) cushion(h);
             V3 n = bodyHit.normal;
             double vn = pointVel(pt).sub(bodyHit.velocity).dot(n);
             double jn = 0;
@@ -747,6 +757,7 @@ public final class BikeSim {
         if (!riderless && terrain.ground(riderPos.x, riderPos.z, riderPos.y + 1.0, riderPos.y - 1.5, bodyHit)) {
             double pen = bodyHit.height + 0.25 - riderPos.y;
             if (pen > 0) {
+                if (bodyHit.surface == Terrain.Surface.AIRBAG) cushion(h);
                 V3 relative = riderVel.sub(bodyHit.velocity);
                 double vn = relative.dot(bodyHit.normal);
                 if (vn < 0) relative = relative.addScaled(bodyHit.normal, -vn);
@@ -931,14 +942,15 @@ public final class BikeSim {
         double impact = Math.max(0, -lastAirVel.sub(w.hit.velocity).dot(w.normal));
         // a whip only counts when the rider kicked it out and brought the bike back straight before the wheels touched
         maxWhip = whipPeak >= 0.6 && whipInput && yawErr < 0.35 ? whipPeak : 0;
+        boolean cushioned = airbagTimer > 0;
         if (airTime > 0.25) {
-            if (impact > p.bailImpactSpeed && w.surface!=Terrain.Surface.AIRBAG) {
+            if (impact > p.bailImpactSpeed && !cushioned) {
                 bail("landed too hard (" + String.format(java.util.Locale.ROOT, "%.1f", impact) + " m/s into the ground)");
-            } else if (pitchErr > p.bailPitchError && w.surface!=Terrain.Surface.AIRBAG) {
+            } else if (pitchErr > p.bailPitchError && !cushioned) {
                 bail("landed with the nose " + (int) Math.toDegrees(pitchErr) + "° off");
-            } else if (p.riskReward && yawErr > p.riskYawLimit && w.surface != Terrain.Surface.AIRBAG) {
+            } else if (p.riskReward && yawErr > p.riskYawLimit && !cushioned) {
                 bail("landed sideways (" + (int) Math.toDegrees(yawErr) + "°)");
-            } else if (p.riskReward && tricks.unfinished() && w.surface != Terrain.Surface.AIRBAG) {
+            } else if (p.riskReward && tricks.unfinished() && !cushioned) {
                 bail("landed mid-" + tricks.trick.name().toLowerCase(java.util.Locale.ROOT));
             } else {
                 // Descenders-style "magnet": ease pitch onto the slope and finish an
@@ -953,11 +965,35 @@ public final class BikeSim {
 
     private void bail(String reason) {
         if (bailed || riderless) return;
+        if (airbagTimer > 0) return;      // an airbag is absolute safety: whatever happened, nobody crashes on it
         bailed = true;
         crashRiderPos = riderPos;
         crashRiderVel = riderVel;
         bailReason = reason;
         events.add(new Event(Event.Type.BAIL, vel.length(), reason));
+    }
+
+    /** Airbag contact: arms the no-bail grace, and soaks up the energy instead of returning it. */
+    private void cushion(double h) {
+        airbagTimer = AIRBAG_GRACE;
+        if (vel.y < 0) vel = new V3(vel.x, vel.y * Math.exp(-h * 12), vel.z);
+        if (!riderless && riderVel.y < 0) riderVel = new V3(riderVel.x, riderVel.y * Math.exp(-h * 12), riderVel.z);
+        omega = omega.mul(Math.exp(-h * 3));
+    }
+
+    /** Gently turns a bike that ended up on its back / nose on the cushion back onto the slope under it. */
+    private void rightOnAirbag(double h, V3 n) {
+        double e = wrap(pitch - groundPitch(n));
+        if (Math.abs(e) < Math.toRadians(12)) return;
+        double want = clamp(-e * 2.0, -1.6, 1.6);
+        // the frame lying on the cushion would stop a pure torque: turn it by hand and carry the rate along
+        pitch = wrap(pitch + want * h);
+        setOmega(omega.dot(V3.Y), want);
+    }
+
+    /** True while the bike is in contact with (or just left) an airbag; it cannot bail then. */
+    public boolean cushioned() {
+        return airbagTimer > 0;
     }
 
     // =====================================================================
@@ -985,6 +1021,7 @@ public final class BikeSim {
             if (needsTall[i] && wall && !terrain.solidAt(inside.x, inside.y + 1.0, inside.z)) continue; // 1-block step: ride it
             double into = -probeVelocity.sub(collisionHit.velocity).dot(nrm);
             if (into <= 0) continue;
+            if (terrain.surfaceAt(inside.x, inside.y, inside.z) == Terrain.Surface.AIRBAG) cushion(h);
             events.add(new Event(Event.Type.HIT, into, "probe " + i + " n=" + nrm + " at " + b));
             if (!wall) {
                 // a floor/ceiling, not a wall: tyres handle the ground, but the head or
@@ -1038,6 +1075,7 @@ public final class BikeSim {
                 }
             }
         }
+        if (lift > 0 && floorSurface == Terrain.Surface.AIRBAG) airbagTimer = AIRBAG_GRACE;
         if (lift > .12) {
             if (airborne && airTime > 0.25 && !riderless && floorSurface != Terrain.Surface.AIRBAG
                     && -vel.sub(floorVelocity).dot(floorNormal) > p.bailImpactSpeed) bail("landed too hard");

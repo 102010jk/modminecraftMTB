@@ -129,6 +129,11 @@ public final class BlockTerrain implements Terrain {
     }
 
     @Override
+    public Surface surfaceAt(double x, double y, double z) {
+        return cols.surface((int) Math.floor(x), (int) Math.floor(z), y + 0.01);
+    }
+
+    @Override
     public boolean floor(double x, double z, double top, double bottom, GroundHit out) {
         if (cols.exactSurface(x, z, top, bottom, exact)) {
             out.set(exact[0], new V3(-exact[1], 1, -exact[2]).normalize(), Surface.TRAIL);
