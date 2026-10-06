@@ -33,7 +33,7 @@ final class BikeVoice {
     private final RandomSource random = RandomSource.create();
     private LoopSound wind, scream;
     private Trick lastTrick = Trick.NONE;
-    private boolean prevAirborne, prevBailed;
+    private boolean prevAirborne, prevBailed, prevRidden;
     /** Ticks in the air so far (for the "just left the ground" rule of the crash predictor). */
     int airTicks;
 
@@ -85,19 +85,20 @@ final class BikeVoice {
 
         // ---- landings ----
         if (prevAirborne && !f.airborne && !f.bailed && airTicks >= 4) {
-            playLanding(f, master, cfg.voice());
+            playLanding(f, master, f.ridden ? cfg.voice() : ClientConfig.RiderVoice.OFF);
         }
 
         // ---- crash / bail ----
         if (!prevBailed && f.bailed) {
-            playCrash(f, master, cfg.voice());
+            // The rider can be ejected on this tick; retain the actual bail, not a voice on an empty bike.
+            playCrash(f, master, f.ridden || prevRidden ? cfg.voice() : ClientConfig.RiderVoice.OFF);
         }
 
         // ---- the scream ----
         if (f.airborne) airTicks++;
         else airTicks = 0;
         f.airTime = airTicks * 0.05;
-        if (cfg.scream() && cfg.voice() != ClientConfig.RiderVoice.OFF) {
+        if (f.ridden && cfg.scream() && cfg.voice() != ClientConfig.RiderVoice.OFF) {
             switch (screamTrigger.update(f.airborne, CrashPredictor.unavoidable(f), f.bailed)) {
                 case START -> startScream(manager, master, cfg.voice());
                 case STOP -> {
@@ -106,8 +107,11 @@ final class BikeVoice {
                 }
                 default -> {}
             }
-        } else if (scream != null) {
-            scream.fadeOutFast();
+        } else {
+            if (scream != null) {
+                if (!f.ridden) manager.stop(scream);
+                else scream.fadeOutFast();
+            }
             scream = null;
             screamTrigger.reset();
         }
@@ -122,6 +126,7 @@ final class BikeVoice {
 
         prevAirborne = f.airborne;
         prevBailed = f.bailed;
+        prevRidden = f.ridden;
     }
 
     private void startScream(SoundManager manager, double master, ClientConfig.RiderVoice voice) {
@@ -228,5 +233,6 @@ final class BikeVoice {
         screamTrigger.reset();
         prevAirborne = false;
         prevBailed = false;
+        prevRidden = false;
     }
 }

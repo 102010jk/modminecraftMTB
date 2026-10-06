@@ -120,6 +120,7 @@ public final class BikeSoundController {
         BikeSim sim = local ? bike.sim() : null;
 
         f.fullSuspension = bike.build().shape().fullSuspension;
+        f.ridden = bike.getControllingPassenger() != null;
         f.airborne = cur.airborne;
         f.bailed = cur.bailed;
         f.vel = sim != null ? sim.vel : cur.vel;
@@ -160,7 +161,7 @@ public final class BikeSoundController {
         // where and how it will land, while it is in the air
         f.timeToGround = Double.POSITIVE_INFINITY;
         f.pitchError = f.yawError = f.pitchRate = f.yawRate = 0;
-        if (cur.airborne && !cur.bailed) {
+        if (f.ridden && cur.airborne && !cur.bailed) {
             V3 com = cur.com;
             LandingPredictor.Landing landing = LandingPredictor.predict(columns.terrain(), com, f.vel,
                     p.wheelRadius - p.axleDrop, cur.yaw, p.gravity);

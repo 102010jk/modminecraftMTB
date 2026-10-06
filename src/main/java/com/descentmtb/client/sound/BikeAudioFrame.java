@@ -15,6 +15,8 @@ public final class BikeAudioFrame {
     /** The rider is pedalling right now (the freehub is engaged, so it cannot click). */
     public boolean pedalling;
     public boolean airborne, bailed;
+    /** A living rider is currently controlling this bike; an empty falling bike has no rider voice. */
+    public boolean ridden;
     public boolean frontContact, rearContact;
     /** Surface under each tyre (only meaningful while that tyre touches the ground). */
     public Terrain.Surface frontSurface = Terrain.Surface.DIRT, rearSurface = Terrain.Surface.DIRT;
