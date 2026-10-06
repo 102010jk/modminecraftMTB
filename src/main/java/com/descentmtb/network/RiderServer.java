@@ -124,7 +124,9 @@ final class RiderServer {
         }
         Vec3 v = new Vec3(clampThrow(m.vx()), clampThrow(m.vy()), clampThrow(m.vz()));   // m/s
 
-        // The state packet with the crash frame came first, so the bike entity is where it crashed.
+        // The state packet with the crash frame came first, so the bike entity is where it crashed;
+        // the exact spin it had goes with it, so the riderless bike tumbles on instead of stopping dead.
+        bike.setCrashSpin(m.yawRate(), m.pitchRate());
         player.stopRiding();
         // rider's centre of mass is ~0.9 m above the feet
         Vec3 feet = SafeDismount.find(player.level(), player, new Vec3(m.x(), m.y() - .9, m.z()));

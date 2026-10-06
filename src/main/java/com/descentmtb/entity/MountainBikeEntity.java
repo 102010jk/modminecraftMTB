@@ -323,6 +323,13 @@ public class MountainBikeEntity extends Entity {
         hasPrevReport = true;
     }
 
+    /** Server: the bike's exact angular velocity (about up, about its right axis; rad/s) at the moment of the crash. */
+    public void setCrashSpin(double yawOmega, double pitchOmega) {
+        double limit = BikeStateLimits.MAX_ANGULAR_RATE;
+        if (Double.isFinite(yawOmega)) lastYawOmega = Math.max(-limit, Math.min(limit, yawOmega));
+        if (Double.isFinite(pitchOmega)) lastPitchOmega = Math.max(-limit, Math.min(limit, pitchOmega));
+    }
+
     /** Server: the rider asked to respawn; put the bike (and so its rider) on the ground at the chosen spot. */
     public void moveForRespawn(double x, double groundY, double z, double yawDeg) {
         setPos(x, groundY, z);
@@ -373,6 +380,7 @@ public class MountainBikeEntity extends Entity {
                 serverSim.vel = lastVel;
                 V3 right = new V3(-Math.sin(serverSim.yaw), 0, Math.cos(serverSim.yaw)).cross(V3.Y);
                 serverSim.omega = V3.Y.mul(lastYawOmega).addScaled(right, lastPitchOmega);
+                serverSim.beginCrash();     // scrapes, bounces and tumbles to a stop within a few seconds
             }
             lastVel = V3.ZERO;
             lastYawOmega = lastPitchOmega = 0;

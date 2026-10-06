@@ -95,6 +95,8 @@ public final class BikeSim {
     /** Seconds left of the one-handed window after ringing the bell (left hand off the grip); see {@link OneHand}. */
     public double oneHandTimer;
     private double bellCooldown;
+    /** Seconds since the rider was thrown off (riderless crash tumble), or -1 for a plain parked / dropped bike. */
+    public double crashAge = -1;
     /**
      * No rider: the bike just rolls, tumbles and settles (after a bail, or parked).
      * Rider forces, assists and bail detection are off; it lies down on its side at rest.
@@ -141,6 +143,7 @@ public final class BikeSim {
         this.riderVel = V3.ZERO;
         double sag = 0.28 * p.forkTravel;
         axes();
+        crashAge = -1;
         double gy = Double.NEGATIVE_INFINITY;
         Terrain.GroundHit gh = new Terrain.GroundHit();
         for (int s = -1; s <= 1; s += 2) {
@@ -279,6 +282,7 @@ public final class BikeSim {
             vel = vel.add(dv);
             riderVel = riderVel.add(dv);
         }
+        if (riderless && crashAge >= 0) crashFriction(grounded || bodyGrounded, h);
 
         // ---------- pedalling ----------
         if (rear.contact && c.pedal > 0.01) {
@@ -747,7 +751,9 @@ public final class BikeSim {
             double vn = pointVel(pt).sub(bodyHit.velocity).dot(n);
             double jn = 0;
             if (vn < 0) {
-                jn = -vn / invMass(pt, n);
+                // a crashed bike bounces off the ground a little (only hard hits), instead of sticking to it
+                double rest = riderless && crashAge >= 0 && -vn > 2.5 ? 0.3 : 0;
+                jn = -vn * (1 + rest) / invMass(pt, n);
                 applyImpulse(pt, n.mul(jn));
             }
             V3 vt = pointVel(pt).sub(bodyHit.velocity).reject(n);
@@ -1014,6 +1020,26 @@ public final class BikeSim {
         setOmega(omega.dot(V3.Y), want);
     }
 
+    /** Marks this riderless bike as a crashed one: it keeps its motion but scrapes to a stop in a few seconds. */
+    public void beginCrash() {
+        if (riderless) crashAge = 0;
+    }
+
+    /** Ground friction on a crashed bike: grows from a slide to a hard scrape, so it stops 2-4 s after the crash. */
+    private void crashFriction(boolean onGround, double h) {
+        crashAge += h;
+        if (!onGround) return;
+        V3 n = bodyGrounded ? bodyNormal : rear.contact ? rear.normal : front.contact ? front.normal : V3.Y;
+        V3 vt = vel.reject(n);
+        double sp = vt.length();
+        double ramp = clamp(crashAge / 2.0, 0, 1);
+        omega = omega.mul(Math.exp(-h * (0.6 + 1.2 * ramp)));
+        if (sp < 1e-6) return;
+        double mu = 0.22 + 0.38 * ramp;
+        double a = mu * p.gravity * Math.max(n.y, 0.3);
+        vel = vel.addScaled(vt, -Math.min(sp, a * h) / sp);
+    }
+
     /** True while the bike is in contact with (or just left) an airbag; it cannot bail then. */
     public boolean cushioned() {
         return airbagTimer > 0;
@@ -1129,7 +1155,7 @@ public final class BikeSim {
         if (riderless) {
             // nobody holding it up: once it slows down it falls over onto its side
             if (Math.abs(lean) > 0.05) restSide = Math.signum(lean);
-            leanT = speed() < 6.0 && grounded() ? restSide * 1.38 : lean;
+            leanT = (speed() < 6.0 || crashAge > 0.6) && grounded() ? restSide * 1.38 : lean;
             lean += (leanT - lean) * (1 - Math.exp(-h / 0.35));
             return;
         } else if (!airborne) {

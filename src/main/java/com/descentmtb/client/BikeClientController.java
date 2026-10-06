@@ -10,6 +10,7 @@ import com.descentmtb.network.BikeStartPointPayload;
 import com.descentmtb.network.IdleSendThrottle;
 import com.descentmtb.physics.BikeSim;
 import com.descentmtb.physics.Controls;
+import com.descentmtb.physics.V3;
 import com.descentmtb.trail.SignContent;
 import com.descentmtb.trail.TrailSignEntity;
 import com.descentmtb.trail.TrailSignRegistry;
@@ -195,7 +196,8 @@ public final class BikeClientController {
                     showBailLine(sim, e.info());
                     PacketDistributor.sendToServer(new BikeBailPayload(riding.getId(),
                             sim.crashRiderPos.x, sim.crashRiderPos.y, sim.crashRiderPos.z,
-                            (float) sim.crashRiderVel.x, (float) sim.crashRiderVel.y, (float) sim.crashRiderVel.z, epoch));
+                            (float) sim.crashRiderVel.x, (float) sim.crashRiderVel.y, (float) sim.crashRiderVel.z,
+                            (float) sim.omega.dot(V3.Y), (float) sim.omega.dot(sim.rightAxis()), epoch));
                 }
                 case LAND -> {
                     if (!sim.bailed && sim.airTime > 0.45) showLanding(sim);
