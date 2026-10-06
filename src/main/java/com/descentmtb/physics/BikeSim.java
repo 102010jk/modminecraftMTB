@@ -938,6 +938,8 @@ public final class BikeSim {
                 bail("landed with the nose " + (int) Math.toDegrees(pitchErr) + "° off");
             } else if (p.riskReward && yawErr > p.riskYawLimit && w.surface != Terrain.Surface.AIRBAG) {
                 bail("landed sideways (" + (int) Math.toDegrees(yawErr) + "°)");
+            } else if (p.riskReward && tricks.unfinished() && w.surface != Terrain.Surface.AIRBAG) {
+                bail("landed mid-" + tricks.trick.name().toLowerCase(java.util.Locale.ROOT));
             } else {
                 // Descenders-style "magnet": ease pitch onto the slope and finish an
                 // under/over-rotated spin onto the direction of travel
