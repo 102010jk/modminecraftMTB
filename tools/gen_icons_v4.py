@@ -7,7 +7,8 @@ mode so the menu can be read at a glance:
 * berms          - view along the trail: the tilted surface, arrow to the high side
 * manual         - the block with the action drawn on it (cursor, arrows, level, reset, copy); the cursor's sub-types
                    (cursor_*) mark the corners a click picks on the top in gold
-* lines          - a hillside with a trail and a flag
+* lines          - a hillside with a trail and a flag (downhill); a path with an axe and a leaf (clear path); a straight
+                   ramp between two gold points (straight line)
 
     python tools/gen_icons_v4.py [--install]
 """
@@ -248,6 +249,28 @@ def icons():
         c.set(1, y, (200, 200, 200, 255), None)         # flag pole + flag
     glyph(c, [(2, 0), (3, 0), (2, 1), (3, 1), (4, 1)], (220, 60, 50, 255))
     out['downhill'] = finish(c)
+
+    c = Canvas()                                        # clear path: the trail, an axe over it and a leaf
+    for x in range(16):
+        centre = 12 - x * .35
+        for y in range(16):
+            if abs(y + .5 - centre) <= 1.7:
+                put(c, x, y, 'dirt', 4 if y + .5 < centre else 3, 71)
+    wood, steel, leaf, vein = (150, 108, 62, 255), (196, 202, 210, 255), (96, 176, 72, 255), (168, 220, 120, 255)
+    glyph(c, [(3, 7), (4, 6), (5, 5), (6, 4), (7, 3), (8, 2)], wood)                                  # axe handle
+    glyph(c, [(8, 0), (9, 0), (7, 1), (8, 1), (9, 1), (10, 1), (9, 2), (10, 2), (11, 2), (10, 3)], steel)   # axe head
+    glyph(c, [(12, 5), (13, 5), (11, 6), (12, 6), (13, 6), (14, 6), (12, 7), (13, 7), (14, 7), (13, 8)], leaf)
+    glyph(c, [(13, 6), (13, 7)], vein)
+    out['clear_path'] = finish(c)
+
+    c = Canvas()                                        # straight line: a straight ramp between two gold points
+    side(c, [2 + 8 * (i / 13) for i in range(14)], x0=1, seed=62)
+    for i in range(1, 14, 2):                           # dotted guide above the ramp
+        c.set(1 + i, 12 - int(round(2 + 8 * (i / 13))) - 1, WHITE, None)
+    for x, y in ((0, 10), (13, 1)):
+        for dx, dy in ((0, 0), (1, 0), (0, 1), (1, 1)):
+            c.set(x + dx, y + dy, ACCENT, None)
+    out['straight_line'] = finish(c)
     return out
 
 

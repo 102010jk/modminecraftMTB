@@ -45,8 +45,22 @@ class ShapeModeTest {
         assertEquals(4, ShapeMode.DOWNHILL.category);
         assertEquals(false, ShapeMode.DOWNHILL.reshapesBlock());
         assertEquals("descentmtb.shape.hud.hint.downhill", ShapeMode.DOWNHILL.hintKey());
-        assertEquals(ShapeMode.DOWNHILL, ShapeMode.DOWNHILL.cycled(1));
+        assertEquals(ShapeMode.CLEAR_PATH, ShapeMode.DOWNHILL.cycled(1));
         assertEquals(true, getClass().getResource("/assets/descentmtb/textures/gui/shape/downhill.png") != null);
+    }
+
+    @Test
+    void theLineToolsSitNextToTheDownhillLine() {
+        assertEquals(ShapeMode.Kind.CLEAR, ShapeMode.CLEAR_PATH.kind);
+        assertEquals(ShapeMode.Kind.LINE, ShapeMode.STRAIGHT_LINE.kind);
+        for (ShapeMode mode : new ShapeMode[]{ShapeMode.CLEAR_PATH, ShapeMode.STRAIGHT_LINE}) {
+            assertEquals(4, mode.category);
+            assertEquals(false, mode.reshapesBlock());
+        }
+        assertEquals("descentmtb.shape.hud.hint.clear_path", ShapeMode.CLEAR_PATH.hintKey());
+        assertEquals("descentmtb.shape.hud.hint.straight_line", ShapeMode.STRAIGHT_LINE.hintKey());
+        assertEquals(ShapeMode.DOWNHILL, ShapeMode.STRAIGHT_LINE.cycled(1));
+        assertEquals(ShapeMode.STRAIGHT_LINE, ShapeMode.DOWNHILL.cycled(-1));
     }
 
     @Test

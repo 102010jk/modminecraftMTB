@@ -6,6 +6,7 @@ import com.descentmtb.trail.CornerEdits;
 import com.descentmtb.trail.CursorSettings;
 import com.descentmtb.trail.DownhillBuilder;
 import com.descentmtb.trail.DownhillShapes;
+import com.descentmtb.trail.LineSettings;
 import com.descentmtb.trail.ShapeMode;
 import com.descentmtb.trail.ShapeToolItem;
 import net.minecraft.network.FriendlyByteBuf;
@@ -19,7 +20,8 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
  * Client to server: the Trail Shaper in the player's hand switches to another {@link ShapeMode} (by ordinal) and, for
  * the berm mode, takes the chosen berm steepness (ordinal) and width (m); for the downhill mode the second number is the
  * style (ordinal) and {@code grade} the grade level (ordinal); for the cursor ({@link ShapeMode#AUTO}) the two numbers are its
- * sub-type and its step (ordinals). A negative steepness means "no settings", a negative grade "no grade".
+ * sub-type and its step (ordinals); for the line tools ({@link ShapeMode.Kind#CLEAR}, {@link ShapeMode.Kind#LINE}) the width
+ * is their width in blocks. A negative steepness means "no settings", a negative grade "no grade".
  */
 public record ShapeTunePayload(int mode, int steepness, int width, int grade) implements CustomPacketPayload {
     public static final Type<ShapeTunePayload> TYPE =
@@ -46,6 +48,11 @@ public record ShapeTunePayload(int mode, int steepness, int width, int grade) im
     /** A switch to the downhill mode with the given settings. */
     public ShapeTunePayload(ShapeMode mode, DownhillBuilder.Settings settings) {
         this(mode.ordinal(), settings.style().ordinal(), settings.width(), settings.grade().ordinal());
+    }
+
+    /** A switch to a line tool (clear path, straight line) with the given width. */
+    public ShapeTunePayload(ShapeMode mode, LineSettings settings) {
+        this(mode.ordinal(), -1, settings.width(), -1);
     }
 
     /** A switch to the cursor with the given sub-type and step. */
@@ -79,6 +86,13 @@ public record ShapeTunePayload(int mode, int steepness, int width, int grade) im
             DownhillShapes.Grade[] grades = DownhillShapes.Grade.values();
             if (message.steepness >= 0 && message.steepness < styles.length && message.grade >= 0 && message.grade < grades.length) {
                 new DownhillBuilder.Settings(styles[message.steepness], message.width, grades[message.grade]).bounded().store(player.getMainHandItem());
+            }
+            return;
+        }
+        ShapeMode.Kind kind = ShapeToolItem.mode(player.getMainHandItem()).kind;
+        if (kind == ShapeMode.Kind.CLEAR || kind == ShapeMode.Kind.LINE) {
+            if (message.width > 0) {
+                new LineSettings(message.width).bounded().store(player.getMainHandItem());
             }
             return;
         }

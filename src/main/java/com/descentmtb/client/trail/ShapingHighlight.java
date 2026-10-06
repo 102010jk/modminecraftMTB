@@ -4,6 +4,7 @@ import com.descentmtb.trail.ClipboardMath;
 import com.descentmtb.trail.CursorSettings;
 import com.descentmtb.trail.JumpBuilder;
 import com.descentmtb.trail.JumpProfiles;
+import com.descentmtb.trail.LinePoints;
 import com.descentmtb.trail.ShapeClipboard;
 import com.descentmtb.trail.ShapeMode;
 import com.descentmtb.trail.ShapePresets;
@@ -32,7 +33,8 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  * something is copied, around the place the clipboard will land. Berm and downhill modes: a diamond on every point
  * placed so far. Jump builder: a line box around the blocks the jump would take from the aimed block, and its profile
  * as a line along the middle (the settings kept in the tool, the same height function the server builds from). The
- * cursor's diamonds follow its sub-type and step ({@link CursorSettings}).
+ * cursor's diamonds follow its sub-type and step ({@link CursorSettings}). The line tools (clear path, straight line): a
+ * diamond on point A and a line from there to the aimed block, which carries a second diamond.
  *
  * <p>Nothing is recomputed per frame: the tool's data is copied only when its custom data component changes, and the
  * block preset's plan only when the aim, the mode, the facing or Shift changed, or a game tick passed (so an edit of
@@ -89,6 +91,7 @@ public final class ShapingHighlight {
             case BERM -> previewPoints(data.getLongArray(com.descentmtb.trail.BermBuilder.POINTS_TAG), camera, pose, source);
             case DOWNHILL -> previewPoints(data.getLongArray(com.descentmtb.trail.DownhillBuilder.POINTS_TAG), camera, pose, source);
             case JUMP -> previewJump(mc, hit, camera, pose, source);
+            case CLEAR, LINE -> previewLine(data, hit, camera, pose, source);
             case RAMP -> { }
         }
     }
@@ -147,7 +150,6 @@ public final class ShapingHighlight {
                 box[0] - camera.x, start.getY() - camera.y, box[1] - camera.z,
                 box[2] + 1 - camera.x, start.getY() + 1 + Math.max(.05, top) - camera.y, box[3] + 1 - camera.z,
                 .95f, .76f, .29f, 1f);
-        var last = pose.last();
         double[] previous = null;
         double previousY = 0;
         int steps = jump.total() * 8;
@@ -156,17 +158,40 @@ public final class ShapingHighlight {
             double[] point = layout.point(u);
             double y = start.getY() + 1 + jump.heightAt(u) + .04;
             if (previous != null) {
-                float dx = (float) (point[0] - previous[0]), dy = (float) (y - previousY), dz = (float) (point[1] - previous[1]);
-                float length = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-                lines.addVertex(last, (float) (previous[0] - camera.x), (float) (previousY - camera.y), (float) (previous[1] - camera.z))
-                        .setColor(.45f, .84f, .76f, 1f).setNormal(last, dx / length, dy / length, dz / length);
-                lines.addVertex(last, (float) (point[0] - camera.x), (float) (y - camera.y), (float) (point[1] - camera.z))
-                        .setColor(.45f, .84f, .76f, 1f).setNormal(last, dx / length, dy / length, dz / length);
+                segment(lines, pose, camera, previous[0], previousY, previous[1], point[0], y, point[1]);
             }
             previous = point;
             previousY = y;
         }
         source.endBatch(RenderType.lines());
+    }
+
+    /** Point A of a line tool and a line from it to the aimed block (with a diamond on that too). */
+    private static void previewLine(CompoundTag data, BlockHitResult hit, Vec3 camera, PoseStack pose, MultiBufferSource.BufferSource source) {
+        if (!data.contains(LinePoints.POINT_TAG)) {
+            return;
+        }
+        BlockPos a = BlockPos.of(data.getLong(LinePoints.POINT_TAG));
+        if (hit == null) {
+            previewPoints(new long[]{a.asLong()}, camera, pose, source);
+            return;
+        }
+        BlockPos b = hit.getBlockPos();
+        previewPoints(new long[]{a.asLong(), b.asLong()}, camera, pose, source);
+        VertexConsumer lines = source.getBuffer(RenderType.lines());
+        segment(lines, pose, camera, a.getX() + .5, a.getY() + 1.1, a.getZ() + .5, b.getX() + .5, b.getY() + 1.1, b.getZ() + .5);
+        source.endBatch(RenderType.lines());
+    }
+
+    /** One teal line segment between two points (world coordinates). */
+    private static void segment(VertexConsumer lines, PoseStack pose, Vec3 camera, double x0, double y0, double z0, double x1, double y1, double z1) {
+        var last = pose.last();
+        float dx = (float) (x1 - x0), dy = (float) (y1 - y0), dz = (float) (z1 - z0);
+        float length = Math.max(1e-4f, (float) Math.sqrt(dx * dx + dy * dy + dz * dz));
+        lines.addVertex(last, (float) (x0 - camera.x), (float) (y0 - camera.y), (float) (z0 - camera.z))
+                .setColor(.45f, .84f, .76f, 1f).setNormal(last, dx / length, dy / length, dz / length);
+        lines.addVertex(last, (float) (x1 - camera.x), (float) (y1 - camera.y), (float) (z1 - camera.z))
+                .setColor(.45f, .84f, .76f, 1f).setNormal(last, dx / length, dy / length, dz / length);
     }
 
     /** Corner A and the box to the aimed block; the footprint of the clipboard at the aimed block. */

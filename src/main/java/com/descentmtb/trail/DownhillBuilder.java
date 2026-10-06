@@ -1,5 +1,6 @@
 package com.descentmtb.trail;
 
+import com.descentmtb.DescentMtb;
 import com.descentmtb.trail.DownhillShapes.Grade;
 import com.descentmtb.trail.DownhillShapes.Style;
 import net.minecraft.core.BlockPos;
@@ -155,9 +156,11 @@ public final class DownhillBuilder {
             message(player, "descentmtb.downhill.built", (int) Math.round(line.length()), line.jumps(), line.berms());
             return blocks > 0;
         } catch (DownhillShapes.Rejected e) {
+            DescentMtb.LOG.info("Downhill line not built: {}", e.key());
             message(player, e.key(), e.args());
             return false;
         } catch (IllegalArgumentException e) {
+            DescentMtb.LOG.info("Downhill line not built: {}", e.getMessage());
             player.displayClientMessage(TrailEdit.describe(e), true);
             return false;
         }

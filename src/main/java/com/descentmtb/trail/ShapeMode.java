@@ -6,7 +6,8 @@ import java.util.Locale;
 
 /**
  * Modes of the Trail Shaper. {@link #category} is the tab of the radial menu: 0 jumps, 1 berms, 2 manual
- * (and copying), 3 copycat ramps, 4 lines (whole runs built from two clicks). {@link #rise} is the height gained across the block (negative for a drop); only
+ * (and copying), 3 copycat ramps, 4 lines (whole runs built from two clicks, and the line tools that clear a path
+ * and build a straight line). {@link #rise} is the height gained across the block (negative for a drop); only
  * the {@link Kind#COLUMN} modes use it. The mode is stored in the tool by its {@link #name()}.
  */
 public enum ShapeMode {
@@ -36,7 +37,9 @@ public enum ShapeMode {
     RAMP_ROTATE(3, 0, Kind.RAMP),
     RAMP_LINK(3, 0, Kind.RAMP),
 
-    DOWNHILL(4, 0, Kind.DOWNHILL);
+    DOWNHILL(4, 0, Kind.DOWNHILL),
+    CLEAR_PATH(4, 0, Kind.CLEAR),
+    STRAIGHT_LINE(4, 0, Kind.LINE);
 
     public static final int CATEGORIES = 5;
 
@@ -52,6 +55,10 @@ public enum ShapeMode {
         COPY,
         /** Collects a start and a finish and builds a whole downhill line ({@link DownhillBuilder}). */
         DOWNHILL,
+        /** Collects two points and clears the trees and plants between them ({@link ClearPathBuilder}). */
+        CLEAR,
+        /** Collects two points and builds a straight surface of one grade between them ({@link StraightLineBuilder}). */
+        LINE,
         /** Opens the jump profile screen and builds one jump from it ({@link JumpBuilder}). */
         JUMP
     }
@@ -87,6 +94,8 @@ public enum ShapeMode {
             case COPY -> "descentmtb.shape.hud.hint.copy";
             case DOWNHILL -> "descentmtb.shape.hud.hint.downhill";
             case JUMP -> "descentmtb.shape.hud.hint.jump_build";
+            case CLEAR -> "descentmtb.shape.hud.hint.clear_path";
+            case LINE -> "descentmtb.shape.hud.hint.straight_line";
             default -> this == AUTO ? "descentmtb.shape.hud.hint.auto" : "descentmtb.shape.hud.hint." + category;
         };
     }

@@ -28,7 +28,8 @@ import java.util.function.Consumer;
  * The block presets reshape that single block and never change the blocks around it; neighbours are only read
  * (see {@link ShapePresets}). Plain full blocks (dirt, grass, stone ...) first become a shaped copy of themselves.
  * The other kinds of mode tune copycat ramps ({@link RampTuning}), build a berm from three points
- * ({@link BermBuilder}), build a whole downhill line from two ({@link DownhillBuilder}) or copy and paste blocks
+ * ({@link BermBuilder}), build a whole downhill line from two ({@link DownhillBuilder}), clear a path of trees and plants
+ * ({@link ClearPathBuilder}), build a straight line of one grade ({@link StraightLineBuilder}) or copy and paste blocks
  * ({@link ShapeClipboard}). The jump builder ({@link JumpBuilder}) and the block editor ({@link BlockEditor}) are
  * opened as screens on the client and send their result in their own payloads. Every edit goes through
  * {@link TrailEdit}, so it can be undone.
@@ -63,8 +64,15 @@ public final class ShapeToolItem extends Item {
         return ShapeMode.fromName(data(stack).getString(MODE_TAG));
     }
 
+    /** Saves the mode in the tool; the point a line tool was waiting for is forgotten when the mode changes. */
     public static void mode(ItemStack stack, ShapeMode mode) {
-        editData(stack, tag -> tag.putString(MODE_TAG, mode.name()));
+        editData(stack, tag -> {
+            if (!mode.name().equals(tag.getString(MODE_TAG))) {
+                tag.remove(LinePoints.POINT_TAG);
+                tag.remove(LinePoints.DIMENSION_TAG);
+            }
+            tag.putString(MODE_TAG, mode.name());
+        });
     }
 
     /** Server side: switches the tool in the player's hand to another mode and drops what the old mode was waiting for. */
@@ -101,6 +109,8 @@ public final class ShapeToolItem extends Item {
             case BERM -> BermBuilder.click(player, tool, pos, shift);
             case COPY -> ShapeClipboard.click(player, tool, pos, shift);
             case DOWNHILL -> DownhillBuilder.click(player, tool, pos, shift);
+            case CLEAR -> ClearPathBuilder.click(player, tool, pos, shift);
+            case LINE -> StraightLineBuilder.click(player, tool, pos, shift);
             case JUMP -> false;   // the client opens the jump screen instead, its Build button builds (JumpBuilder)
         };
     }
@@ -132,13 +142,14 @@ public final class ShapeToolItem extends Item {
         return InteractionResult.CONSUME;
     }
 
-    /** Shift + right-click in the air: turns the clipboard (copy mode) or forgets the points (berm and downhill modes). */
+    /** Shift + right-click in the air: turns the clipboard (copy mode) or forgets the points (berm, downhill and line modes). */
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         ShapeMode.Kind kind = mode(stack).kind;
         boolean airAction = player.isShiftKeyDown()
-                && (kind == ShapeMode.Kind.COPY || kind == ShapeMode.Kind.BERM || kind == ShapeMode.Kind.DOWNHILL);
+                && (kind == ShapeMode.Kind.COPY || kind == ShapeMode.Kind.BERM || kind == ShapeMode.Kind.DOWNHILL
+                || kind == ShapeMode.Kind.CLEAR || kind == ShapeMode.Kind.LINE);
         if (!airAction) {
             return InteractionResultHolder.pass(stack);
         }
@@ -147,6 +158,8 @@ public final class ShapeToolItem extends Item {
                 ShapeClipboard.rotate(serverPlayer, stack);
             } else if (kind == ShapeMode.Kind.DOWNHILL) {
                 DownhillBuilder.clear(serverPlayer, stack);
+            } else if (kind == ShapeMode.Kind.CLEAR || kind == ShapeMode.Kind.LINE) {
+                LinePoints.clear(serverPlayer, stack);
             } else {
                 BermBuilder.clear(serverPlayer, stack);
             }

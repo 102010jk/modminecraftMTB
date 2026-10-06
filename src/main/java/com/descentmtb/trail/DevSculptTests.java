@@ -80,6 +80,7 @@ final class DevSculptTests {
         DevBermTests.run(p, l, x, y, z);
         DevDownhillTests.run(p, l, x, y, z);
         DevJumpTests.run(p, l, x, y, z);
+        DevLineTests.run(p, l, x, y, z);
         DevBlockEditorTests.run(p, l, x, y, z);
         DescentMtb.LOG.info("[sculpttest] ALL PASSED");
     }

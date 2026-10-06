@@ -21,7 +21,8 @@ import net.minecraft.world.phys.Vec3;
  * undoes one line, and rides the real blocks with the headless bike ({@link DevRideSim}). Called from {@link DevSculptTests}.
  */
 final class DevDownhillTests {
-    private static final int WIDTH = 40, DEPTH = 165;
+    /** The hillside is wide so that a line with a limited grade can swing across it in switchbacks; the line itself starts at X0. */
+    private static final int WIDTH = 110, DEPTH = 165, X0 = 45, X1 = 61;
 
     private static void check(boolean ok, String what) {
         if (!ok) {
@@ -44,8 +45,8 @@ final class DevDownhillTests {
         }
         try {
             layHillside(l, ox, oz, y);
-            BlockPos start = new BlockPos(ox + 10, top(y, 10, 3) , oz + 3);
-            BlockPos finish = new BlockPos(ox + 26, top(y, 26, 150), oz + 150);
+            BlockPos start = new BlockPos(ox + X0, top(y, X0, 3), oz + 3);
+            BlockPos finish = new BlockPos(ox + X1, top(y, X1, 150), oz + 150);
 
             ItemStack tool = new ItemStack(ModBlocks.TRAIL_SHOVEL.get());
             ShapeToolItem.mode(tool, ShapeMode.DOWNHILL);
@@ -64,7 +65,7 @@ final class DevDownhillTests {
                     int blocks = surfaceBlocks(l, ox, oz, y);
                     TrailEdit.undo(l, p);
                     check(blocks > 100 && surfaceBlocks(l, ox, oz, y) == 0, "downhill: one undo removes the whole line (" + blocks + " blocks)");
-                    check(l.getBlockState(new BlockPos(ox + 10, top(y, 10, 3), oz + 3)).is(Blocks.GRASS_BLOCK), "downhill: the grass is back after the undo");
+                    check(l.getBlockState(new BlockPos(ox + X0, top(y, X0, 3), oz + 3)).is(Blocks.GRASS_BLOCK), "downhill: the grass is back after the undo");
                     buildAndRide(p, l, tool, start, finish, style, Grade.WILD);   // the same click gives the same line again
                 }
                 TrailEdit.undo(l, p);
@@ -81,8 +82,8 @@ final class DevDownhillTests {
                 TrailEdit.undo(l, p);
                 check(surfaceBlocks(l, ox, oz, y) == 0, "downhill: the line made of stone is undone");
 
-                // a gentle grade over a short, steeper stretch has to wind down: hairpins ridden on the real blocks
-                BlockPos shortFinish = new BlockPos(ox + 26, top(y, 26, 60), oz + 60);
+                // a gentle grade over a shorter, steeper stretch has to wind down: hairpins ridden on the real blocks
+                BlockPos shortFinish = new BlockPos(ox + X1, top(y, X1, 100), oz + 100);
                 new DownhillBuilder.Settings(Style.FLOW, 3, Grade.GENTLE).store(tool);
                 buildAndRide(p, l, tool, start, shortFinish, Style.FLOW, Grade.GENTLE);
                 TrailEdit.undo(l, p);

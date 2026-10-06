@@ -8,11 +8,19 @@ import com.descentmtb.trail.BermBuilder;
 import com.descentmtb.trail.CursorSettings;
 import com.descentmtb.trail.DownhillBuilder;
 import com.descentmtb.trail.JumpBuilder;
+import com.descentmtb.trail.ClearPathBuilder;
 import com.descentmtb.trail.JumpProfiles;
+import com.descentmtb.trail.LinePoints;
+import com.descentmtb.trail.LineSettings;
+import com.descentmtb.trail.StraightLines;
+import com.descentmtb.trail.TrailEdit;
 import com.descentmtb.trail.ShapeMode;
 import com.descentmtb.trail.ShapePresets;
 import com.descentmtb.trail.ShapeToolItem;
 import com.descentmtb.trail.TrailSignBlock;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -107,7 +115,7 @@ public final class TrailClient {
      * Shift + wheel cycles the modes of the current category. In the berm mode it sets the steepness of the bank
      * instead (up is steeper), and Ctrl + Shift + wheel the width of the track. In the downhill mode it chooses the
      * style of the line (flow, jumps, mixed), Ctrl + Shift + wheel the width and Alt + wheel the grade (gentle, medium,
-     * steep, wild). With the cursor it chooses what a
+     * steep, wild). In the line tools (clear path, straight line) Ctrl + Shift + wheel chooses the width. With the cursor it chooses what a
      * click picks (by zone, corner, edge, whole block) and Ctrl + Shift + wheel the step (1/16, 1/8, 1/4).
      */
     public static void onScroll(InputEvent.MouseScrollingEvent event) {
@@ -150,6 +158,12 @@ public final class TrailClient {
             PacketDistributor.sendToServer(new ShapeTunePayload(mode, settings));
             return;
         }
+        if ((mode.kind == ShapeMode.Kind.CLEAR || mode.kind == ShapeMode.Kind.LINE) && Screen.hasControlDown()) {
+            var settings = LineSettings.read(stack).wider(step);
+            settings.store(stack);
+            PacketDistributor.sendToServer(new ShapeTunePayload(mode, settings));
+            return;
+        }
         ShapeMode next = mode.cycled(-step);
         ShapeToolItem.mode(stack, next);
         PacketDistributor.sendToServer(new ShapeTunePayload(next));
@@ -170,6 +184,7 @@ public final class TrailClient {
             case BERM -> bermStatus(stack);
             case DOWNHILL -> downhillStatus(stack);
             case JUMP -> jumpStatus(stack);
+            case CLEAR, LINE -> lineStatus(mc, stack, mode);
             default -> mode == ShapeMode.AUTO ? cursorStatus(stack) : null;
         };
         int width = Math.max(mc.font.width(description), Math.max(mc.font.width(hint), mc.font.width(name) + 21));
@@ -206,6 +221,38 @@ public final class TrailClient {
         }
         return Component.translatable("descentmtb.downhill.hud", Component.translatable(settings.style().key()), grade,
                 settings.width(), DownhillBuilder.points(stack).length, DownhillBuilder.POINTS);
+    }
+
+    /**
+     * "Width 3 m - Points 1/2" and, once point A is placed and a block is aimed at, "Length 23 m - Grade 12 % (6.8 deg)" (the
+     * straight line) or "Length 23 m" (the path clearing), in red when the player may not build that line.
+     */
+    private static Component lineStatus(Minecraft mc, net.minecraft.world.item.ItemStack stack, ShapeMode mode) {
+        LineSettings settings = LineSettings.read(stack);
+        boolean line = mode.kind == ShapeMode.Kind.LINE;
+        int width = line ? settings.width() : settings.clearWidth();
+        BlockPos a = LinePoints.first(stack);
+        MutableComponent status = Component.translatable("descentmtb.line.hud", width, a == null ? 0 : 1, 2);
+        if (a != null && mc.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK) {
+            BlockPos b = hit.getBlockPos();
+            var layout = new StraightLines.Layout(a.getX(), a.getY(), a.getZ(), b.getX(), b.getY(), b.getZ(), width);
+            if (layout.horizontal() >= 1) {
+                int creative = StraightLines.MAX_LENGTH_CREATIVE;
+                boolean bulk = TrailEdit.mayBulkEdit(mc.player);
+                boolean refused;
+                Component measure;
+                if (line) {
+                    refused = layout.problem(bulk ? creative : StraightLines.MAX_LENGTH) != null;
+                    measure = Component.translatable("descentmtb.line.hud.measure", String.format(Locale.ROOT, "%.0f", layout.length()),
+                            String.format(Locale.ROOT, "%.0f", layout.percent()), String.format(Locale.ROOT, "%.1f", layout.degrees()));
+                } else {
+                    refused = layout.horizontal() > (bulk ? creative : ClearPathBuilder.SURVIVAL_LENGTH);
+                    measure = Component.translatable("descentmtb.line.hud.distance", String.format(Locale.ROOT, "%.0f", layout.horizontal()));
+                }
+                status.append(" • ").append(refused ? measure.copy().withStyle(ChatFormatting.RED) : measure);
+            }
+        }
+        return status;
     }
 
     /** "Picks: Corner • Step 1/8" */
