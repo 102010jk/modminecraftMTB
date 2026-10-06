@@ -27,10 +27,13 @@ public final class StandRenderer implements BlockEntityRenderer<BikeStandBlockEn
         if(!stand.hasBike()) return;
         var facing=stand.getBlockState().getValue(BikeStandBlock.FACING);
         pose.pushPose();
-        pose.translate(.5,.15,.5);
+        pose.translate(.5,0,.5);
         pose.mulPose(Axis.YP.rotationDegrees(180-facing.toYRot()));
-        if(stand.bikeType()==com.descentmtb.entity.BikeType.HARDTAIL) pose.translate(0,.3,.077);
+        pose.translate(0,16.5/16,5.0/16);
         pose.scale(-1,-1,1);
+        boolean dj=stand.bikeType()==com.descentmtb.entity.BikeType.HARDTAIL;
+        // Put the actual seatpost centre inside the jaws, independently of frame height.
+        pose.translate(0,dj ? 9.3/16 : 14.0645/16,-(dj ? 3.8376/16 : 5.0721/16));
         BikeBuildRenderer.render(stand.bikeType(),stand.build(),pose,buffers,light);
         pose.popPose();
     }

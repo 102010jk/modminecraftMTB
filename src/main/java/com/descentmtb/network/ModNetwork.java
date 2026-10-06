@@ -11,7 +11,8 @@ public final class ModNetwork {
     }
 
     private static void onRegister(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar r = event.registrar("9");
+        PayloadRegistrar r = event.registrar("10");
+        r.playToClient(WorkshopResultPayload.TYPE,WorkshopResultPayload.CODEC,WorkshopResultPayload::handle);
         r.playToServer(ShapeTunePayload.TYPE,ShapeTunePayload.CODEC,ShapeTunePayload::handle);
         r.playToServer(RagdollRecoveryPayload.TYPE,RagdollRecoveryPayload.CODEC,RagdollRecoveryPayload::handle);
         r.playToServer(TrailUndoPayload.TYPE, TrailUndoPayload.CODEC, TrailUndoPayload::handle);

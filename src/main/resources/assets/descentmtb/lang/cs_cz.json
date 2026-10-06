@@ -540,5 +540,6 @@
   "descentmtb.custom.sticker.number_plate": "Startovní číslo",
   "descentmtb.custom.sticker.mountain": "Hory",
   "descentmtb.custom.sticker.paw": "Tlapka",
-  "descentmtb.custom.sticker.racing_7": "Závodní 7"
+  "descentmtb.custom.sticker.racing_7": "Závodní 7",
+  "descentmtb.workshop.status.rejected": "Uložení odmítnuto: stojan je prázdný nebo mimo dosah."
 }

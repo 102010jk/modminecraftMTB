@@ -13,6 +13,7 @@ import com.descentmtb.custom.BikeParts.StickerDesign;
 
 /** Decals attach to the posed tube, including suspension, steering and tailwhips. */
 public final class BikeDecorations {
+    static boolean preview;
     private static final EnumMap<StickerDesign,ResourceLocation> STICKERS=new EnumMap<>(StickerDesign.class);
     static { for(var d:StickerDesign.values()) STICKERS.put(d,ResourceLocation.fromNamespaceAndPath("descentmtb",d.texture())); }
 
@@ -52,7 +53,7 @@ public final class BikeDecorations {
                 pose.popPose();
             }
         }
-        if(name.equals("acc_flight_lens")) cone(pose,buffers,build.lightColor().rgb);
+        if(!preview && name.equals("acc_flight_lens")) cone(pose,buffers,build.lightColor().rgb);
     }
 
     public static Tube tube(String name) {

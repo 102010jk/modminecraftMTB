@@ -1,16 +1,3 @@
 {
-  "parent": "minecraft:item/generated",
-  "loader": "neoforge:item_layers",
-  "textures": {
-    "layer0": "descentmtb:item/bike_layers/enduro_classic_outline",
-    "layer1": "descentmtb:item/bike_layers/enduro_classic_tyres",
-    "layer2": "descentmtb:item/bike_layers/enduro_classic_rims",
-    "layer3": "descentmtb:item/bike_layers/enduro_classic_frame",
-    "layer4": "descentmtb:item/bike_layers/enduro_classic_fork",
-    "layer5": "descentmtb:item/bike_layers/enduro_classic_cockpit",
-    "layer6": "descentmtb:item/bike_layers/acc_bell",
-    "layer7": "descentmtb:item/bike_layers/acc_duck",
-    "layer8": "descentmtb:item/bike_layers/acc_front_light",
-    "layer9": "descentmtb:item/bike_layers/acc_rear_light"
-  }
+  "parent": "minecraft:builtin/entity"
 }

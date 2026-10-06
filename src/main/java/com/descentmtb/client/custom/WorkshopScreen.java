@@ -346,8 +346,12 @@ public final class WorkshopScreen extends Screen {
         }
         BikeBuild toSend = build();
         WorkshopNet.apply(stand, toSend);
-        saved = toSend;
-        savedFlash = 50;
+    }
+
+    void saveResult(BlockPos at,boolean accepted,BikeBuild authoritative) {
+        if(!stand.equals(at)) return;
+        if(accepted) { saved=authoritative; savedFlash=50; }
+        else savedFlash=0;
     }
 
     /** Close / take-off with unsaved changes asks first. */

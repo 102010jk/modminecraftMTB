@@ -30,6 +30,9 @@ public record WorkshopApplyPayload(BlockPos pos, BikeBuild build) implements Cus
     }
 
     static void handle(WorkshopApplyPayload m, IPayloadContext ctx) {
-        BikeStands.apply(ctx.player(), m.pos, m.build);
+        boolean accepted=BikeStands.apply(ctx.player(), m.pos, m.build);
+        var stand=BikeStands.usable(ctx.player(),m.pos);
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer((net.minecraft.server.level.ServerPlayer)ctx.player(),
+                new WorkshopResultPayload(m.pos,accepted,accepted && stand!=null ? stand.build() : m.build));
     }
 }

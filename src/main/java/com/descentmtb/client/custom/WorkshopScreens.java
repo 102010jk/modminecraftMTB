@@ -21,5 +21,12 @@ public final class WorkshopScreens {
         net.minecraft.client.Minecraft.getInstance().setScreen(new WorkshopScreen(stand, type, build));
     }
 
+    public static void result(BlockPos stand,boolean accepted,BikeBuild build) {
+        var mc=net.minecraft.client.Minecraft.getInstance();
+        if(mc.screen instanceof WorkshopScreen workshop) workshop.saveResult(stand,accepted,build);
+        if(!accepted && mc.player!=null) mc.player.displayClientMessage(
+                net.minecraft.network.chat.Component.translatable("descentmtb.workshop.status.rejected"),true);
+    }
+
     private WorkshopScreens() {}
 }

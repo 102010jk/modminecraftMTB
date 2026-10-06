@@ -75,8 +75,7 @@ models=Path('src/main/resources/assets/descentmtb/models/item')
 shapes=['enduro_classic','enduro_high_pivot','enduro_low_slung','dj_classic','dj_straight','dj_curved']
 names=['outline','tyres','rims','frame','fork','cockpit']
 for shape in shapes:
- data={'parent':'minecraft:item/generated','loader':'neoforge:item_layers','textures':{f'layer{i}':f'descentmtb:item/bike_layers/{shape}_{name}' for i,name in enumerate(names)}}
- for i,name in enumerate(['bell','duck','front_light','rear_light'],6):data['textures'][f'layer{i}']=f'descentmtb:item/bike_layers/acc_{name}'
+ data={'parent':'minecraft:builtin/entity'}
  (models/f'bike_{shape}.json').write_text(json.dumps(data,indent=2)+'\n',encoding='utf-8')
 for item,default in [('mountain_bike',0),('hardtail_bike',3)]:
  data=json.loads((models/f'bike_{shapes[default]}.json').read_text())

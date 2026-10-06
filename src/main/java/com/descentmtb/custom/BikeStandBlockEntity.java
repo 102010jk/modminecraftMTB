@@ -58,6 +58,8 @@ public final class BikeStandBlockEntity extends BlockEntity {
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
+        // NeoForge ignores an empty update tag. Always send a state, including when taking the bike off.
+        tag.putBoolean("HasBike", !bike.isEmpty());
         if (!bike.isEmpty()) {
             tag.put(BIKE, bike.save(registries));
         }

@@ -540,5 +540,6 @@
   "descentmtb.custom.sticker.number_plate": "Number plate",
   "descentmtb.custom.sticker.mountain": "Mountain",
   "descentmtb.custom.sticker.paw": "Paw",
-  "descentmtb.custom.sticker.racing_7": "Racing 7"
+  "descentmtb.custom.sticker.racing_7": "Racing 7",
+  "descentmtb.workshop.status.rejected": "Save rejected: the stand is empty or out of reach."
 }
