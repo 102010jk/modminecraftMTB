@@ -19,7 +19,7 @@ public final class SurfacePlans {
  }
  private static Map<BlockPos,TrailEdit.Change> surface(Level l,int x0,int z0,int x1,int z1,double reference,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,boolean wood,boolean preserve){
   if((long)(x1-x0+1)*(z1-z0+1)>20000 || x1-x0>TrailConfig.MAX_LENGTH.get()+32 || z1-z0>TrailConfig.MAX_LENGTH.get()+32)throw new TrailEdit.Rejected("descentmtb.edit.area_too_big");
-  return surface(l,x0,z0,x1,z1,(x,z)->terrain(l,x,z,reference),height,contains,wood,preserve,0);
+  return surface(l,x0,z0,x1,z1,(x,z)->terrain(l,x,z,reference),height,contains,wood,preserve,0,null,false);
  }
  /**
   * Dirt surface over a long stretch of hillside (the downhill line): like {@link #surface} but the ground is given
@@ -28,15 +28,24 @@ public final class SurfacePlans {
   * downhill line can be.
   */
  public static Map<BlockPos,TrailEdit.Change> hillside(Level l,int x0,int z0,int x1,int z1,DoubleBinaryOperator columnTop,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,int headroom){
-  if((long)(x1-x0+1)*(z1-z0+1)>200000)throw new TrailEdit.Rejected("descentmtb.edit.area_too_big");
-  return surface(l,x0,z0,x1,z1,columnTop,height,contains,false,false,headroom);
+  return hillside(l,x0,z0,x1,z1,columnTop,height,contains,headroom,null,false);
  }
- private static Map<BlockPos,TrailEdit.Change> surface(Level l,int x0,int z0,int x1,int z1,DoubleBinaryOperator columnTop,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,boolean wood,boolean preserve,int headroom){
+ /**
+  * Like {@link #hillside(Level,int,int,int,int,DoubleBinaryOperator,DoubleBinaryOperator,java.util.function.BiPredicate,int)},
+  * with the surface made of {@code material} (a full block, as the copycat material of the shaped blocks; null for
+  * trail dirt). With {@code payMaterial} the visible layer of every column is one the player pays one item of that
+  * material for (survival), on top of the trail dirt the edit costs.
+  */
+ public static Map<BlockPos,TrailEdit.Change> hillside(Level l,int x0,int z0,int x1,int z1,DoubleBinaryOperator columnTop,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,int headroom,net.minecraft.world.level.block.state.BlockState material,boolean payMaterial){
+  if((long)(x1-x0+1)*(z1-z0+1)>200000)throw new TrailEdit.Rejected("descentmtb.edit.area_too_big");
+  return surface(l,x0,z0,x1,z1,columnTop,height,contains,false,false,headroom,material,payMaterial);
+ }
+ private static Map<BlockPos,TrailEdit.Change> surface(Level l,int x0,int z0,int x1,int z1,DoubleBinaryOperator columnTop,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,boolean wood,boolean preserve,int headroom,net.minecraft.world.level.block.state.BlockState custom,boolean payMaterial){
   var samples=new HashMap<Long,Double>();DoubleBinaryOperator sampled=(x,z)->samples.computeIfAbsent(BlockPos.asLong((int)x,0,(int)z),k->height.applyAsDouble(x,z));
   var out=new LinkedHashMap<BlockPos,TrailEdit.Change>();
   for(int x=x0;x<=x1;x++)for(int z=z0;z<=z1;z++){
    if(!contains.test(x+.5,z+.5))continue;
-   net.minecraft.nbt.CompoundTag decoration=null;boolean deck=wood;var material=wood?Blocks.OAK_PLANKS.defaultBlockState():Blocks.COARSE_DIRT.defaultBlockState();
+   net.minecraft.nbt.CompoundTag decoration=null;boolean deck=wood;var material=wood?Blocks.OAK_PLANKS.defaultBlockState():custom!=null?custom:Blocks.COARSE_DIRT.defaultBlockState();
    double old=columnTop.applyAsDouble(x+.5,z+.5);
    if(Double.isNaN(old))continue;
    if(preserve && l.getBlockState(new BlockPos(x,(int)Math.floor(old-.0001),z)).is(ModBlocks.RAMP.get()))continue;
@@ -45,7 +54,7 @@ public final class SurfacePlans {
    double[] occupied=h.clone();double amplitude=decoration==null?0:OverlayMath.amplitude(decoration.getInt("Overlay"));for(int i=0;i<4;i++)occupied[i]+=amplitude;
    var stack=ColumnShaper.layers(occupied,deck);
    int bottom=ColumnShaper.layers(h,deck).bottom(),top=stack.top();
-   for(int y=bottom;y<=top;y++){double[] local=h.clone();for(int i=0;i<4;i++)local[i]-=y;out.put(new BlockPos(x,y,z),new TrailEdit.Change(ModBlocks.TRAIL_SURFACE.get().defaultBlockState(),decoration==null?null:decoration.copy(),local,material,deck));}
+   for(int y=bottom;y<=top;y++){double[] local=h.clone();for(int i=0;i<4;i++)local[i]-=y;var change=new TrailEdit.Change(ModBlocks.TRAIL_SURFACE.get().defaultBlockState(),decoration==null?null:decoration.copy(),local,material,deck);out.put(new BlockPos(x,y,z),payMaterial&&y==top?change.paid():change);}
    if(deck){
     // Remove obsolete layers when a wooden wave is moved up/down, retaining the empty underside.
     for(int y=(int)Math.floor(old-.15);y<=(int)Math.ceil(old);y++)if(y<bottom||y>top){var p=new BlockPos(x,y,z);if(l.getBlockEntity(p) instanceof TrailSurfaceEntity oldDeck&&oldDeck.deck())out.put(p,TrailEdit.Change.block(Blocks.AIR.defaultBlockState()));}

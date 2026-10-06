@@ -3,6 +3,7 @@ package com.descentmtb.trail;
 import com.descentmtb.DescentMtb;
 import com.descentmtb.entity.BikeType;
 import com.descentmtb.registry.ModBlocks;
+import com.descentmtb.trail.DownhillShapes.Grade;
 import com.descentmtb.trail.DownhillShapes.Style;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -57,16 +58,37 @@ final class DevDownhillTests {
             check(DownhillBuilder.points(tool).length == 0, "downhill: Shift + click forgets the start");
 
             for (Style style : Style.values()) {
-                new DownhillBuilder.Settings(style, 3).store(tool);
-                buildAndRide(p, l, tool, start, finish, style);
+                new DownhillBuilder.Settings(style, 3, Grade.WILD).store(tool);
+                buildAndRide(p, l, tool, start, finish, style, Grade.WILD);
                 if (style == Style.FLOW) {
                     int blocks = surfaceBlocks(l, ox, oz, y);
                     TrailEdit.undo(l, p);
                     check(blocks > 100 && surfaceBlocks(l, ox, oz, y) == 0, "downhill: one undo removes the whole line (" + blocks + " blocks)");
                     check(l.getBlockState(new BlockPos(ox + 10, top(y, 10, 3), oz + 3)).is(Blocks.GRASS_BLOCK), "downhill: the grass is back after the undo");
-                    buildAndRide(p, l, tool, start, finish, style);   // the same click gives the same line again
+                    buildAndRide(p, l, tool, start, finish, style, Grade.WILD);   // the same click gives the same line again
                 }
                 TrailEdit.undo(l, p);
+            }
+
+            // the default grade, made of the block in the off-hand
+            ItemStack offHand = p.getOffhandItem();
+            try {
+                p.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Blocks.STONE));
+                new DownhillBuilder.Settings(Style.FLOW, 3, Grade.MEDIUM).store(tool);
+                check(DownhillBuilder.Settings.read(tool).grade() == Grade.MEDIUM, "downhill: the grade is kept in the tool");
+                buildAndRide(p, l, tool, start, finish, Style.FLOW, Grade.MEDIUM);
+                check(materialNear(l, start) == Blocks.STONE, "downhill: the line is made of the block in the off-hand");
+                TrailEdit.undo(l, p);
+                check(surfaceBlocks(l, ox, oz, y) == 0, "downhill: the line made of stone is undone");
+
+                // a gentle grade over a short, steeper stretch has to wind down: hairpins ridden on the real blocks
+                BlockPos shortFinish = new BlockPos(ox + 26, top(y, 26, 60), oz + 60);
+                new DownhillBuilder.Settings(Style.FLOW, 3, Grade.GENTLE).store(tool);
+                buildAndRide(p, l, tool, start, shortFinish, Style.FLOW, Grade.GENTLE);
+                TrailEdit.undo(l, p);
+                check(surfaceBlocks(l, ox, oz, y) == 0, "downhill: the gentle winding line is undone");
+            } finally {
+                p.setItemInHand(InteractionHand.OFF_HAND, offHand);
             }
         } finally {
             for (int cx = ox >> 4; cx <= (ox + WIDTH) >> 4; cx++) {
@@ -81,11 +103,11 @@ final class DevDownhillTests {
         ShapeToolItem.shape(p, pos, Vec3.atCenterOf(pos), Direction.SOUTH, shift);
     }
 
-    private static void buildAndRide(ServerPlayer p, ServerLevel l, ItemStack tool, BlockPos start, BlockPos finish, Style style) {
+    private static void buildAndRide(ServerPlayer p, ServerLevel l, ItemStack tool, BlockPos start, BlockPos finish, Style style, Grade grade) {
         // plan it the way the item will (on the untouched ground), so the ride can follow the same centre line
         HillGround ground = new HillGround(l);
         DownhillShapes line = DownhillShapes.plan(ground::height, start.getX() + .5, start.getZ() + .5, finish.getX() + .5, finish.getZ() + .5,
-                new DownhillShapes.Params(style, 3, TrailConfig.MAX_DOWNHILL.get()), start.asLong() * 31 + finish.asLong());
+                new DownhillShapes.Params(style, 3, TrailConfig.MAX_DOWNHILL.get(), grade), start.asLong() * 31 + finish.asLong());
         click(p, start, false);
         click(p, finish, false);
         check(DownhillBuilder.points(tool).length == 0, "downhill " + style + ": the second click builds and forgets the start");
@@ -94,7 +116,7 @@ final class DevDownhillTests {
         double[][] path = line.centre();
         var result = DevRideSim.ride(l, path, false, ground.height(path[0][0], path[0][1]) + .3, line.length() / 6 + 25, 9,
                 BikeType.ENDURO, null, DevRideSim.Rider.DOWNHILL);
-        DescentMtb.LOG.info("[sculpttest] downhill {} ({} m, {} jumps, {} berms) ridden on the real blocks: {}", style,
+        DescentMtb.LOG.info("[sculpttest] downhill {} {} ({} m, {} jumps, {} berms) ridden on the real blocks: {}", style, grade,
                 (int) line.length(), line.jumps(), line.berms(), result.summary());
         check(!result.bailed(), "downhill " + style + " can be ridden without bailing");
         check(result.laps() > .97, "downhill " + style + " reaches the finish (" + (int) (result.laps() * 100) + " %)");
@@ -115,6 +137,16 @@ final class DevDownhillTests {
                 }
             }
         }
+    }
+
+    /** The material of the first shaped block around {@code pos}, null when there is none. */
+    private static net.minecraft.world.level.block.Block materialNear(ServerLevel l, BlockPos pos) {
+        for (BlockPos near : BlockPos.betweenClosed(pos.offset(-1, -2, -1), pos.offset(1, 2, 1))) {
+            if (l.getBlockEntity(near) instanceof TrailSurfaceEntity shaped) {
+                return shaped.getMaterial().getBlock();
+            }
+        }
+        return null;
     }
 
     private static boolean surfaceNear(ServerLevel l, BlockPos pos) {

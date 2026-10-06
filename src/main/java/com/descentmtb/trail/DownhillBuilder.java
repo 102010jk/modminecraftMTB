@@ -1,5 +1,6 @@
 package com.descentmtb.trail;
 
+import com.descentmtb.trail.DownhillShapes.Grade;
 import com.descentmtb.trail.DownhillShapes.Style;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -8,6 +9,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.HashMap;
 import java.util.List;
@@ -17,16 +19,17 @@ import java.util.function.DoubleBinaryOperator;
 /**
  * The downhill line of the Trail Shaper ({@link ShapeMode#DOWNHILL}): right-click the top of a slope and then its
  * bottom, and a line of berms, rollers and jumps is built between them, as one {@link TrailEdit} step (undo with Z).
- * Shift + right-click forgets the first point. Only creative players and operators may build downhill lines. The style and the width are chosen with the mouse wheel while the mode
- * is selected (see {@link Settings}); the line itself is planned by {@link DownhillShapes}, over the terrain read by
- * {@link HillGround}.
+ * Shift + right-click forgets the first point. Only creative players and operators may build downhill lines. The style,
+ * the width and the grade are chosen with the mouse wheel while the mode is selected (see {@link Settings}); the line itself
+ * is planned by {@link DownhillShapes}, over the terrain read by {@link HillGround}. A full block in the off-hand is the
+ * material the surface is made of (trail dirt without one).
  *
  * <p>The first point lives in the tool's custom data (with its dimension; a start from another dimension is
  * forgotten), so the client can draw it.
  */
 public final class DownhillBuilder {
-    /** Custom data keys: the points (as packed block positions), the style (ordinal) and the width (m). */
-    public static final String POINTS_TAG = "DownhillPoints", DIMENSION_TAG = "DownhillDim", STYLE_TAG = "DownhillStyle", WIDTH_TAG = "DownhillWidth";
+    /** Custom data keys: the points (as packed block positions), the style (ordinal), the width (m) and the grade (name). */
+    public static final String POINTS_TAG = "DownhillPoints", DIMENSION_TAG = "DownhillDim", STYLE_TAG = "DownhillStyle", WIDTH_TAG = "DownhillWidth", GRADE_TAG = "DownhillGrade";
     /** Start and finish. */
     public static final int POINTS = 2;
     /** The widths (m) the wheel steps through. */
@@ -34,9 +37,9 @@ public final class DownhillBuilder {
     /** Air kept clear above the track (blocks). */
     private static final int HEADROOM = 2;
 
-    /** The line chosen in the tool: what the features are and how wide the track is. */
-    public record Settings(Style style, int width) {
-        public static final Settings DEFAULT = new Settings(Style.MIXED, WIDTHS[0]);
+    /** The line chosen in the tool: what the features are, how wide the track is and how steep it may get. */
+    public record Settings(Style style, int width, Grade grade) {
+        public static final Settings DEFAULT = new Settings(Style.MIXED, WIDTHS[0], Grade.MEDIUM);
 
         public static Settings read(ItemStack tool) {
             var data = ShapeToolItem.data(tool);
@@ -44,24 +47,31 @@ public final class DownhillBuilder {
                 return DEFAULT;
             }
             Style[] all = Style.values();
-            return new Settings(all[Math.max(0, Math.min(all.length - 1, data.getInt(STYLE_TAG)))], nearestWidth(data.getInt(WIDTH_TAG)));
+            Grade grade = data.contains(GRADE_TAG) ? Grade.fromName(data.getString(GRADE_TAG)) : DEFAULT.grade();
+            return new Settings(all[Math.max(0, Math.min(all.length - 1, data.getInt(STYLE_TAG)))], nearestWidth(data.getInt(WIDTH_TAG)), grade);
         }
 
         public void store(ItemStack tool) {
             ShapeToolItem.editData(tool, tag -> {
                 tag.putInt(STYLE_TAG, style.ordinal());
                 tag.putInt(WIDTH_TAG, width);
+                tag.putString(GRADE_TAG, grade.name());
             });
         }
 
         /** These settings with the width snapped to one of {@link #WIDTHS} (what a client sends is not trusted). */
         public Settings bounded() {
-            return new Settings(style, nearestWidth(width));
+            return new Settings(style, nearestWidth(width), grade);
         }
 
         /** These settings with the next (or previous, with a negative step) style. */
         public Settings styled(int step) {
-            return new Settings(style.cycled(step), width);
+            return new Settings(style.cycled(step), width, grade);
+        }
+
+        /** These settings with the next (or previous, with a negative step) grade; it stops at the ends. */
+        public Settings graded(int step) {
+            return new Settings(style, width, grade.shifted(step));
         }
 
         /** These settings with the width moved by {@code step} entries of {@link #WIDTHS}. */
@@ -72,7 +82,7 @@ public final class DownhillBuilder {
                     index = i;
                 }
             }
-            return new Settings(style, WIDTHS[Math.max(0, Math.min(WIDTHS.length - 1, index + step))]);
+            return new Settings(style, WIDTHS[Math.max(0, Math.min(WIDTHS.length - 1, index + step))], grade);
         }
 
         private static int nearestWidth(int width) {
@@ -110,7 +120,7 @@ public final class DownhillBuilder {
             return true;
         }
         store(tool, List.of(), dimension);
-        return build(player, BlockPos.of(placed[0]), pos, Settings.read(tool));
+        return build(player, BlockPos.of(placed[0]), pos, Settings.read(tool), BlockEditor.offHandMaterial(player, pos));
     }
 
     /** Forgets the points placed so far. */
@@ -133,14 +143,14 @@ public final class DownhillBuilder {
     }
 
     /** Plans the line between the two clicked blocks and applies it. */
-    private static boolean build(ServerPlayer player, BlockPos start, BlockPos finish, Settings settings) {
+    private static boolean build(ServerPlayer player, BlockPos start, BlockPos finish, Settings settings, BlockState material) {
         ServerLevel level = player.serverLevel();
         try {
             HillGround ground = new HillGround(level);
-            DownhillShapes.Params params = new DownhillShapes.Params(settings.style(), settings.width(), TrailConfig.MAX_DOWNHILL.get());
+            DownhillShapes.Params params = new DownhillShapes.Params(settings.style(), settings.width(), TrailConfig.MAX_DOWNHILL.get(), settings.grade());
             DownhillShapes line = DownhillShapes.plan(ground::height, start.getX() + .5, start.getZ() + .5,
                     finish.getX() + .5, finish.getZ() + .5, params, start.asLong() * 31 + finish.asLong());
-            int blocks = TrailEdit.apply(level, player, plan(level, ground, line), false);   // creative / operator only: free
+            int blocks = TrailEdit.apply(level, player, plan(level, ground, line, material), false);   // creative / operator only: free
             level.playSound(null, start, SoundEvents.GRAVEL_PLACE, SoundSource.BLOCKS, .8f, .8f);
             message(player, "descentmtb.downhill.built", (int) Math.round(line.length()), line.jumps(), line.berms());
             return blocks > 0;
@@ -155,9 +165,10 @@ public final class DownhillBuilder {
 
     /**
      * The block changes that give the terrain the shape of {@code line}: dirt surface along the track and where it
-     * visibly changes the ground, plants and trees cleared from the track and {@link #HEADROOM} blocks above it.
+     * visibly changes the ground, plants and trees cleared from the track and {@link #HEADROOM} blocks above it. The
+     * surface is made of {@code material} (null: trail dirt).
      */
-    static Map<BlockPos, TrailEdit.Change> plan(ServerLevel level, HillGround ground, DownhillShapes line) {
+    static Map<BlockPos, TrailEdit.Change> plan(ServerLevel level, HillGround ground, DownhillShapes line, BlockState material) {
         Map<Long, Double> remembered = new HashMap<>();
         DoubleBinaryOperator heights = line.heights();
         DoubleBinaryOperator height = (x, z) -> remembered.computeIfAbsent(BlockPos.asLong((int) Math.round(x), 0, (int) Math.round(z)),
@@ -179,7 +190,7 @@ public final class DownhillBuilder {
         };
         int[] box = line.bounds();
         return SurfacePlans.hillside(level, box[0], box[1], box[2], box[3], (x, z) -> ground.column((int) Math.floor(x), (int) Math.floor(z)),
-                height, changes, HEADROOM);
+                height, changes, HEADROOM, material, false);
     }
 
     private static void message(ServerPlayer player, String key, Object... args) {

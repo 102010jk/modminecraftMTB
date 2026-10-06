@@ -18,10 +18,10 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 /**
  * Client to server: the Trail Shaper in the player's hand switches to another {@link ShapeMode} (by ordinal) and, for
  * the berm mode, takes the chosen berm steepness (ordinal) and width (m); for the downhill mode the second number is the
- * style (ordinal); for the cursor ({@link ShapeMode#AUTO}) the two numbers are its sub-type and its step (ordinals).
- * A negative steepness means "no settings".
+ * style (ordinal) and {@code grade} the grade level (ordinal); for the cursor ({@link ShapeMode#AUTO}) the two numbers are its
+ * sub-type and its step (ordinals). A negative steepness means "no settings", a negative grade "no grade".
  */
-public record ShapeTunePayload(int mode, int steepness, int width) implements CustomPacketPayload {
+public record ShapeTunePayload(int mode, int steepness, int width, int grade) implements CustomPacketPayload {
     public static final Type<ShapeTunePayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath("descentmtb", "shape_tune"));
 
@@ -30,26 +30,27 @@ public record ShapeTunePayload(int mode, int steepness, int width) implements Cu
                 buf.writeVarInt(message.mode);
                 buf.writeVarInt(message.steepness + 1);
                 buf.writeVarInt(message.width);
+                buf.writeVarInt(message.grade + 1);
             },
-            buf -> new ShapeTunePayload(buf.readVarInt(), buf.readVarInt() - 1, buf.readVarInt()));
+            buf -> new ShapeTunePayload(buf.readVarInt(), buf.readVarInt() - 1, buf.readVarInt(), buf.readVarInt() - 1));
 
     public ShapeTunePayload(ShapeMode mode) {
-        this(mode.ordinal(), -1, 0);
+        this(mode.ordinal(), -1, 0, -1);
     }
 
     /** A switch to the berm mode with the given settings. */
     public ShapeTunePayload(ShapeMode mode, BermBuilder.Settings settings) {
-        this(mode.ordinal(), settings.steepness().ordinal(), settings.width());
+        this(mode.ordinal(), settings.steepness().ordinal(), settings.width(), -1);
     }
 
     /** A switch to the downhill mode with the given settings. */
     public ShapeTunePayload(ShapeMode mode, DownhillBuilder.Settings settings) {
-        this(mode.ordinal(), settings.style().ordinal(), settings.width());
+        this(mode.ordinal(), settings.style().ordinal(), settings.width(), settings.grade().ordinal());
     }
 
     /** A switch to the cursor with the given sub-type and step. */
     public ShapeTunePayload(ShapeMode mode, CursorSettings settings) {
-        this(mode.ordinal(), settings.pick().ordinal(), settings.step().ordinal());
+        this(mode.ordinal(), settings.pick().ordinal(), settings.step().ordinal(), -1);
     }
 
     @Override
@@ -75,8 +76,9 @@ public record ShapeTunePayload(int mode, int steepness, int width) implements Cu
         }
         if (ShapeToolItem.mode(player.getMainHandItem()).kind == ShapeMode.Kind.DOWNHILL) {
             DownhillShapes.Style[] styles = DownhillShapes.Style.values();
-            if (message.steepness >= 0 && message.steepness < styles.length) {
-                new DownhillBuilder.Settings(styles[message.steepness], message.width).bounded().store(player.getMainHandItem());
+            DownhillShapes.Grade[] grades = DownhillShapes.Grade.values();
+            if (message.steepness >= 0 && message.steepness < styles.length && message.grade >= 0 && message.grade < grades.length) {
+                new DownhillBuilder.Settings(styles[message.steepness], message.width, grades[message.grade]).bounded().store(player.getMainHandItem());
             }
             return;
         }

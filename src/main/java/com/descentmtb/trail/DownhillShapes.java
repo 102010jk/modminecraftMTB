@@ -26,6 +26,12 @@ import java.util.function.DoubleBinaryOperator;
  *       steeply as the flight path comes in.</li>
  * </ol>
  * The track is flat across its width and fades into the terrain beside it.
+ *
+ * <p>The {@link Grade} limits how steep the trail itself may be. With a limit the route search charges for grade
+ * above it, a hillside that drops faster than the limit is crossed in switchbacks ({@link Serpentine}: long traverses
+ * and berm hairpins with a nearly flat platform) and the height along the line is the terrain smoothed and then
+ * held to the limit, bench-cut into the slope and filled where the ground is locally steeper. Without a limit
+ * ({@link Grade#WILD}) the line follows the terrain as it is.
  */
 public final class DownhillShapes {
     /** What the features along the line are. */
@@ -48,14 +54,71 @@ public final class DownhillShapes {
         }
     }
 
+    /** How steep the trail may be: the grade of the line itself, not of the hillside. */
+    public enum Grade {
+        /** Up to about 6 degrees: long switchbacks, rollers and berms. */
+        GENTLE(6),
+        /** Up to about 10 degrees: the default. */
+        MEDIUM(10),
+        /** Up to about 16 degrees. */
+        STEEP(16),
+        /** No limit: the line follows the terrain. */
+        WILD(0);
+
+        /** The steepest grade in degrees, 0 for none. */
+        public final int degrees;
+
+        Grade(int degrees) {
+            this.degrees = degrees;
+        }
+
+        public boolean limited() {
+            return degrees > 0;
+        }
+
+        /** The steepest grade as rise over run (infinite without a limit). */
+        public double slope() {
+            return limited() ? Math.tan(Math.toRadians(degrees)) : Double.POSITIVE_INFINITY;
+        }
+
+        /** Language key of the name. */
+        public String key() {
+            return "descentmtb.downhill.grade." + name().toLowerCase(Locale.ROOT);
+        }
+
+        /** The next (or previous, with a negative step) level; it stops at the ends. */
+        public Grade shifted(int step) {
+            return values()[Math.max(0, Math.min(values().length - 1, ordinal() + step))];
+        }
+
+        /** The level of that name; {@link #MEDIUM} for an unknown one. */
+        public static Grade fromName(String name) {
+            for (Grade grade : values()) {
+                if (grade.name().equals(name)) {
+                    return grade;
+                }
+            }
+            return MEDIUM;
+        }
+    }
+
     /** What a feature is. */
     public enum Kind { KICKER, TABLE, ROLLERS, DROP, BERM }
 
     /** A feature along the line between {@code from} and {@code to} (m from the start). */
     public record Feature(Kind kind, double from, double to) {}
 
-    /** @param width width of the track (m), {@code maxLength} the longest line (m) accepted */
-    public record Params(Style style, double width, double maxLength) {}
+    /**
+     * @param width     width of the track (m)
+     * @param maxLength the longest line (m) accepted
+     * @param grade     how steep the trail may be
+     */
+    public record Params(Style style, double width, double maxLength, Grade grade) {
+        /** The line that follows the terrain, whatever its grade ({@link Grade#WILD}). */
+        public Params(Style style, double width, double maxLength) {
+            this(style, width, maxLength, Grade.WILD);
+        }
+    }
 
     /** The line is not possible; {@link #key} is a language key. */
     public static final class Rejected extends IllegalArgumentException {
@@ -84,6 +147,8 @@ public final class DownhillShapes {
     /** A turn of this many radians within {@link #TURN_WINDOW} samples gets a berm. */
     private static final double TURN = Math.toRadians(35);
     private static final int TURN_WINDOW = 8;
+    /** How far (m) a traverse of a switchback line may stray from its straight line when the search has to go round water. */
+    private static final int TRAVERSE_CORRIDOR = 6;
     /** The ground may not climb faster than this (rise over run). */
     private static final double MAX_CLIMB = .06;
     /** Flat ground below this grade gets tables instead of gap jumps. */
@@ -107,7 +172,27 @@ public final class DownhillShapes {
         Feature feature();
     }
 
-    private record Berm(BermShapes shape, double from, double to) {}
+    /** A turn of the line, built as one berm or (a hairpin) as several chained ones: each piece is {@code {entry, apex, exit}}. */
+    private record Turn(List<double[][]> pieces, boolean hairpin) {
+        double[] entry() {
+            return pieces.get(0)[0];
+        }
+
+        double[] exit() {
+            return pieces.get(pieces.size() - 1)[2];
+        }
+    }
+
+    private record Berm(BermShapes shape, double from, double to, int[] box) {
+        Berm(BermShapes shape, double from, double to) {
+            this(shape, from, to, shape.bounds());
+        }
+
+        /** False for points far from the berm, which saves asking it. */
+        boolean near(double x, double z) {
+            return x >= box[0] && x <= box[2] + 1 && z >= box[1] && z <= box[3] + 1;
+        }
+    }
 
     private final DoubleBinaryOperator ground;
     private final double[][] centre;
@@ -148,18 +233,98 @@ public final class DownhillShapes {
         if (Double.isNaN(ground.applyAsDouble(startX, startZ)) || Double.isNaN(ground.applyAsDouble(finishX, finishZ))) {
             throw new Rejected("descentmtb.downhill.no_ground");
         }
+        List<Turn> turns = new ArrayList<>();
+        double[][] route = params.grade().limited()
+                ? gradedRoute(ground, startX, startZ, finishX, finishZ, params, turns)
+                : plainRoute(ground, startX, startZ, finishX, finishZ, params, turns);
+
+        DownhillShapes line = new DownhillShapes(ground, route, params);
+        line.shapeGrade(turns, params.grade());
+        line.addBerms(turns, params.width(), params.grade());
+        // a gentle trail has no gap jumps: rollers and berms only
+        line.addFeatures(params.grade() == Grade.GENTLE ? Style.FLOW : params.style(), new Random(seed));
+        return line;
+    }
+
+    /** The route that follows the terrain; its sharp turns become berms. */
+    private static double[][] plainRoute(DoubleBinaryOperator ground, double startX, double startZ, double finishX, double finishZ,
+                                         Params params, List<Turn> turns) {
         double[][] route = DownhillRoute.find(ground, startX, startZ, finishX, finishZ);
         if (DownhillRoute.length(route) > params.maxLength()) {
             throw new Rejected("descentmtb.downhill.too_long", (int) params.maxLength());
         }
-        List<double[][]> turns = new ArrayList<>();
-        route = DownhillRoute.resample(withBermCurves(route, params.width(), turns), STEP);
+        return DownhillRoute.resample(withBermCurves(route, params.width(), turns), STEP);
+    }
 
-        DownhillShapes line = new DownhillShapes(ground, route, params);
-        line.shapeGrade(turns);
-        line.addBerms(turns, params.width());
-        line.addFeatures(params.style(), new Random(seed));
-        return line;
+    /**
+     * The route of a trail with a grade limit: the way the cost-weighted search finds when it is long enough to lose
+     * the whole drop at that grade, otherwise switchbacks ({@link Serpentine}) across the hillside, each traverse
+     * a straight line between two hairpins (searched round water where it is in the way).
+     */
+    private static double[][] gradedRoute(DoubleBinaryOperator ground, double startX, double startZ, double finishX, double finishZ,
+                                          Params params, List<Turn> turns) {
+        double slope = params.grade().slope();
+        double drop = softGround(ground, startX, startZ) - softGround(ground, finishX, finishZ);
+        double[][] direct = DownhillRoute.find(ground, startX, startZ, finishX, finishZ, slope, 0);
+        if (drop * 1.1 <= slope * DownhillRoute.length(direct) || drop <= 0) {
+            if (DownhillRoute.length(direct) > params.maxLength()) {
+                throw new Rejected("descentmtb.downhill.too_long", (int) params.maxLength());
+            }
+            return DownhillRoute.resample(withBermCurves(direct, params.width(), turns), STEP);
+        }
+        Serpentine.Layout layout = Serpentine.plan(startX, startZ, finishX, finishZ, drop, slope, params.maxLength());
+        List<double[]> out = new ArrayList<>();
+        for (int i = 0; i < layout.legs().size(); i++) {
+            Serpentine.Leg leg = layout.legs().get(i);
+            double[][] traverse = onSolidGround(ground, leg.from(), leg.to()) ? DownhillRoute.resample(new double[][]{leg.from(), leg.to()}, STEP)
+                    : DownhillRoute.find(ground, leg.from()[0], leg.from()[1], leg.to()[0], leg.to()[1], slope, TRAVERSE_CORRIDOR);
+            double[][] curved = withBermCurves(traverse, params.width(), turns);
+            for (int k = i == 0 ? 0 : 1; k < curved.length; k++) {   // a traverse starts where the hairpin before it ended
+                out.add(curved[k]);
+            }
+            if (i < layout.hairpins().size()) {
+                Serpentine.Hairpin hairpin = layout.hairpins().get(i);
+                for (double[][] piece : hairpin.pieces()) {
+                    for (int k = 1; k <= 32; k++) {
+                        out.add(Serpentine.curve(piece, k / 32.0));
+                    }
+                }
+                turns.add(new Turn(hairpin.pieces(), true));
+            }
+        }
+        double[][] route = DownhillRoute.resample(out.toArray(new double[0][]), STEP);
+        if (DownhillRoute.length(route) > params.maxLength()) {
+            throw new Rejected("descentmtb.downhill.too_long", (int) params.maxLength());
+        }
+        return route;
+    }
+
+    /** True when the straight line between the two points has ground that can be built on all the way (no water, no unloaded chunk). */
+    private static boolean onSolidGround(DoubleBinaryOperator ground, double[] from, double[] to) {
+        int steps = (int) Math.ceil(Math.hypot(to[0] - from[0], to[1] - from[1]));
+        for (int i = 0; i <= steps; i++) {
+            double t = steps == 0 ? 0 : i / (double) steps;
+            if (Double.isNaN(ground.applyAsDouble(from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** The ground around a point averaged over a block either way: the height a rider would call the height of the place. */
+    private static double softGround(DoubleBinaryOperator ground, double x, double z) {
+        double sum = 0;
+        int count = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                double h = ground.applyAsDouble(x + dx, z + dz);
+                if (!Double.isNaN(h)) {
+                    sum += h;
+                    count++;
+                }
+            }
+        }
+        return count == 0 ? Double.NaN : sum / count;
     }
 
     // ---- the route -----------------------------------------------------------------------------------------------
@@ -187,9 +352,9 @@ public final class DownhillShapes {
 
     /**
      * Replaces the sharp turns of the route by the curves of berms. Every turn found is added to {@code turns} as
-     * the three points {@code {entry, apex, exit}} (x, z) the berm is built through.
+     * one piece with the three points {@code {entry, apex, exit}} (x, z) the berm is built through.
      */
-    private static double[][] withBermCurves(double[][] route, double width, List<double[][]> turns) {
+    private static double[][] withBermCurves(double[][] route, double width, List<Turn> turns) {
         int n = route.length;
         double[] heading = headings(route);
         List<int[]> runs = new ArrayList<>();   // {first sample, last sample, sign}
@@ -228,7 +393,7 @@ public final class DownhillShapes {
                 Point p = berm.centre(k / 64.0);
                 out.add(new double[]{p.x(), p.z()});
             }
-            turns.add(new double[][]{entry, apex, exit});
+            turns.add(new Turn(java.util.Collections.singletonList(new double[][]{entry, apex, exit}), false));
             copied = c + 1;
         }
         for (int i = copied; i < n; i++) {
@@ -239,8 +404,15 @@ public final class DownhillShapes {
 
     // ---- the grade -----------------------------------------------------------------------------------------------
 
-    /** The even grade of the line: terrain smoothed, never climbing, steps turned into smooth drops. */
-    private void shapeGrade(List<double[][]> turns) {
+    /**
+     * The even grade of the line. Without a limit: terrain smoothed, never climbing, steps turned into smooth drops.
+     * With a limit: the terrain smoothed and held to that grade ({@link #shapeLimitedGrade}).
+     */
+    private void shapeGrade(List<Turn> turns, Grade grade) {
+        if (grade.limited()) {
+            shapeLimitedGrade(turns, grade.slope());
+            return;
+        }
         int n = centre.length;
         double[] raw = new double[n];
         for (int i = 0; i < n; i++) {
@@ -250,8 +422,8 @@ public final class DownhillShapes {
         // steps of 1.5 m and more are taken out, smoothed over and then put back as a long steep drop
         double[] levelled = raw.clone();
         boolean[] inTurn = new boolean[n];
-        for (double[][] turn : turns) {
-            for (int i = nearestSample(turn[0][0], turn[0][1]) - 4; i <= nearestSample(turn[2][0], turn[2][1]) + 4; i++) {
+        for (Turn turn : turns) {
+            for (int i = nearestSample(turn.entry()[0], turn.entry()[1]) - 4; i <= nearestSample(turn.exit()[0], turn.exit()[1]) + 4; i++) {
                 inTurn[Math.max(0, Math.min(n - 1, i))] = true;
             }
         }
@@ -276,6 +448,52 @@ public final class DownhillShapes {
             target[i] = Math.max(raw[i] - 3, Math.min(raw[i] + 3, smooth[i]));
             profile[i] = target[i];
         }
+    }
+
+
+    /**
+     * The grade of a trail with a limit. The terrain along the line is smoothed (so single block steps are not
+     * followed), then the profile is held to the limit: two passes, one from the start that raises the profile
+     * wherever the terrain drops faster than the trail may (an embankment), one from the finish that lowers it
+     * wherever it would have to climb into the terrain (a cut), and the average of the two keeps both. A hairpin's
+     * platform may only fall {@link Serpentine#PLATFORM} of the limit. The surface is then a bench: the profile is the
+     * height across the whole width of the track, filled below and cut above the terrain beside it.
+     */
+    private void shapeLimitedGrade(List<Turn> turns, double slope) {
+        int n = centre.length;
+        double[] raw = new double[n];
+        for (int i = 0; i < n; i++) {
+            double h = ground.applyAsDouble(centre[i][0], centre[i][1]);
+            raw[i] = Double.isNaN(h) ? (i > 0 ? raw[i - 1] : 0) : h;
+        }
+        boolean[] platform = new boolean[n];
+        for (Turn turn : turns) {
+            if (turn.hairpin()) {
+                for (int i = nearestSample(turn.entry()[0], turn.entry()[1]); i <= nearestSample(turn.exit()[0], turn.exit()[1]); i++) {
+                    platform[i] = true;
+                }
+            }
+        }
+        double[] smooth = blur(blur(raw, 6), 6);
+        double[] forward = smooth.clone(), backward = smooth.clone();
+        for (int i = 1; i < n; i++) {
+            forward[i] = Math.max(smooth[i], forward[i - 1] - allowedFall(platform, i, slope) * STEP);
+        }
+        for (int i = n - 2; i >= 0; i--) {
+            backward[i] = Math.min(smooth[i], backward[i + 1] + allowedFall(platform, i + 1, slope) * STEP);
+        }
+        for (int i = 0; i < n; i++) {
+            target[i] = (forward[i] + backward[i]) / 2;
+            if (i > 0) {
+                target[i] = Math.min(target[i], target[i - 1] + MAX_CLIMB * STEP);
+            }
+            profile[i] = target[i];
+        }
+    }
+
+    /** How fast (rise over run) the profile may fall between sample {@code i - 1} and {@code i}. */
+    private static double allowedFall(boolean[] platform, int i, double slope) {
+        return platform[i] && platform[i - 1] ? Serpentine.PLATFORM * slope : slope;
     }
 
     /** Steps in the terrain (outside the turns, where the line cuts the corner): {@code {sample, height}} where it drops by 1.5 m or more within 3 m beyond the grade. */
@@ -321,13 +539,20 @@ public final class DownhillShapes {
 
     // ---- berms ---------------------------------------------------------------------------------------------------
 
-    private void addBerms(List<double[][]> turns, double width) {
-        for (double[][] t : turns) {
-            double from = distance[nearestSample(t[0][0], t[0][1])], to = distance[nearestSample(t[2][0], t[2][1])];
+    private void addBerms(List<Turn> turns, double width, Grade grade) {
+        Steepness steepness = grade == Grade.GENTLE ? Steepness.GENTLE : Steepness.MEDIUM;
+        for (Turn turn : turns) {
+            double from = distance[nearestSample(turn.entry()[0], turn.entry()[1])], to = distance[nearestSample(turn.exit()[0], turn.exit()[1])];
             try {
-                BermShapes berm = BermShapes.of(point(t[0]), point(t[1]), point(t[2]),
-                        new BermShapes.Params(width, Steepness.MEDIUM), 80);
-                berms.add(new Berm(berm, from, to));
+                List<Berm> pieces = new ArrayList<>();
+                int count = turn.pieces().size();
+                for (int k = 0; k < count; k++) {
+                    double[][] piece = turn.pieces().get(k);
+                    BermShapes berm = BermShapes.of(point(piece[0]), point(piece[1]), point(piece[2]),
+                            new BermShapes.Params(width, steepness), 80, k == 0, k == count - 1);
+                    pieces.add(new Berm(berm, distance[nearestSample(piece[0][0], piece[0][1])], distance[nearestSample(piece[2][0], piece[2][1])]));
+                }
+                berms.addAll(pieces);
                 features.add(new Feature(Kind.BERM, from, to));
             } catch (BermShapes.Rejected ignored) {
                 // the curve stays as a plain flat turn
@@ -579,7 +804,7 @@ public final class DownhillShapes {
     public DoubleBinaryOperator heights() {
         return (x, z) -> {
             for (Berm berm : berms) {
-                if (berm.shape().contains(x, z)) {
+                if (berm.near(x, z) && berm.shape().contains(x, z)) {
                     return berm.shape().heights(ground).applyAsDouble(x, z);
                 }
             }
@@ -601,7 +826,7 @@ public final class DownhillShapes {
             return true;
         }
         for (Berm berm : berms) {
-            if (berm.shape().contains(x, z)) {
+            if (berm.near(x, z) && berm.shape().contains(x, z)) {
                 return true;
             }
         }
@@ -614,7 +839,7 @@ public final class DownhillShapes {
             return true;
         }
         for (Berm berm : berms) {
-            if (berm.shape().contains(x, z)) {
+            if (berm.near(x, z) && berm.shape().contains(x, z)) {
                 return true;
             }
         }

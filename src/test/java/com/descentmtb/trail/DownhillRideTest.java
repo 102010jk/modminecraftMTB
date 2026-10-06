@@ -4,6 +4,7 @@ import com.descentmtb.entity.BikeType;
 import com.descentmtb.physics.BikeSim;
 import com.descentmtb.physics.Controls;
 import com.descentmtb.physics.V3;
+import com.descentmtb.trail.DownhillShapes.Grade;
 import com.descentmtb.trail.DownhillShapes.Kind;
 import com.descentmtb.trail.DownhillShapes.Style;
 import org.junit.jupiter.api.Test;
@@ -53,6 +54,8 @@ class DownhillRideTest {
         boolean first = d1 <= d2;
         return 200 - .15 * (first ? along1 : along2) + .5 * Math.min(first ? d1 : d2, 40);
     });
+    /** A steep hillside, about 20 degrees all the way down, with a little waviness: only switchbacks can make it gentle. */
+    static final DoubleBinaryOperator STEEP_HILL = blocks((x, z) -> 200 - .36 * z + 1.2 * Math.sin(x / 9) + .8 * Math.sin(z / 7));
     static final DoubleBinaryOperator FLAT = blocks((x, z) -> 200 - .04 * z + .6 * Math.sin(x / 6));
 
     static double sq(double v) {
@@ -143,6 +146,10 @@ class DownhillRideTest {
             }
         }
         return new Result(sim.bailed, sim.bailReason, index / (double) (n - 1), maxOff, minSpeed, minAt, sumSpeed / Math.max(1, ticks), flights, ticks * DT, events);
+    }
+
+    static DownhillShapes plan(Hill hill, Style style, double width, Grade grade, double maxLength) {
+        return DownhillShapes.plan(hill.ground(), 10, 0, hill.finishX(), hill.finishZ(), new DownhillShapes.Params(style, width, maxLength, grade), 7);
     }
 
     static DownhillShapes plan(Hill hill, Style style, double width) {
@@ -237,6 +244,55 @@ class DownhillRideTest {
         }
     }
 
+
+    /** The steepest grade (degrees) of {@code profile} over any window of {@code window} metres of the line. */
+    static double steepestWindow(java.util.function.DoubleUnaryOperator profile, double length, double window) {
+        double steepest = 0;
+        for (double s = 0; s + window <= length; s += .5) {
+            steepest = Math.max(steepest, Math.abs(profile.applyAsDouble(s) - profile.applyAsDouble(s + window)) / window);
+        }
+        return Math.toDegrees(Math.atan(steepest));
+    }
+
+    /**
+     * The grade levels on a 20 degree hillside: the trail's own grade (the line without its rollers and jumps) must stay
+     * within the limit plus 2 degrees over any 5 m, and the ride must reach the finish without a bail and within 1.5 m of the line.
+     */
+    @Test
+    void gradeLevelsKeepTheTrailGentleOnASteepHillside() {
+        Hill hill = new Hill("steep", STEEP_HILL, 30, 110);
+        double straightDegrees = Math.toDegrees(Math.atan((STEEP_HILL.applyAsDouble(10, 0) - STEEP_HILL.applyAsDouble(30, 110)) / Math.hypot(20, 110)));
+        System.out.printf(Locale.ROOT, "[downhill] steep hillside: %.1f degrees straight down%n", straightDegrees);
+        for (Grade grade : Grade.values()) {
+            DownhillShapes line = plan(hill, Style.MIXED, 4, grade, 1500);
+            double length = line.length();
+            double trail = steepestWindow(line::gradeAt, length, 5), withFeatures = steepestWindow(line::centreHeight, length, 5);
+            Result r = ride(line.heights(), line.centre(), 9, length / 5 + 30);
+            System.out.printf(Locale.ROOT, "[downhill] %-6s (limit %2d deg): %3.0f m, %d berms %d jumps | trail grade over 5 m max %.1f deg (with features %.1f) | %s%n",
+                    grade, grade.degrees, length, line.berms(), line.jumps(), trail, withFeatures, r.summary());
+            String what = "grade " + grade;
+            if (grade.limited()) {
+                assertTrue(trail <= grade.degrees + 2, what + " is steeper than allowed: " + trail);
+            }
+            assertFalse(r.bailed, what + " bailed: " + r.why);
+            assertTrue(r.progress > .97, what + " only reached " + r.progress);
+            if (r.maxOff >= 1.5) {
+                r.events().stream().filter(e -> !e.startsWith("TRACE")).forEach(e -> System.out.println("[debug] " + what + ": " + e));
+            }
+            assertTrue(r.maxOff < 1.5, what + " left the line by " + r.maxOff);
+        }
+    }
+
+    @Test
+    void aGentleTrailIsLongerAndMakesHairpins() {
+        Hill hill = new Hill("steep", STEEP_HILL, 30, 110);
+        DownhillShapes gentle = plan(hill, Style.MIXED, 4, Grade.GENTLE, 1500), wild = plan(hill, Style.MIXED, 4, Grade.WILD, 1500);
+        assertTrue(gentle.length() > 2.5 * wild.length(), "the gentle trail winds down: " + gentle.length() + " m against " + wild.length());
+        assertTrue(gentle.berms() >= 3, "switchbacks have berms: " + gentle.features());
+        assertEquals(0, gentle.features().stream().filter(f -> f.kind() == Kind.KICKER || f.kind() == Kind.TABLE).count(), "a gentle trail has no gap jumps");
+        assertThrows(DownhillShapes.Rejected.class, () -> plan(hill, Style.FLOW, 4, Grade.GENTLE, 150), "a gentle way down that long is refused");
+    }
+
     /** Diagnostics: every take-off and landing of one ride (set DOWNHILL_DEBUG=even:JUMPS:8). */
     @Test
     void debugOneRide() {
@@ -245,9 +301,10 @@ class DownhillRideTest {
             return;
         }
         String[] parts = spec.split(":");
-        Hill hill = HILLS.stream().filter(h -> h.name().equals(parts[0])).findFirst().orElseThrow();
-        DownhillShapes line = plan(hill, Style.valueOf(parts[1]), parts.length > 3 ? Double.parseDouble(parts[3]) : 3);
-        Result r = ride(line.heights(), line.centre(), Double.parseDouble(parts[2]), 60);
+        Hill hill = parts[0].equals("steep") ? new Hill("steep", STEEP_HILL, 30, 110) : HILLS.stream().filter(h -> h.name().equals(parts[0])).findFirst().orElseThrow();
+        DownhillShapes line = plan(hill, Style.valueOf(parts[1]), parts.length > 3 ? Double.parseDouble(parts[3]) : 3,
+                parts.length > 4 ? Grade.valueOf(parts[4]) : Grade.WILD, 1500);
+        Result r = ride(line.heights(), line.centre(), Double.parseDouble(parts[2]), parts.length > 4 ? line.length() / 5 + 30 : 60);
         System.out.println("[debug] " + line.features());
         if (TRACE != null) {
             for (double m = TRACE[0]; m <= TRACE[1]; m += .5) {

@@ -12,6 +12,10 @@ import java.util.function.DoubleBinaryOperator;
  * and slopes steeper than about 33 degrees are expensive, a steep cross slope is mildly expensive, so the path
  * prefers the fall line but still heads for the finish. The grid path is then relaxed into a smooth curve and
  * resampled every half metre.
+ *
+ * <p>With a grade limit ({@link #find(DoubleBinaryOperator, double, double, double, double, double, int)}) the cost of a
+ * step also rises steeply with the grade above the limit, measured on a smoothed copy of the ground (single block
+ * steps would otherwise count as 45 degrees), so the cheapest way down a steep slope traverses it.
  */
 public final class DownhillRoute {
     /** Distance between the points of the result (m). */
@@ -20,6 +24,10 @@ public final class DownhillRoute {
     private static final double STEEP = .65;
     /** Steps with a steeper slope than this are not passable at all. */
     private static final double CLIFF = 3.5;
+    /** Extra cost per metre for every unit of grade (rise over run) above the limit. */
+    private static final double OVER_LIMIT = 50;
+    /** Radius (cells) of the averaging that gives the grade a step is measured on. */
+    private static final int SOFT = 2;
     /** The most cells the search may expand before the terrain is declared too complex (keeps a server tick short). */
     public static final int MAX_EXPANDED = 60_000;
     private static final int[][] MOVES = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1},
@@ -31,11 +39,24 @@ public final class DownhillRoute {
      * @throws DownhillShapes.Rejected when the search needs more than {@link #MAX_EXPANDED} cells
      */
     public static double[][] find(DoubleBinaryOperator ground, double startX, double startZ, double finishX, double finishZ) {
+        return find(ground, startX, startZ, finishX, finishZ, 0, 0);
+    }
+
+    /**
+     * Like {@link #find(DoubleBinaryOperator, double, double, double, double)}, with the trail's grade limited.
+     *
+     * @param slopeLimit the steepest grade (rise over run) the route should have, 0 for none (the terrain is followed)
+     * @param corridor   how far (m) the route may stray from the straight line, 0 to choose it from the length
+     */
+    public static double[][] find(DoubleBinaryOperator ground, double startX, double startZ, double finishX, double finishZ,
+                                  double slopeLimit, int corridor) {
         double length = Math.hypot(finishX - startX, finishZ - startZ);
-        int corridor = (int) Math.max(12, Math.min(60, length * .5));
+        if (corridor <= 0) {
+            corridor = (int) Math.max(slopeLimit > 0 ? 20 : 12, Math.min(60, length * .5));
+        }
         int minX = (int) Math.floor(Math.min(startX, finishX)) - corridor, maxX = (int) Math.floor(Math.max(startX, finishX)) + corridor;
         int minZ = (int) Math.floor(Math.min(startZ, finishZ)) - corridor, maxZ = (int) Math.floor(Math.max(startZ, finishZ)) + corridor;
-        Grid grid = new Grid(ground, minX, minZ, maxX - minX + 1, maxZ - minZ + 1);
+        Grid grid = new Grid(ground, minX, minZ, maxX - minX + 1, maxZ - minZ + 1, slopeLimit);
 
         int start = grid.index((int) Math.floor(startX), (int) Math.floor(startZ));
         int finish = grid.index((int) Math.floor(finishX), (int) Math.floor(finishZ));
@@ -123,10 +144,15 @@ public final class DownhillRoute {
     private static final class Grid {
         final DoubleBinaryOperator ground;
         final int minX, minZ, width, depth;
-        final double[] height;
+        final double[] height, soft;
+        /** The steepest wanted grade (rise over run), 0 for none. */
+        final double limit;
 
-        Grid(DoubleBinaryOperator ground, int minX, int minZ, int width, int depth) {
+        Grid(DoubleBinaryOperator ground, int minX, int minZ, int width, int depth, double limit) {
             this.ground = ground;
+            this.limit = limit;
+            this.soft = new double[width * depth];
+            Arrays.fill(soft, Double.POSITIVE_INFINITY);
             this.minX = minX;
             this.minZ = minZ;
             this.width = width;
@@ -160,6 +186,26 @@ public final class DownhillRoute {
             return height[node];
         }
 
+        /** The ground at a cell averaged over {@link #SOFT} cells around it: the grade a rider feels, not the single block steps. */
+        double smooth(int x, int z) {
+            int node = index(x, z);
+            if (soft[node] == Double.POSITIVE_INFINITY) {
+                double sum = 0;
+                int count = 0;
+                for (int dx = -SOFT; dx <= SOFT; dx++) {
+                    for (int dz = -SOFT; dz <= SOFT; dz++) {
+                        double h = at(Math.max(minX, Math.min(minX + width - 1, x + dx)), Math.max(minZ, Math.min(minZ + depth - 1, z + dz)));
+                        if (!Double.isNaN(h)) {
+                            sum += h;
+                            count++;
+                        }
+                    }
+                }
+                soft[node] = count == 0 || Double.isNaN(at(x, z)) ? Double.NaN : sum / count;
+            }
+            return soft[node];
+        }
+
         /** Cost factor (1 = flat ground) of the step from one cell to the next, infinity if it cannot be taken. */
         double factor(int x0, int z0, int x1, int z1) {
             double h0 = at(x0, z0), h1 = at(x1, z1);
@@ -171,12 +217,16 @@ public final class DownhillRoute {
                 return Double.POSITIVE_INFINITY;
             }
             double factor = 1 + 8 * Math.max(0, slope + .015) + 10 * Math.max(0, -slope - STEEP);
+            if (limit > 0) {
+                double soft = (smooth(x1, z1) - smooth(x0, z0)) / run;
+                factor = 1 + 8 * Math.max(0, soft + .015) + OVER_LIMIT * Math.max(0, Math.abs(soft) - .95 * limit);
+            }
             // a steep slope across the direction of travel needs a deep cut
             double gx = (at(Math.min(x1 + 1, minX + width - 1), z1) - at(Math.max(x1 - 1, minX), z1)) / 2;
             double gz = (at(x1, Math.min(z1 + 1, minZ + depth - 1)) - at(x1, Math.max(z1 - 1, minZ))) / 2;
             double across = Math.abs(gx * -(z1 - z0) / run + gz * (x1 - x0) / run);
             if (!Double.isNaN(across)) {
-                factor += 2 * Math.max(0, across - .3);
+                factor += 2 * Math.max(0, across - (limit > 0 ? .8 : .3));
             }
             return factor;
         }
@@ -227,7 +277,7 @@ public final class DownhillRoute {
                         continue;
                     }
                     int next = index(nx, nz);
-                    double total = cost[node] + factor * Math.hypot(move[0], move[1]) * (1 + .01 * off / corridor);
+                    double total = cost[node] + factor * Math.hypot(move[0], move[1]) * (1 + (limit > 0 ? .15 : .01) * off / corridor);
                     if (total < cost[next]) {
                         cost[next] = total;
                         parent[next] = node;

@@ -106,18 +106,29 @@ public final class TrailClient {
     /**
      * Shift + wheel cycles the modes of the current category. In the berm mode it sets the steepness of the bank
      * instead (up is steeper), and Ctrl + Shift + wheel the width of the track. In the downhill mode it chooses the
-     * style of the line (flow, jumps, mixed) and Ctrl + Shift + wheel the width. With the cursor it chooses what a
+     * style of the line (flow, jumps, mixed), Ctrl + Shift + wheel the width and Alt + wheel the grade (gentle, medium,
+     * steep, wild). With the cursor it chooses what a
      * click picks (by zone, corner, edge, whole block) and Ctrl + Shift + wheel the step (1/16, 1/8, 1/4).
      */
     public static void onScroll(InputEvent.MouseScrollingEvent event) {
         var mc = Minecraft.getInstance();
-        if (mc.screen != null || !Screen.hasShiftDown() || !holdingShaper(mc) || event.getScrollDeltaY() == 0) {
+        boolean alt = Screen.hasAltDown() && !Screen.hasShiftDown();
+        if (mc.screen != null || !(Screen.hasShiftDown() || alt) || !holdingShaper(mc) || event.getScrollDeltaY() == 0) {
             return;
         }
-        event.setCanceled(true);
         var stack = mc.player.getMainHandItem();
         ShapeMode mode = ShapeToolItem.mode(stack);
         int step = event.getScrollDeltaY() > 0 ? 1 : -1;
+        if (alt) {   // Alt + wheel: the grade of the downhill line, nothing else uses it
+            if (mode.kind == ShapeMode.Kind.DOWNHILL) {
+                event.setCanceled(true);
+                var settings = DownhillBuilder.Settings.read(stack).graded(step);
+                settings.store(stack);
+                PacketDistributor.sendToServer(new ShapeTunePayload(mode, settings));
+            }
+            return;
+        }
+        event.setCanceled(true);
         if (mode.kind == ShapeMode.Kind.BERM) {
             var settings = BermBuilder.Settings.read(stack);
             settings = Screen.hasControlDown() ? settings.wider(step) : settings.steeper(step);
@@ -186,10 +197,14 @@ public final class TrailClient {
                 settings.width(), BermBuilder.points(stack).length, BermBuilder.POINTS);
     }
 
-    /** "Style: Mixed • Width 3 m • Points 1/2" */
+    /** "Style: Mixed • Grade: Medium (10°) • Width 3 m • Points 1/2" */
     private static Component downhillStatus(net.minecraft.world.item.ItemStack stack) {
         var settings = DownhillBuilder.Settings.read(stack);
-        return Component.translatable("descentmtb.downhill.hud", Component.translatable(settings.style().key()),
+        Component grade = Component.translatable(settings.grade().key());
+        if (settings.grade().limited()) {
+            grade = Component.empty().append(grade).append(" (" + settings.grade().degrees + "°)");
+        }
+        return Component.translatable("descentmtb.downhill.hud", Component.translatable(settings.style().key()), grade,
                 settings.width(), DownhillBuilder.points(stack).length, DownhillBuilder.POINTS);
     }
 

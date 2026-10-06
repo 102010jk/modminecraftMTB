@@ -116,8 +116,12 @@ public final class BermShapes {
     private final double outwardSign, half, foot, length, taper, outerEnd;
     private final double[] distances;
     private final Steepness steepness;
+    /** Whether the bank grows from nothing at the entry / shrinks to nothing at the exit (not where another berm carries on). */
+    private final boolean taperIn, taperOut;
 
-    private BermShapes(Point a, Point control, Point c, double turnSign, Params params, double[] distances) {
+    private BermShapes(Point a, Point control, Point c, double turnSign, Params params, double[] distances, boolean taperIn, boolean taperOut) {
+        this.taperIn = taperIn;
+        this.taperOut = taperOut;
         this.start = a;
         this.control = control;
         this.end = c;
@@ -137,6 +141,17 @@ public final class BermShapes {
      * @throws Rejected when the points are in a line, too close together or too far apart
      */
     public static BermShapes of(Point a, Point b, Point c, Params params, double maxLen) {
+        return of(a, b, c, params, maxLen, true, true);
+    }
+
+    /**
+     * Like {@link #of(Point, Point, Point, Params, double)}; a berm that is one piece of a longer turn (a hairpin made
+     * of several berms that meet end to end) keeps its full bank at the end it shares with the next piece.
+     *
+     * @param taperIn  the bank grows from nothing over the first metres
+     * @param taperOut the bank shrinks to nothing over the last metres
+     */
+    public static BermShapes of(Point a, Point b, Point c, Params params, double maxLen, boolean taperIn, boolean taperOut) {
         double ab = Math.hypot(b.x() - a.x(), b.z() - a.z());
         double bc = Math.hypot(c.x() - b.x(), c.z() - b.z());
         if (ab < 2 || bc < 2) {
@@ -155,7 +170,7 @@ public final class BermShapes {
         if (distances[128] > maxLen) {
             throw new Rejected("descentmtb.berm.too_long", (int) maxLen);
         }
-        return new BermShapes(a, control, c, turn(a, b, c), params, distances);
+        return new BermShapes(a, control, c, turn(a, b, c), params, distances, taperIn, taperOut);
     }
 
     /** Length of the centre line (m). */
@@ -182,7 +197,7 @@ public final class BermShapes {
     private double taperAt(double t) {
         int i = Math.min(127, (int) (t * 128));
         double d = distances[i] + (distances[i + 1] - distances[i]) * (t * 128 - i);
-        return PumpMath.smooth(d / taper) * PumpMath.smooth((length - d) / taper);
+        return (taperIn ? PumpMath.smooth(d / taper) : 1) * (taperOut ? PumpMath.smooth((length - d) / taper) : 1);
     }
 
     /** Absolute height of the berm at (x, z), feathered into {@code terrain}. */

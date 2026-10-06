@@ -221,9 +221,9 @@
   "descentmtb.shaping.hint.deck": "Dřevo: při pokládání drž prkna ve druhé ruce (pravý klik prknem na desku ho změní) • bez podpěr, Dřevěné podpěry si přidej sám",
   "descentmtb.shape.category.4": "Linie",
   "descentmtb.shape.mode.downhill": "Sjezd",
-  "descentmtb.shape.desc.downhill": "Klikni na vrchol a na spodek svahu: mezi nimi se postaví trať z klopenek, vln a skoků",
-  "descentmtb.shape.hud.hint.downhill": "[%s] menu • klik: start, pak cíl • Shift + klik: smazat • Shift + kolečko: styl • Ctrl + Shift + kolečko: šířka",
-  "descentmtb.downhill.hud": "Styl: %s • Šířka %s m • Body %s/%s",
+  "descentmtb.shape.desc.downhill": "Klikni na vrchol a na spodek svahu: mezi nimi se postaví trať z klopenek, vln a skoků, tak strmá, jak dovolí sklon",
+  "descentmtb.shape.hud.hint.downhill": "[%s] menu • klik: start, pak cíl • Shift + klik: smazat • Shift + kolečko: styl • Alt + kolečko: sklon • Ctrl + Shift + kolečko: šířka",
+  "descentmtb.downhill.hud": "Styl: %s • Sklon: %s • Šířka %s m • Body %s/%s",
   "descentmtb.downhill.style.flow": "Flow",
   "descentmtb.downhill.style.jumps": "Skoky",
   "descentmtb.downhill.style.mixed": "Směs",
@@ -231,7 +231,7 @@
   "descentmtb.downhill.cleared": "Start smazán",
   "descentmtb.downhill.built": "Sjezd: %s m, %s skoků, %s klopenek",
   "descentmtb.downhill.too_close": "Start a cíl jsou moc blízko",
-  "descentmtb.downhill.too_long": "Trať je moc dlouhá (nejvíc %s m)",
+  "descentmtb.downhill.too_long": "Trať je moc dlouhá (nejvíc %s m) - mírný sklon se po svahu klikatí, zkus strmější",
   "descentmtb.downhill.no_ground": "Na startu nebo v cíli není na čem stavět",
   "descentmtb.input.gamepad": "gamepad \"%s\"",
   "descentmtb.input.joystick": "joystick \"%s\"",
@@ -359,5 +359,10 @@
   "descentmtb.editor.not_editable": "Tenhle blok nejde tvarovat",
   "descentmtb.editor.bad_material": "V druhé ruce není blok, který může být materiálem",
   "descentmtb.editor.unchanged": "Není co měnit",
-  "descentmtb.editor.applied": "Blok upraven"
+  "descentmtb.editor.applied": "Blok upraven",
+  "descentmtb.downhill.grade.gentle": "Mírná",
+  "descentmtb.downhill.grade.medium": "Střední",
+  "descentmtb.downhill.grade.steep": "Strmá",
+  "descentmtb.downhill.grade.wild": "Divoká",
+  "descentmtb.downhill.grade_impossible": "Tenhle svah je pro tenhle sklon příliš strmý - zvol strmější sklon (Alt + kolečko) nebo jiné body"
 }

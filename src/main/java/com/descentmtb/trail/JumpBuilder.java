@@ -11,6 +11,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
@@ -24,6 +25,9 @@ import java.util.Map;
  * ({@link JumpProfiles}) sampled at the block corners, so neighbouring blocks meet exactly; blocks above one block
  * of height are stacked by {@link SurfacePlans} / {@link ColumnShaper} like every other planner does. The whole jump
  * is one {@link TrailEdit} step: undo with Ctrl+Z, protection and the survival price apply.
+ *
+ * <p>A full block in the off-hand is the material the jump is made of (trail dirt without one); in survival the visible
+ * block of every column then costs one item of it, besides the trail dirt every edit costs.
  *
  * <p>The last settings are kept in the tool's custom data ({@link #TAG}), so the screen opens with them again and the
  * client can preview the jump where the player aims.
@@ -90,7 +94,7 @@ public final class JumpBuilder {
             return false;
         }
         try {
-            int blocks = TrailEdit.apply(level, player, plan(level, layout(pos, facing, params)));
+            int blocks = TrailEdit.apply(level, player, plan(level, layout(pos, facing, params), BlockEditor.offHandMaterial(player, pos)));
             level.playSound(null, pos, SoundEvents.GRAVEL_PLACE, SoundSource.BLOCKS, .8f, .9f);
             player.displayClientMessage(summary(params), true);
             return blocks > 0;
@@ -102,10 +106,15 @@ public final class JumpBuilder {
 
     /** The block changes that build the jump: its surface on the footprint, the ground below filled, the air above cleared. */
     public static Map<BlockPos, TrailEdit.Change> plan(Level level, JumpProfiles.Layout layout) {
+        return plan(level, layout, null);
+    }
+
+    /** Like {@link #plan(Level, JumpProfiles.Layout)}, made of {@code material} (a full block; null for trail dirt), paid for in survival. */
+    public static Map<BlockPos, TrailEdit.Change> plan(Level level, JumpProfiles.Layout layout, BlockState material) {
         int[] box = layout.bounds();
         double reference = layout.y() + 1;
         return SurfacePlans.hillside(level, box[0], box[1], box[2], box[3],
-                (x, z) -> SurfacePlans.terrain(level, x, z, reference), layout::height, layout::contains, HEADROOM);
+                (x, z) -> SurfacePlans.terrain(level, x, z, reference), layout::height, layout::contains, HEADROOM, material, material != null);
     }
 
     /** "Jump (kicker): 3 m long, 1.5 m high, lip 35°" for the action bar. */
