@@ -16,6 +16,7 @@ repositories {
 }
 
 dependencies {
+    jarJar(implementation('net.java.dev.jna:jna-platform:5.14.0')) { transitive = false }
     jarJar(implementation('dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:1.6.0'))
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

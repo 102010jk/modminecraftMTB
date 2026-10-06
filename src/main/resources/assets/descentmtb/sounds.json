@@ -1416,5 +1416,14 @@
         "stream": false
       }
     ]
+  },
+  "audio.live": {
+    "sounds": [
+      {
+        "name": "descentmtb:ride/wind",
+        "volume": 0.45,
+        "stream": true
+      }
+    ]
   }
 }

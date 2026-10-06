@@ -639,5 +639,19 @@
   "descentmtb.gps.tooltip.descent": "Descent: %s m",
   "descentmtb.gps.tooltip.ascent": "Ascent: %s m",
   "descentmtb.gps.tooltip.grade": "Average grade: %s %%",
-  "descentmtb.gps.tooltip.hint": "Right-click: start/stop recording. Right-click a trail sign: link the track."
+  "descentmtb.gps.tooltip.hint": "Right-click: start/stop recording. Right-click a trail sign: link the track.",
+  "block.descentmtb.boombox": "Boombox",
+  "item.descentmtb.headphones": "Headphones",
+  "key.descentmtb.audio_settings": "Audio settings",
+  "descentmtb.audio.title": "Music devices",
+  "descentmtb.audio.loading": "Finding audio applications…",
+  "descentmtb.audio.windows": "Application capture requires Windows 10 2004 or newer. Discs work on all platforms.",
+  "descentmtb.audio.empty": "No audio sources. Play music in an application and refresh.",
+  "descentmtb.audio.refresh": "Refresh",
+  "descentmtb.audio.next": "Next",
+  "descentmtb.audio.stop": "Stop music",
+  "descentmtb.audio.disc": "Play held disc",
+  "descentmtb.audio.close": "Close",
+  "descentmtb.audio.no_disc": "Carry a music disc in your inventory.",
+  "descentmtb.audio.equip": "Equip headphones first (right-click)."
 }

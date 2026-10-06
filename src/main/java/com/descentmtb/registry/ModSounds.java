@@ -17,6 +17,8 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public final class ModSounds {
     public static final DeferredRegister<SoundEvent> SOUNDS = DeferredRegister.create(Registries.SOUND_EVENT, DescentMtb.MODID);
 
+    public static final DeferredHolder<SoundEvent, SoundEvent> LIVE_AUDIO = event("audio.live");
+
     // Freehub
     public static final DeferredHolder<SoundEvent, SoundEvent> HUB_CLICK = event("bike.hub.click");
     public static final DeferredHolder<SoundEvent, SoundEvent> HUB_BUZZ_6 = event("bike.hub.buzz.6");

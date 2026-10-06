@@ -1,0 +1,40 @@
+{
+  "textures": {
+    "all": "descentmtb:block/boombox",
+    "particle": "descentmtb:block/boombox"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        4
+      ],
+      "to": [
+        16,
+        10,
+        12
+      ],
+      "faces": {
+        "up": {
+          "texture": "#all"
+        },
+        "down": {
+          "texture": "#all"
+        },
+        "north": {
+          "texture": "#all"
+        },
+        "south": {
+          "texture": "#all"
+        },
+        "east": {
+          "texture": "#all"
+        },
+        "west": {
+          "texture": "#all"
+        }
+      }
+    }
+  ]
+}

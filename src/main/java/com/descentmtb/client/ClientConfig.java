@@ -45,6 +45,7 @@ public final class ClientConfig {
     public static final ModConfigSpec.BooleanValue SCREAM_SOUND, WIND_SOUND, HUB_SOUND;
     public static final ModConfigSpec.EnumValue<RiderVoice> RIDER_VOICE;
 
+    public static final ModConfigSpec.DoubleValue MUSIC_VOLUME, HEADPHONE_WORLD_VOLUME;
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
         b.push("riding");
@@ -113,6 +114,10 @@ public final class ClientConfig {
         RIDER_VOICE = b.comment("Rider voice sounds (screams, bails, landings): MALE, FEMALE or OFF.")
                 .translation("descentmtb.config.riderVoice")
                 .defineEnum("riderVoice", RiderVoice.MALE);
+        b.pop();
+        b.push("audioDevices");
+        MUSIC_VOLUME = number(b,"musicVolume","Local boombox and headphone music volume.",.8,0,1);
+        HEADPHONE_WORLD_VOLUME = number(b,"headphoneWorldVolume","World sound level while listening through worn headphones.",.25,0,1);
         b.pop();
         SPEC = b.build();
     }

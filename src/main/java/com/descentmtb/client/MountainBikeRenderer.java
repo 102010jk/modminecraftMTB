@@ -9,6 +9,7 @@ import com.descentmtb.trick.Trick;
 import com.descentmtb.trick.TrickAnimation;
 import com.descentmtb.entity.BikeRenderState;
 import com.descentmtb.entity.MountainBikeEntity;
+import com.descentmtb.registry.ModBlocks;
 import com.descentmtb.physics.BikeParams;
 import com.descentmtb.physics.OneHand;
 import com.descentmtb.physics.V3;
@@ -89,6 +90,12 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
             model.renderCustomized(pose, buffers, light, OverlayTexture.NO_OVERLAY, bike.build());
         }
         PartTable.duckSqueeze = 0f;
+        if (bike.hasBoombox()) {
+            pose.pushPose(); pose.translate(-.18,-.9,.4); pose.scale(.36f,-.36f,.36f);
+            net.minecraft.client.Minecraft.getInstance().getBlockRenderer().renderSingleBlock(
+                    ModBlocks.BOOMBOX.get().defaultBlockState(),pose,buffers,light,OverlayTexture.NO_OVERLAY);
+            pose.popPose();
+        }
         pose.popPose();
         super.render(bike, entityYaw, partialTick, pose, buffers, light);
     }

@@ -639,5 +639,19 @@
   "descentmtb.gps.tooltip.descent": "Klesání: %s m",
   "descentmtb.gps.tooltip.ascent": "Stoupání: %s m",
   "descentmtb.gps.tooltip.grade": "Průměrný sklon: %s %%",
-  "descentmtb.gps.tooltip.hint": "Pravý klik: spustit/zastavit záznam. Pravý klik na cedulku trailu: propojit trasu."
+  "descentmtb.gps.tooltip.hint": "Pravý klik: spustit/zastavit záznam. Pravý klik na cedulku trailu: propojit trasu.",
+  "block.descentmtb.boombox": "Boombox",
+  "item.descentmtb.headphones": "Sluchátka",
+  "key.descentmtb.audio_settings": "Nastavení hudby",
+  "descentmtb.audio.title": "Hudba na trati",
+  "descentmtb.audio.loading": "Hledám zvukové aplikace…",
+  "descentmtb.audio.windows": "Zachytávání vyžaduje Windows 10 2004 nebo novější. Desky fungují všude.",
+  "descentmtb.audio.empty": "Žádné zdroje. Pusť hudbu v aplikaci a obnov seznam.",
+  "descentmtb.audio.refresh": "Obnovit",
+  "descentmtb.audio.next": "Další",
+  "descentmtb.audio.stop": "Zastavit hudbu",
+  "descentmtb.audio.disc": "Přehrát desku",
+  "descentmtb.audio.close": "Zavřít",
+  "descentmtb.audio.no_disc": "Měj hudební desku v inventáři.",
+  "descentmtb.audio.equip": "Nejdřív nasaď sluchátka pravým klikem."
 }
