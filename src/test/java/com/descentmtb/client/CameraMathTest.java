@@ -98,7 +98,7 @@ class CameraMathTest {
     void terrainPullsTheCameraInAndItEasesBackOut() {
         assertEquals(1, CameraMath.collisionScale(3.5, -1, 0.2, 0.15), 1e-12);            // no hit
         assertEquals((1.0 - 0.2) / 3.5, CameraMath.collisionScale(3.5, 1.0, 0.2, 0.15), 1e-12);
-        assertEquals(0.15 / 3.5, CameraMath.collisionScale(3.5, 0.1, 0.2, 0.15), 1e-12);   // wall at the rider
+        assertEquals(0, CameraMath.collisionScale(3.5, 0.1, 0.2, 0.15), 1e-12);   // wall at the rider
         assertEquals(1, CameraMath.collisionScale(3.5, 9, 0.2, 0.15), 1e-12);             // hit beyond the ray
 
         double s = 1;
@@ -112,6 +112,26 @@ class CameraMathTest {
         }
         for (int i = 0; i < 300; i++) s = CameraMath.relaxScale(s, 1, 1 / 60.0, 0.25);
         assertEquals(1, s, 1e-3);
+    }
+
+    @Test
+    void closeObstacleAlwaysWinsOverMinimumDistance() {
+        for (double hit : new double[]{0, .01, .08, .15, .3}) {
+            double distance = CameraMath.collisionScale(4, hit, .2, .15) * 4;
+            assertTrue(distance <= hit, "eye must stay on the near side");
+        }
+    }
+
+    @Test
+    void orbitReturnIsIndependentOfFramesStraddlingHold() {
+        CameraMath.Orbit slow = new CameraMath.Orbit(), fast = new CameraMath.Orbit();
+        slow.add(1, .4);
+        fast.add(1, .4);
+        for (int i = 0; i < 20; i++) slow.update(.05, .733, .4);
+        for (int i = 0; i < 100; i++) fast.update(.01, .733, .4);
+        assertEquals(Math.exp(-.267 / .4), slow.yaw, 1e-12);
+        assertEquals(slow.yaw, fast.yaw, 1e-12);
+        assertEquals(slow.pitch, fast.pitch, 1e-12);
     }
 
     @Test

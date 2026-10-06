@@ -6,8 +6,6 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.client.settings.KeyModifier;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWGamepadState;
@@ -55,30 +53,29 @@ public final class BikeInputHandler {
 
     /** Edge detectors; they start "held" so a key already down when riding begins is not a fresh press. */
     private static boolean prevRespawn = true, prevRespawnStart = true, prevCamera = true, prevResetCamera = true;
-    private static boolean prevHopKey;
+    private static final InputTransitions.Hop hop = new InputTransitions.Hop();
+    private static final InputTransitions.AirPress table = new InputTransitions.AirPress();
     private static float tableSide = 1;
-    private static boolean tweakArmed;
-    private static int hopStretchTicks;
     /** The bike seen riding on the last client tick, to notice a (re)mount. */
     private static MountainBikeEntity lastRiding;
 
     /**
-     * Called every client tick (after the bike's own tick). Notices mounting, announces the detected controller
+     * Called every client tick (after the bike's own tick). Notices mounting, logs the detected controller
      * once, and forgets all held / edge state while the player is not riding, a screen is open or the game is
      * paused, so nothing fires on the first tick after a remount.
      */
     public static void clientTick() {
         Minecraft mc = Minecraft.getInstance();
+        syncRiding();
+        if (lastRiding == null || mc.screen != null || mc.isPaused() || !mc.isWindowActive()) resetState();
+    }
+
+    private static void syncRiding() {
         MountainBikeEntity riding = BikeClientController.riding();
         if (riding != lastRiding) {
             lastRiding = riding;
-            if (riding != null && mc.player != null) {
-                resetState();
-                announce(mc.player);
-            }
-        }
-        if (riding == null || mc.screen != null || mc.isPaused()) {
             resetState();
+            if (riding != null) logControllers();
         }
     }
 
@@ -86,12 +83,11 @@ public final class BikeInputHandler {
      * Clears keyboard ramps, bunny-hop and tweak state and the pad helpers. The edge detectors start out "held" so a
      * key that is still down when riding resumes does not count as a fresh press (it must be released first).
      */
-    private static void resetState() {
+    public static void resetState() {
         keyboardSteer = 0;
         instantKeyboardSteering = false;
-        prevHopKey = false;
-        hopStretchTicks = 0;
-        tweakArmed = false;
+        hop.reset();
+        table.reset();
         tableSide = 1;
         padCrouchTicks = 0;
         padPopTicks = 0;
@@ -99,7 +95,13 @@ public final class BikeInputHandler {
     }
 
     public static Frame poll() {
-        long win = Minecraft.getInstance().getWindow().getWindow();
+        Minecraft mc = Minecraft.getInstance();
+        syncRiding();
+        if (mc.screen != null || mc.isPaused() || !mc.isWindowActive()) {
+            resetState();
+            return Frame.NONE;
+        }
+        long win = mc.getWindow().getWindow();
 
         // ---------------- keyboard ----------------
         boolean trickKey = down(win, ModKeyMappings.TRICK);
@@ -108,10 +110,7 @@ public final class BikeInputHandler {
         // Space is the brake on the ground and the tweak (table) in the air, as in Descenders
         // ... but only a fresh press in the air: Space still held from braking before the lip must not table
         boolean spaceDown = down(win, ModKeyMappings.TWEAK);
-        if (!inAir || !spaceDown) {
-            tweakArmed = inAir && !spaceDown;
-        }
-        boolean tweakKey = inAir && spaceDown && tweakArmed;
+        boolean tweakKey = table.update(inAir, spaceDown);
         float arrowX = (down(win, ModKeyMappings.STEER_RIGHT) ? 1 : 0) - (down(win, ModKeyMappings.STEER_LEFT) ? 1 : 0);
         float arrowY = (down(win, ModKeyMappings.LEAN_FORWARD) ? 1 : 0) - (down(win, ModKeyMappings.LEAN_BACK) ? 1 : 0);
         float kSteer = 0, kLean = 0, kTweak = 0, kTrickX = 0, kTrickY = 0;
@@ -134,13 +133,8 @@ public final class BikeInputHandler {
         float kBody = (down(win, ModKeyMappings.STRETCH) ? 1 : 0) - (down(win, ModKeyMappings.BEND) ? 1 : 0);
         // X = bunny-hop macro: hold to bend, release to spring up
         boolean hopKey = down(win, ModKeyMappings.BUNNY_HOP);
-        if (hopKey) kBody = -1;
-        else if (prevHopKey) hopStretchTicks = 6;
-        prevHopKey = hopKey;
-        if (!hopKey && hopStretchTicks > 0) {
-            hopStretchTicks--;
-            kBody = 1;
-        }
+        float hopBody = hop.update(hopKey);
+        if (hopBody != 0) kBody = hopBody;
         boolean respawn = down(win, ModKeyMappings.RESPAWN);
         boolean respawnStart = down(win, ModKeyMappings.RESPAWN_START);
         boolean camera = down(win, ModKeyMappings.CAMERA);
@@ -398,8 +392,8 @@ public final class BikeInputHandler {
         return n == null ? "?" : n;
     }
 
-    /** One chat line on mounting so the player can see what was detected (and which keys to use without a pad). */
-    private static void announce(LocalPlayer player) {
+    /** Device diagnostics stay in the log so mounting does not interrupt the ride with chat. */
+    private static void logControllers() {
         StringBuilder sb = new StringBuilder();
         int found = 0;
         for (int jid = GLFW.GLFW_JOYSTICK_1; jid <= GLFW.GLFW_JOYSTICK_LAST; jid++) {
@@ -407,17 +401,10 @@ public final class BikeInputHandler {
                 found++;
                 boolean pad = GLFW.glfwJoystickIsGamepad(jid);
                 String device = name(pad ? GLFW.glfwGetGamepadName(jid) : GLFW.glfwGetJoystickName(jid));
-                sb.append(Component.translatable(pad ? "descentmtb.input.gamepad" : "descentmtb.input.joystick", device)
-                        .getString()).append("  ");
+                sb.append(device).append(pad ? " (gamepad)" : " (joystick)").append("  ");
             }
         }
         String devices = sb.toString().trim();
-        player.displayClientMessage(found == 0
-                ? Component.translatable("descentmtb.input.no_controller",
-                        ModKeyMappings.ACCELERATE.getTranslatedKeyMessage(), ModKeyMappings.BRAKE.getTranslatedKeyMessage(),
-                        ModKeyMappings.STEER_LEFT.getTranslatedKeyMessage(), ModKeyMappings.STEER_RIGHT.getTranslatedKeyMessage(),
-                        ModKeyMappings.BUNNY_HOP.getTranslatedKeyMessage(), ModKeyMappings.CAMERA.getTranslatedKeyMessage())
-                : Component.translatable("descentmtb.input.controller", devices), false);
         LOG.info("[Descent MTB] controllers: {}", found == 0 ? "none" : devices);
     }
 

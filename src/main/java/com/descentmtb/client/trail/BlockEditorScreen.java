@@ -43,6 +43,7 @@ public final class BlockEditorScreen extends Screen {
     private int left, panelWidth, viewX, viewY, viewSize;
     /** Set while the boxes are filled from {@link #heights}, so their responders do not write back. */
     private boolean filling;
+    private final ShapeEditHistory history = new ShapeEditHistory();
 
     public BlockEditorScreen(BlockPos pos, ShapePresets.Editable editable) {
         super(Component.translatable("descentmtb.editor.title"));
@@ -72,7 +73,9 @@ public final class BlockEditorScreen extends Screen {
             box.setFilter(text -> text.matches("\\d{0,3}"));
             box.setResponder(text -> {
                 if (!filling && !text.isEmpty()) {
+                    var before = state();
                     heights[index] = CornerEdits.clampSixteenths(Integer.parseInt(text));
+                    history.record(before, state());
                 }
             });
             boxes[corner] = addRenderableWidget(box);
@@ -98,14 +101,24 @@ public final class BlockEditorScreen extends Screen {
         });
         pasteButton = button(Component.translatable("descentmtb.editor.paste"), 2, rowY, w, () -> {
             if (clipboard != null) {
+                var before = state();
                 deck = clipboardDeck;
-                edit(clipboard.clone());
+                restore(new ShapeEditHistory.State(clipboard, deck, offHandMaterial));
+                history.record(before, state());
             }
         });
         pasteButton.active = clipboard != null;
-        deckButton = button(Component.empty(), 3, rowY, w, () -> deck = !deck);
+        deckButton = button(Component.empty(), 3, rowY, w, () -> {
+            var before = state();
+            deck = !deck;
+            history.record(before, state());
+        });
         rowY += 22;
-        materialButton = addRenderableWidget(Button.builder(Component.empty(), b -> offHandMaterial = !offHandMaterial)
+        materialButton = addRenderableWidget(Button.builder(Component.empty(), b -> {
+            var before = state();
+            offHandMaterial = !offHandMaterial;
+            history.record(before, state());
+        })
                 .bounds(left, rowY, panelWidth - 4, 20).build());
 
         addRenderableWidget(Button.builder(Component.translatable("descentmtb.editor.apply"), b -> apply())
@@ -131,9 +144,22 @@ public final class BlockEditorScreen extends Screen {
     }
 
     private void edit(int[] next) {
+        var before = state();
         for (int i = 0; i < 4; i++) {
             heights[i] = CornerEdits.clampSixteenths(next[i]);
         }
+        fill();
+        history.record(before, state());
+    }
+
+    private ShapeEditHistory.State state() {
+        return new ShapeEditHistory.State(heights, deck, offHandMaterial);
+    }
+
+    private void restore(ShapeEditHistory.State state) {
+        System.arraycopy(state.heights(), 0, heights, 0, 4);
+        deck = state.deck();
+        offHandMaterial = state.material();
         fill();
     }
 
@@ -155,11 +181,26 @@ public final class BlockEditorScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (Screen.hasControlDown() && (keyCode == GLFW.GLFW_KEY_Z || keyCode == GLFW.GLFW_KEY_Y)) {
+            restore(keyCode == GLFW.GLFW_KEY_Y || Screen.hasShiftDown() ? history.redo(state()) : history.undo(state()));
+            return true;
+        }
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             apply();
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
+        for (int i = 0; i < boxes.length; i++) {
+            if (vertical != 0 && boxes[i] != null && boxes[i].isMouseOver(mouseX, mouseY)) {
+                nudge(i, vertical > 0 ? 1 : -1);
+                return true;
+            }
+        }
+        return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
     }
 
     // ---- drawing ----

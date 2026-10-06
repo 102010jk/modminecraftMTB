@@ -70,9 +70,10 @@ public final class CameraMath {
         }
 
         public void update(double dt, double hold, double returnTau) {
+            double before = idle;
             idle += Math.max(0, dt);
             if (idle <= hold) return;
-            double k = blend(dt, returnTau);
+            double k = blend(idle - Math.max(before, Math.max(0, hold)), returnTau);
             yaw -= yaw * k;
             pitch -= pitch * k;
             if (Math.abs(yaw) < 1e-4) yaw = 0;
@@ -111,7 +112,9 @@ public final class CameraMath {
      */
     public static double collisionScale(double rayLength, double hitDistance, double margin, double minDistance) {
         if (hitDistance < 0 || rayLength <= 1e-6) return 1;
-        return clamp(Math.max(minDistance, hitDistance - margin) / rayLength, 0, 1);
+        // A comfort minimum must never put the eye beyond a nearby wall.
+        double safe = Math.max(0, hitDistance - margin);
+        return clamp(safe / rayLength, 0, 1);
     }
 
     /** The camera is pulled in at once (never inside terrain) and eases back out when the way is free again. */

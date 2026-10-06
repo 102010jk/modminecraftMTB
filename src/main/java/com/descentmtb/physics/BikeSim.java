@@ -148,6 +148,16 @@ public final class BikeSim {
         this.bailReason = "";
         this.airborne = false;
         this.airTime = 0;
+        airSteps = groundSteps = predictTimer = 0;
+        lastAirVel = V3.ZERO;
+        landingPitch = 0;
+        landingKnown = false;
+        riderUp = riderFwd = crankAngle = crankRate = 0;
+        legTarget = armTarget = 0;
+        leanDrift = false;
+        bodyNormal = V3.Y;
+        front.reset(0.28 * p.forkTravel);
+        rear.reset(0.28 * p.shockTravel);
         this.groundFactor = 1;
         this.steerAngle = 0;
         this.lean = 0;
@@ -189,6 +199,8 @@ public final class BikeSim {
 
     private void substep(Controls c, double h) {
         axes();
+        double landingTime = landAssistTimer;
+        landAssistTimer = Math.max(0, landAssistTimer - h);
         double g = p.gravity;
         double vFwd = vel.dot(fH);
         double speed = vel.length();
@@ -305,17 +317,18 @@ public final class BikeSim {
             setOmega(0, -pitch * 3);
         } else if (!grounded) {
             airControl(c, h);
-        } else if (landAssistTimer > 0) {
-            landAssistTimer -= h;
+        } else if (landingTime > 0 && p.landingAssistRate > 0) {
             Wheel w = front.contact ? front : rear;
             double e = wrap(pitch - groundPitch(w.normal));
             double b = omega.dot(right);
-            double bT = Math.abs(e) < p.landingAssistAngle ? -e * p.landingAssistRate : b;
+            double pitchHelp = 1 - clamp(Math.max(Math.abs(c.lean), Math.abs(c.body)), 0, 1);
+            double bT = Math.abs(e) < p.landingAssistAngle ? b + (-e * p.landingAssistRate - b) * pitchHelp : b;
             double a = omega.dot(V3.Y);
             double aT = a;
             if (vel.horizontalLength() > 3) {
                 double ye = wrap(Math.atan2(-vel.x, vel.z) - yaw);
-                if (Math.abs(ye) < p.bailYawError) aT = -ye * p.landingAssistRate; // yaw' = -a
+                if (Math.abs(ye) < p.bailYawError) aT = a + (-ye * p.landingAssistRate - a)
+                        * (1 - clamp(Math.abs(c.steer), 0, 1)); // yaw' = -a
             }
             double k = 1 - Math.exp(-h / 0.03);
             setOmega(a + (aT - a) * k, b + (bT - b) * k);
@@ -710,13 +723,13 @@ public final class BikeSim {
             bodyGrounded = true;
             bodyNormal = bodyHit.normal;
             V3 n = bodyHit.normal;
-            double vn = pointVel(pt).dot(n);
+            double vn = pointVel(pt).sub(bodyHit.velocity).dot(n);
             double jn = 0;
             if (vn < 0) {
                 jn = -vn / invMass(pt, n);
                 applyImpulse(pt, n.mul(jn));
             }
-            V3 vt = pointVel(pt).reject(n);
+            V3 vt = pointVel(pt).sub(bodyHit.velocity).reject(n);
             double vtl = vt.length();
             if (vtl > 1e-4) {
                 V3 td = vt.mul(1 / vtl);
@@ -733,9 +746,10 @@ public final class BikeSim {
         if (!riderless && terrain.ground(riderPos.x, riderPos.z, riderPos.y + 1.0, riderPos.y - 1.5, bodyHit)) {
             double pen = bodyHit.height + 0.25 - riderPos.y;
             if (pen > 0) {
-                double vn = riderVel.dot(bodyHit.normal);
-                if (vn < 0) riderVel = riderVel.addScaled(bodyHit.normal, -vn);
-                riderVel = riderVel.mul(Math.exp(-h * 3));  // scrub along the dirt
+                V3 relative = riderVel.sub(bodyHit.velocity);
+                double vn = relative.dot(bodyHit.normal);
+                if (vn < 0) relative = relative.addScaled(bodyHit.normal, -vn);
+                riderVel = bodyHit.velocity.add(relative.mul(Math.exp(-h * 3)));  // scrub along the dirt
                 riderPos = riderPos.addScaled(bodyHit.normal, Math.min(pen * 0.3, 0.05));
             }
         }
@@ -867,7 +881,7 @@ public final class BikeSim {
         }
         // speed into the ground just before the tyres touched (the suspension has
         // already started slowing us by the time this runs)
-        double impact = Math.max(0, -lastAirVel.dot(w.normal));
+        double impact = Math.max(0, -lastAirVel.sub(w.hit.velocity).dot(w.normal));
         if (airTime > 0.25) {
             if (impact > p.bailImpactSpeed && w.surface!=Terrain.Surface.AIRBAG) {
                 bail("landed too hard (" + String.format(java.util.Locale.ROOT, "%.1f", impact) + " m/s into the ground)");
@@ -876,7 +890,7 @@ public final class BikeSim {
             } else {
                 // Descenders-style "magnet": ease pitch onto the slope and finish an
                 // under/over-rotated spin onto the direction of travel
-                if (pitchErr < p.landingAssistAngle || yawErr > 0.02) landAssistTimer = 0.18;
+                if (p.landingAssistRate > 0 && (pitchErr < p.landingAssistAngle || yawErr > 0.02)) landAssistTimer = 0.18;
             }
         }
         events.add(new Event(Event.Type.LAND, impact,
@@ -956,6 +970,7 @@ public final class BikeSim {
                 + .04 * Math.abs(rolledRight.y) : p.wheelRadius;
         double lift = 0;
         Terrain.Surface floorSurface=Terrain.Surface.DIRT;
+        V3 floorVelocity = V3.ZERO, floorNormal = V3.Y;
         for (Wheel w : new Wheel[]{front, rear}) {
             double sign = w.isFront ? 1 : -1;
             V3 point = pos.addScaled(fwd, sign * p.halfWheelbase)
@@ -964,15 +979,18 @@ public final class BikeSim {
             double oldY=before.addScaled(oldFwd,sign*p.halfWheelbase).addScaled(oldUp,p.axleDrop+w.compression).y-oldRadiusY;
             double top = Math.max(oldY, point.y) + .08;
             if (terrain.floor(point.x, point.z, top, point.y - .6, bodyHit)) {
-                if(bodyHit.height-point.y>lift){lift=bodyHit.height-point.y;floorSurface=bodyHit.surface;}
+                if(bodyHit.height-point.y>lift){
+                    lift=bodyHit.height-point.y;floorSurface=bodyHit.surface;
+                    floorVelocity=bodyHit.velocity;floorNormal=bodyHit.normal;
+                }
             }
         }
         if (lift > .12) {
             if (airborne && airTime > 0.25 && !riderless && floorSurface != Terrain.Surface.AIRBAG
-                    && -vel.y > p.bailImpactSpeed) bail("landed too hard");
+                    && -vel.sub(floorVelocity).dot(floorNormal) > p.bailImpactSpeed) bail("landed too hard");
             pos = pos.addScaled(V3.Y, lift);
             if (!riderless) riderPos = riderPos.addScaled(V3.Y, lift);
-            if (vel.y < 0) vel = new V3(vel.x, 0, vel.z);
+            if (vel.y < floorVelocity.y) vel = new V3(vel.x, floorVelocity.y, vel.z);
         }
     }
 
@@ -1101,6 +1119,20 @@ public final class BikeSim {
 
         Wheel(boolean isFront) {
             this.isFront = isFront;
+        }
+
+        void reset(double sag) {
+            contact = justLanded = sliding = false;
+            compression = sag;
+            compVel = overshoot = penetration = load = spinAngle = spinRate = driveForce = 0;
+            grip = 1;
+            rollRes = 0.02;
+            surface = Terrain.Surface.DIRT;
+            ext = patch = tF = tL = V3.ZERO;
+            normal = V3.Y;
+            hit.set(0, V3.Y, surface);
+            satSteps = 0;
+            resetAccum();
         }
 
         void resetAccum() {

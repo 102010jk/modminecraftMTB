@@ -138,6 +138,7 @@ public final class BikeClientController {
 
     private static void onMount(MountainBikeEntity bike) {
         riding = bike;
+        BikeInputHandler.resetState();
         epoch = 0;                          // the server starts a fresh session on every mount
         bailTicks = 0;
         respawnCooldown = 0;
@@ -155,6 +156,7 @@ public final class BikeClientController {
         MountainBikeEntity bike = riding;
         if (bike == null || bike.getId() != m.entityId()) return;   // we got off in the meantime
         epoch = m.epoch();
+        if (m.kind() != BikeResyncPayload.RESYNC) BikeInputHandler.resetState();
         bike.respawnAt(m.x(), m.y(), m.z(), m.yawRad());
         bailTicks = 0;
         repositioned = true;

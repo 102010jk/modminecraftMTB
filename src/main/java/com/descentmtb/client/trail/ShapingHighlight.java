@@ -2,6 +2,7 @@ package com.descentmtb.client.trail;
 
 import com.descentmtb.trail.ClipboardMath;
 import com.descentmtb.trail.CursorSettings;
+import com.descentmtb.trail.CornerEdits;
 import com.descentmtb.trail.JumpBuilder;
 import com.descentmtb.trail.JumpProfiles;
 import com.descentmtb.trail.LinePoints;
@@ -54,13 +55,19 @@ public final class ShapingHighlight {
 
     /** Inputs of the cached plan; {@code planPos == null} means nothing is cached. */
     private static BlockPos planPos;
-    private static Vec3 planHit;
+    private static int planSelection;
     private static ShapeMode planMode;
     private static Direction planFacing;
     private static boolean planShift;
     private static long planTick;
     private static Level planLevel;
     private static ShapePresets.Plan plan;
+    private static BlockPos jumpPos;
+    private static Direction jumpFacing;
+    private static JumpProfiles.Params jumpParams;
+    private static int[] jumpBounds;
+    private static double[][] jumpPoints;
+    private static double jumpTop;
 
     public static void render(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
@@ -119,10 +126,18 @@ public final class ShapingHighlight {
         Direction facing = mc.player.getDirection();
         boolean shift = mc.player.isShiftKeyDown();
         long tick = mc.level.getGameTime();
-        if (planPos == null || !planPos.equals(pos) || !planHit.equals(hitAt) || planMode != mode || planFacing != facing
+        double fx = Math.max(0, Math.min(1, hitAt.x - pos.getX()));
+        double fz = Math.max(0, Math.min(1, hitAt.z - pos.getZ()));
+        int selection = 0;
+        if (mode == ShapeMode.AUTO) {
+            for (int corner : CornerEdits.picked(cursor.pick(), fx, fz)) selection |= 1 << corner;
+        } else if (mode == ShapeMode.CORNER_BANK) {
+            selection = (fx >= .5 ? 1 : 0) + (fz >= .5 ? 2 : 0);
+        }
+        if (planPos == null || !planPos.equals(pos) || planSelection != selection || planMode != mode || planFacing != facing
                 || planShift != shift || planTick != tick || planLevel != mc.level) {
             planPos = pos.immutable();
-            planHit = hitAt;
+            planSelection = selection;
             planMode = mode;
             planFacing = facing;
             planShift = shift;
@@ -139,29 +154,32 @@ public final class ShapingHighlight {
             return;
         }
         BlockPos start = hit.getBlockPos();
-        JumpProfiles.Layout layout = JumpBuilder.layout(start, mc.player.getDirection(), jump);
-        int[] box = layout.bounds();
-        double top = 0;
-        for (double u = 0; u <= jump.total(); u += .25) {
-            top = Math.max(top, jump.heightAt(u));
+        Direction facing = mc.player.getDirection();
+        if (!start.equals(jumpPos) || facing != jumpFacing || !jump.equals(jumpParams)) {
+            jumpPos = start.immutable();
+            jumpFacing = facing;
+            jumpParams = jump;
+            JumpProfiles.Layout layout = JumpBuilder.layout(start, facing, jump);
+            jumpBounds = layout.bounds();
+            jumpTop = 0;
+            jumpPoints = new double[jump.total() * 8 + 1][];
+            for (int i = 0; i < jumpPoints.length; i++) {
+                double u = i / 8.0;
+                double[] point = layout.point(u);
+                double height = jump.heightAt(u);
+                jumpTop = Math.max(jumpTop, height);
+                jumpPoints[i] = new double[]{point[0], start.getY() + 1 + height + .04, point[1]};
+            }
         }
+        int[] box = jumpBounds;
         VertexConsumer lines = source.getBuffer(RenderType.lines());
         LevelRenderer.renderLineBox(pose, lines,
                 box[0] - camera.x, start.getY() - camera.y, box[1] - camera.z,
-                box[2] + 1 - camera.x, start.getY() + 1 + Math.max(.05, top) - camera.y, box[3] + 1 - camera.z,
+                box[2] + 1 - camera.x, start.getY() + 1 + Math.max(.05, jumpTop) - camera.y, box[3] + 1 - camera.z,
                 .95f, .76f, .29f, 1f);
-        double[] previous = null;
-        double previousY = 0;
-        int steps = jump.total() * 8;
-        for (int i = 0; i <= steps; i++) {
-            double u = i / 8.0;
-            double[] point = layout.point(u);
-            double y = start.getY() + 1 + jump.heightAt(u) + .04;
-            if (previous != null) {
-                segment(lines, pose, camera, previous[0], previousY, previous[1], point[0], y, point[1]);
-            }
-            previous = point;
-            previousY = y;
+        for (int i = 1; i < jumpPoints.length; i++) {
+            double[] a = jumpPoints[i - 1], b = jumpPoints[i];
+            segment(lines, pose, camera, a[0], a[1], a[2], b[0], b[1], b[2]);
         }
         source.endBatch(RenderType.lines());
     }
