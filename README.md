@@ -5,14 +5,21 @@ A mountain-biking mod for **Minecraft 1.21.1 / NeoForge** with arcade,
 launches, charged bunny hops, lean and air control — with **full controller
 support** alongside keyboard.
 
+## Downloads and project status
+
+The current build is [descentmtb-latest.jar](dist/descentmtb-latest.jar).
+Previous milestone builds are archived in [dist/](dist/).
+See [the current handoff](HANDOFF_CHATGPT.md) for completed work, known limitations and milestone notes.
+
 ## Build
 
+Requires **Java 21**. Run from the cloned repository; `JAVA_HOME` must point to your Java 21 installation.
+
 ```powershell
-cd C:\MTBMod
-.\gradlew.bat build
+.\gradlew.bat assemble --console=plain
 ```
 
-The finished mod jar lands in `build\libs\descentmtb-0.1.0.jar`. Drop it into
+The finished mod jar lands in `build\libs\descentmtb-1.0.0-alpha.jar`. Drop it into
 your `.minecraft\mods` folder (NeoForge 1.21.1 profile) together with NeoForge.
 
 For a dev test run: `.\gradlew.bat runClient`.
