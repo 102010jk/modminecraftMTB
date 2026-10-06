@@ -23,6 +23,14 @@ public final class ClientConfig {
     public static final ModConfigSpec.DoubleValue WALL_RIDE_SPEED;
     public static final ModConfigSpec.DoubleValue STEERING_GRIP, KEYBOARD_STEER_RAMP;
 
+    // ---- camera (BikeCamera) ----
+    public static final ModConfigSpec.EnumValue<BikeCamera.Mode> CAMERA_MODE;
+    public static final ModConfigSpec.DoubleValue CAMERA_SMOOTHING, CAMERA_ORBIT_RETURN;
+    public static final ModConfigSpec.DoubleValue CAM_FIRST_SMOOTH;
+    public static final ModConfigSpec.DoubleValue CAM_SECOND_DIST, CAM_SECOND_HEIGHT, CAM_SECOND_SMOOTH;
+    public static final ModConfigSpec.DoubleValue CAM_THIRD_DIST, CAM_THIRD_HEIGHT, CAM_THIRD_SMOOTH;
+    public static final ModConfigSpec.DoubleValue CAM_DRONE_DIST, CAM_DRONE_HEIGHT, CAM_DRONE_SMOOTH;
+
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
         b.push("riding");
@@ -53,6 +61,24 @@ public final class ClientConfig {
         WALL_RIDES = b.translation("descentmtb.config.wallRides").define("wallRides", true);
         WALL_RIDE_SPEED = number(b, "wallRideMinSpeedKmh", "Minimum speed along the wall needed to start a wallride after a jump.", 28.8, 18, 60);
         TRICK_BANNER = b.translation("descentmtb.config.trickBanner").define("trickBanner", true);
+        b.pop();
+
+        b.push("camera");
+        CAMERA_MODE = b.comment("Riding camera (V cycles it): FIRST_PERSON helmet, SECOND_PERSON from ahead, THIRD_PERSON chase, DRONE far chase.")
+                .translation("descentmtb.config.cameraMode")
+                .defineEnum("mode", BikeCamera.Mode.FIRST_PERSON);
+        CAMERA_SMOOTHING = number(b, "cameraSmoothing", "Camera lag multiplier for every mode: 0 = rigidly attached, 1 = the old lag, lower feels more responsive.", 0.6, 0, 2);
+        CAMERA_ORBIT_RETURN = number(b, "cameraOrbitReturn", "Seconds after the last mouse movement before an orbited camera springs back behind the rider.", 1.5, 0.2, 5);
+        CAM_FIRST_SMOOTH = number(b, "camFirstSmooth", "Helmet camera: how much the view lags the head, in seconds (before the multiplier).", 0.05, 0, 0.2);
+        CAM_SECOND_DIST = number(b, "camSecondDistance", "Second person camera: metres in front of the rider.", 3.5, 1.5, 10);
+        CAM_SECOND_HEIGHT = number(b, "camSecondHeight", "Second person camera: height above the rider, metres.", 1.4, 0, 5);
+        CAM_SECOND_SMOOTH = number(b, "camSecondSmooth", "Second person camera: seconds it takes to swing in front of the direction of travel (before the multiplier).", 0.25, 0, 2);
+        CAM_THIRD_DIST = number(b, "camThirdDistance", "Third person camera: metres behind the rider.", 3.5, 1.5, 10);
+        CAM_THIRD_HEIGHT = number(b, "camThirdHeight", "Third person camera: height above the rider, metres.", 1.6, 0, 5);
+        CAM_THIRD_SMOOTH = number(b, "camThirdSmooth", "Third person camera: seconds it takes to follow the direction of travel (before the multiplier).", 0.16, 0, 2);
+        CAM_DRONE_DIST = number(b, "camDroneDistance", "Drone camera: metres behind the rider.", 8, 3, 25);
+        CAM_DRONE_HEIGHT = number(b, "camDroneHeight", "Drone camera: height above the rider, metres.", 4.5, 1, 15);
+        CAM_DRONE_SMOOTH = number(b, "camDroneSmooth", "Drone camera: seconds it takes to follow the direction of travel (before the multiplier).", 0.5, 0, 3);
         b.pop();
         SPEC = b.build();
     }
