@@ -75,6 +75,7 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
         float spinF = (float) BikeRenderState.lerp(t, a.spinF, b.spinF);
         float spinR = (float) BikeRenderState.lerp(t, a.spinR, b.spinR);
         float crank = (float) BikeRenderState.lerp(t, a.crank, b.crank);
+        PartTable.mudLevel = !ClientConfig.SPEC.isLoaded() || ClientConfig.MUD_EFFECTS.get() ? bike.mud() : 0;
         PartTable.duckSqueeze = b.oneHand
                 ? (float) OneHand.squeeze(a.oneHand ? BikeRenderState.lerp(t, a.oneHandTime, b.oneHandTime) : b.oneHandTime)
                 : 0f;
@@ -90,6 +91,7 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
             model.renderCustomized(pose, buffers, light, OverlayTexture.NO_OVERLAY, bike.build());
         }
         PartTable.duckSqueeze = 0f;
+        PartTable.mudLevel = 0f;
         if (bike.hasBoombox()) {
             pose.pushPose(); pose.translate(-.18,-.9,.4); pose.scale(.36f,-.36f,.36f);
             net.minecraft.client.Minecraft.getInstance().getBlockRenderer().renderSingleBlock(

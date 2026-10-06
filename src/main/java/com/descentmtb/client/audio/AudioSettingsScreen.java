@@ -47,7 +47,8 @@ public final class AudioSettingsScreen extends Screen {
             var song=JukeboxSong.fromStack(minecraft.level.registryAccess(),stack);
             if(song.isEmpty()||song.get().unwrapKey().isEmpty())continue;
             AudioClient.stop(null);
-            PacketDistributor.sendToServer(new AudioNet.ControlC2S(emitter,true,BoomboxState.Mode.DISC,Optional.of(song.get().unwrapKey().get().location()),radius,volume,song.get().value().description().getString()));
+            String label=song.get().value().description().getString();if(label.length()>64)label=label.substring(0,64);
+            PacketDistributor.sendToServer(new AudioNet.ControlC2S(emitter,true,BoomboxState.Mode.DISC,Optional.of(song.get().unwrapKey().get().location()),radius,volume,label));
             onClose();return;
         }
         status=t("no_disc").getString();

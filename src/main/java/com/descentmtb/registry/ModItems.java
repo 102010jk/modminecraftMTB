@@ -35,6 +35,7 @@ public final class ModItems {
 
     public static final DeferredItem<com.descentmtb.audio.HeadphonesItem> HEADPHONES = ITEMS.registerItem("headphones",com.descentmtb.audio.HeadphonesItem::new,new Item.Properties().stacksTo(1));
     public static final DeferredItem<com.descentmtb.map.TrailMapItem> TRAIL_MAP = ITEMS.registerItem("trail_map",com.descentmtb.map.TrailMapItem::new,new Item.Properties().stacksTo(1));
+    public static final DeferredItem<com.descentmtb.item.TearOffItem> TEAR_OFF = ITEMS.registerItem("tear_off",com.descentmtb.item.TearOffItem::new,new Item.Properties());
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TAB =
             TABS.register("main", () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.descentmtb"))
@@ -46,6 +47,7 @@ public final class ModItems {
                         output.accept(TRAIL_GPS.get());
                         output.accept(TRAIL_MAP.get());
                         output.accept(HEADPHONES.get());
+                        output.accept(TEAR_OFF.get());
                         ModBlocks.TAB_ITEMS.forEach(s -> output.accept(s.get()));
                     })
                     .build());

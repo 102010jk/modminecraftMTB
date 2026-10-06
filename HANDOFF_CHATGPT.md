@@ -1,5 +1,15 @@
 # Předání pro ChatGPT – Descent MTB (stav 2026-10-06)
 
+## Aktuální stav po milníku 12
+
+Aktuální JAR: `dist/descentmtb-milestone-12-immersion-complete.jar`; `dist/descentmtb-latest.jar` je jeho shodná kopie. Milníky 10–12 dokončují audio zařízení, GPS mapy/cedule/rámečky a bláto, trhací fólie, roost částice, speed lines a nastavitelné FOV. Ovládání a technická omezení: `docs/milestones-10-12.md`.
+
+Ověření tohoto dokončení: pouze `assemble`, úspěšné. Nebyla spuštěna hra, screenshoty ani runtime/multiplayer testy. Historické tvrzení o unit testech níže se týká staršího předání, nikoli této práce.
+
+Milník 08 odstranil hlas jezdce z pádů prázdného kola. Milník 09 opravil spoje rámů a sedel; checker byl tehdy na 0 chyb. Zbývá samostatná práce na věrné geometrii zadních staveb jednotlivých značek. Audio WIP ve `wip/` už není aktivní kód; jeho dokončená verze je v `src/main/java/com/descentmtb/audio` a `client/audio`.
+
+## Historické předání před milníky 08–12
+
 Repo `C:/MTBMod`, NeoForge 1.21.1, Java 21. Build (PowerShell): `$env:JAVA_HOME='C:/Users/jakub/AppData/Local/Programs/Eclipse Adoptium/jdk-21.0.11.10-hotspot'; .\gradlew.bat assemble --console=plain`. Pravidla: žádné herní testy/screenshoty, jen build; nikdy `git add -A`; JAR po milníku do `dist/` + `descentmtb-latest.jar`. Poslední JAR: `dist/descentmtb-milestone-07-sound-update.jar`.
 
 ## PRIORITA 1 – Zvuky (HOTOVO)

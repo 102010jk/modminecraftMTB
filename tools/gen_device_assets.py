@@ -1,6 +1,7 @@
 """Small pixel assets and vanilla models/recipes for audio, GPS and riding consumables."""
 from pathlib import Path
 import json
+import random
 from PIL import Image, ImageDraw
 ROOT=Path(__file__).resolve().parents[1]/'src/main/resources'
 A=ROOT/'assets/descentmtb'
@@ -37,4 +38,20 @@ for lang,labels in {
  'en_us':{'item.descentmtb.trail_map':'Trail map','descentmtb.map.title':'Bikepark routes','descentmtb.map.added':'Added route: %s','descentmtb.map.count':'%s saved routes','descentmtb.map.hint':'Use on a linked sign, or hold a recorded GPS / another map in the other hand to copy. Scroll in the map to select a route.','descentmtb.map.empty':'Record a GPS route and link a trail sign.','descentmtb.map.wrong_dimension':'This route was recorded in another dimension.','descentmtb.map.linked':'GPS route linked to sign.','descentmtb.map.copied':'Routes copied to this map.'},
  'cs_cz':{'item.descentmtb.trail_map':'Mapa trailů','descentmtb.map.title':'Trasy bikeparku','descentmtb.map.added':'Přidaná trasa: %s','descentmtb.map.count':'%s uložených tras','descentmtb.map.hint':'Klikni na ceduli s GPS trasou, nebo měj ve druhé ruce nahrané GPS / jinou mapu pro kopírování. Kolečkem v mapě vybíráš trasu.','descentmtb.map.empty':'Nahraj GPS trasu a připoj ji k ceduli.','descentmtb.map.wrong_dimension':'Tahle trasa vznikla v jiné dimenzi.','descentmtb.map.linked':'GPS trasa připojená k ceduli.','descentmtb.map.copied':'Trasy zkopírované na tuto mapu.'}
 }.items():
+ p=A/f'lang/{lang}.json';data=json.loads(p.read_text(encoding='utf-8'));data.update(labels);p.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+# Independent transparent effect layers; original frame and terrain textures are preserved.
+rng=random.Random(7026)
+mud=Image.new('RGBA',(256,256));d=ImageDraw.Draw(mud)
+for i in range(1700):
+ x,y=rng.randrange(256),rng.randrange(256);radius=rng.choice([0,0,1,1,2]);shade=rng.choice([(85,63,41,180),(101,74,45,220),(65,50,33,190),(128,98,61,170)])
+ d.rectangle((x,y,x+radius,y+radius),fill=shade)
+mud.save(A/'textures/entity/bike_mud.png')
+splash=Image.new('RGBA',(256,144));d=ImageDraw.Draw(splash)
+for i in range(90):
+ x,y=rng.randrange(256),rng.randrange(144)
+ if 64<x<192 and 32<y<112:continue
+ r=rng.randint(1,7);color=rng.choice([(69,47,27,210),(95,67,38,230),(126,92,56,190)])
+ d.ellipse((x-r,y-r,x+r,y+r),fill=color);d.line((x,y,x+r*2,y+r),fill=color,width=2)
+(A/'textures/gui').mkdir(parents=True,exist_ok=True);splash.save(A/'textures/gui/mud_splash.png')
+for lang,labels in {'en_us':{'item.descentmtb.tear_off':'Goggle tear-off','key.descentmtb.tear_off':'Pull goggle tear-off'},'cs_cz':{'item.descentmtb.tear_off':'Trhací fólie brýlí','key.descentmtb.tear_off':'Strhnout fólii brýlí'}}.items():
  p=A/f'lang/{lang}.json';data=json.loads(p.read_text(encoding='utf-8'));data.update(labels);p.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')

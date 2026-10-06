@@ -21,6 +21,8 @@ public final class PartTable {
      * about to draw, read while that bike's parts are drawn (render thread only).
      */
     public static float duckSqueeze;
+    public static float mudLevel;
+    private static final ResourceLocation MUD=ResourceLocation.fromNamespaceAndPath("descentmtb","textures/entity/bike_mud.png");
     public record Spec(String name, String baseName, String shapeCodes, BikeMat material, float sx, float sy, float sz) {}
     private final Map<PartDefinition,String> paths = new IdentityHashMap<>();
     private final Map<String,Spec> specs = new HashMap<>();
@@ -73,6 +75,12 @@ public final class PartTable {
                 for (var cube : cubes) cube.compile(pose.last(), vc, spec.material == BikeMat.LENS ? 0xF000F0 : light,
                         overlay, spec.material.color(build));
                 com.descentmtb.client.custom.BikeDecorations.render(pose,buffers,light,overlay,build,spec);
+                if(mudLevel>.001f && (spec.material.frame() || spec.material==BikeMat.LOWER || spec.material==BikeMat.TIRE || spec.material==BikeMat.TREAD || spec.material==BikeMat.RIM || spec.material==BikeMat.PEDAL)) {
+                    var dirt=buffers.getBuffer(RenderType.entityDecal(MUD));
+                    float density=spec.material==BikeMat.TIRE || spec.material==BikeMat.TREAD ? 1 : .75f;
+                    int color=((int)(Math.min(1,mudLevel)*density*255)<<24)|0xffffff;
+                    for(var cube:cubes)cube.compile(pose.last(),dirt,light,overlay,color);
+                }
             }
             for (Node child : children) child.render(pose,buffers,light,overlay,build,texture,finish);
             pose.popPose();

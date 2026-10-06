@@ -86,9 +86,10 @@ public final class ModKeyMappings {
     public static final KeyMapping BELL = riding("bell", GLFW.GLFW_KEY_H);
 
     public static final KeyMapping AUDIO_SETTINGS = key("audio_settings", net.neoforged.neoforge.client.settings.KeyConflictContext.IN_GAME, KeyModifier.NONE, GLFW.GLFW_KEY_P);
+    public static final KeyMapping TEAR_OFF = riding("tear_off",GLFW.GLFW_KEY_Y);
     public static final List<KeyMapping> ALL = List.of(ACCELERATE, BRAKE, TWEAK, STEER_LEFT, STEER_RIGHT,
             LEAN_FORWARD, LEAN_BACK, BUNNY_HOP, BEND, STRETCH, TRICK, TRICK_UP, TRICK_UP_SIDE, TRICK_SIDE, TRICK_DOWN_SIDE, TRICK_DOWN, TRICK_HEEL, RESPAWN, RESPAWN_START, CAMERA, RESET_CAMERA, BELL, TRAIL_MENU,
-            TRAIL_UNDO, AUDIO_SETTINGS);
+            TRAIL_UNDO, AUDIO_SETTINGS, TEAR_OFF);
 
     private static KeyMapping riding(String name, int glfwKey) {
         return key(name, RidingContext.RIDING, KeyModifier.NONE, glfwKey);

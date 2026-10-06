@@ -52,6 +52,7 @@ public final class DescentMtbClient {
         com.descentmtb.client.trail.SignClient.setup(modBus);
         com.descentmtb.client.map.MapClient.setup();
         com.descentmtb.client.audio.AudioClient.setup();
+        RideEffects.setup();
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e)->com.descentmtb.client.trail.TrailClient.tick());
         NeoForge.EVENT_BUS.addListener(com.descentmtb.client.trail.ShapingHighlight::render);
         MountainBikeEntity.clientTicker = BikeClientController::tick;
@@ -129,6 +130,8 @@ public final class DescentMtbClient {
     }
 
     private void registerGuiLayers(RegisterGuiLayersEvent event) {
+        event.registerBelow(net.neoforged.neoforge.client.gui.VanillaGuiLayers.CROSSHAIR,ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID,"immersion"),
+                (graphics,tracker)->RideEffects.render(graphics,tracker.getGameTimeDeltaPartialTick(false)));
         event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "trail"),
                 (graphics, tracker) -> com.descentmtb.client.trail.TrailClient.hud(graphics));
         event.registerAboveAll(ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "speed"), new SpeedHud());

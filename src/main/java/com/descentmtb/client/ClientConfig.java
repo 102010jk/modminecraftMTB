@@ -46,6 +46,8 @@ public final class ClientConfig {
     public static final ModConfigSpec.EnumValue<RiderVoice> RIDER_VOICE;
 
     public static final ModConfigSpec.DoubleValue MUSIC_VOLUME, HEADPHONE_WORLD_VOLUME;
+    public static final ModConfigSpec.BooleanValue MUD_EFFECTS, ROOST_PARTICLES, SPEED_LINES;
+    public static final ModConfigSpec.DoubleValue ROOST_DENSITY, SPEED_LINE_STRENGTH, SPEED_FOV_STRENGTH;
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
         b.push("riding");
@@ -118,6 +120,14 @@ public final class ClientConfig {
         b.push("audioDevices");
         MUSIC_VOLUME = number(b,"musicVolume","Local boombox and headphone music volume.",.8,0,1);
         HEADPHONE_WORLD_VOLUME = number(b,"headphoneWorldVolume","World sound level while listening through worn headphones.",.25,0,1);
+        b.pop();
+        b.push("immersion");
+        MUD_EFFECTS = b.comment("Mud speckles on the bike and helmet camera lens.").define("mudEffects",true);
+        ROOST_PARTICLES = b.comment("Dirt spray when braking or sliding on loose surfaces.").define("roostParticles",true);
+        SPEED_LINES = b.comment("Peripheral helmet camera streaks above 28 km/h.").define("speedLines",true);
+        ROOST_DENSITY = number(b,"roostDensity","Dirt spray particle density. 0 disables particles.",1,0,2);
+        SPEED_LINE_STRENGTH = number(b,"speedLineStrength","Opacity of the peripheral speed effect.",.5,0,1);
+        SPEED_FOV_STRENGTH = number(b,"speedFovStrength","Speed-dependent FOV change; helmet camera base angle is preserved.",1,0,2);
         b.pop();
         SPEC = b.build();
     }

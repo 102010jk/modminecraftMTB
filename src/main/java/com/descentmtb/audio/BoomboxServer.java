@@ -79,7 +79,9 @@ public final class BoomboxServer {
         if (!riding && player.position().distanceTo(at) > REACH) return;
         Key key = new Key(level.dimension(), m.emitter());
         BoomboxState current = STATES.get(key);
-        if (current != null && !current.owner().equals(player.getUUID()) && !player.getAbilities().instabuild) return;
+        if (current != null && !current.owner().equals(player.getUUID()) && !player.getAbilities().instabuild) {
+            PacketDistributor.sendToPlayer(player,new AudioNet.StateS2C(current));return;
+        }
         if (!m.start()) {
             BoomboxState cur = STATES.get(key);
             if (cur != null) stop(level.getServer(), key);

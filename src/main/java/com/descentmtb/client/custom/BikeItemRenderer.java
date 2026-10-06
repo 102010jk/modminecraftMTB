@@ -34,7 +34,11 @@ public final class BikeItemRenderer extends BlockEntityWithoutLevelRenderer {
         pose.translate(.5,.22,.5);
         pose.mulPose(Axis.YP.rotationDegrees(context==ItemDisplayContext.GUI ? -90 : -60));
         pose.scale(.43f,-.43f,.43f);
-        BikeBuildRenderer.render(item.bikeType(),MountainBikeItem.buildOf(stack),pose,buffers,light);
+        float oldMud=com.descentmtb.client.model.PartTable.mudLevel;
+        com.descentmtb.client.model.PartTable.mudLevel=(!com.descentmtb.client.ClientConfig.SPEC.isLoaded() || com.descentmtb.client.ClientConfig.MUD_EFFECTS.get())
+                ? stack.getOrDefault(net.minecraft.core.component.DataComponents.CUSTOM_DATA,net.minecraft.world.item.component.CustomData.EMPTY).copyTag().getFloat("Mud") : 0;
+        try { BikeBuildRenderer.render(item.bikeType(),MountainBikeItem.buildOf(stack),pose,buffers,light); }
+        finally { com.descentmtb.client.model.PartTable.mudLevel=oldMud; }
         pose.popPose();
     }
 }

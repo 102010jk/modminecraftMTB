@@ -645,7 +645,7 @@
   "key.descentmtb.audio_settings": "Nastavení hudby",
   "descentmtb.audio.title": "Hudba na trati",
   "descentmtb.audio.loading": "Hledám zvukové aplikace…",
-  "descentmtb.audio.windows": "Zachytávání vyžaduje Windows 10 2004 nebo novější. Desky fungují všude.",
+  "descentmtb.audio.windows": "Zachytávání vyžaduje Windows build 20348 nebo novější. Desky fungují všude.",
   "descentmtb.audio.empty": "Žádné zdroje. Pusť hudbu v aplikaci a obnov seznam.",
   "descentmtb.audio.refresh": "Obnovit",
   "descentmtb.audio.next": "Další",
@@ -662,5 +662,7 @@
   "descentmtb.map.empty": "Nahraj GPS trasu a připoj ji k ceduli.",
   "descentmtb.map.wrong_dimension": "Tahle trasa vznikla v jiné dimenzi.",
   "descentmtb.map.linked": "GPS trasa připojená k ceduli.",
-  "descentmtb.map.copied": "Trasy zkopírované na tuto mapu."
+  "descentmtb.map.copied": "Trasy zkopírované na tuto mapu.",
+  "item.descentmtb.tear_off": "Trhací fólie brýlí",
+  "key.descentmtb.tear_off": "Strhnout fólii brýlí"
 }

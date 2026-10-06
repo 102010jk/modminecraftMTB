@@ -108,6 +108,7 @@ public final class DesktopCapture {
     /** Starts capturing {@code rootPid} (stops a previous capture first). Completes with null or an error message. */
     public static CompletableFuture<String> start(int rootPid, String exePath) {
         if (!supported()) return CompletableFuture.completedFuture("Windows only");
+        lastError=null;
         return CompletableFuture.supplyAsync(() -> {
             stopNow();
             try {
@@ -155,13 +156,15 @@ public final class DesktopCapture {
         if (c != null) c.close();
         int p = pid;
         pid = 0;
+        boolean restored=true;
         if (p != 0 && supported()) {
             try {
                 WinAudioSessions.setVolume(p, originalVolume);
             } catch (Throwable ignored) {
+                restored=false;
             }
         }
-        deleteRestoreFile();
+        if(restored)deleteRestoreFile();
     }
 
     /** Keeps the program parked (a browser may open a new audio session) and notices when it has gone away. */

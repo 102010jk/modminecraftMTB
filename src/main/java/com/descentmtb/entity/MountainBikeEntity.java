@@ -52,6 +52,9 @@ import java.util.function.Consumer;
  */
 public class MountainBikeEntity extends Entity implements com.descentmtb.audio.BoomboxHolder {
     private static final EntityDataAccessor<Boolean> D_BOOMBOX = def(EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> D_MUD = def(EntityDataSerializers.FLOAT);
+    public float mud(){return entityData.get(D_MUD);}
+    public void setMud(float value){entityData.set(D_MUD,Float.isFinite(value)?Math.max(0,Math.min(1,value)):0);}
     public boolean hasBoombox() { return entityData.get(D_BOOMBOX); }
     public static java.util.function.Consumer<com.descentmtb.audio.Emitter> audioEditor = e -> {};
     /** Entity position → frame centre of mass, metres. */
@@ -121,6 +124,7 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
         setBuild(MountainBikeItem.buildOf(stack));
         CompoundTag tune = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         entityData.set(D_BOOMBOX,tune.getBoolean("Boombox"));
+        setMud(tune.getFloat("Mud"));
         if (tune.contains("FrontPsi")) setPressure(tune.getFloat("FrontPsi"), tune.getFloat("RearPsi"), tune.getFloat("ForkPsi"));
     }
 
@@ -130,6 +134,7 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
         stack.set(ModComponents.BIKE_BUILD.get(), build());
         CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
             tag.putBoolean("Boombox",hasBoombox());
+            tag.putFloat("Mud",mud());
             tag.putFloat("FrontPsi", frontPsi()); tag.putFloat("RearPsi", rearPsi()); tag.putFloat("ForkPsi", forkPsi());
         });
         return stack;
@@ -199,6 +204,7 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
             clientTicker.accept(this);
         } else {
             serverTick();
+            updateMud();
         }
     }
 
@@ -362,6 +368,25 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
         rsCur.fromSynced(this, rsPrev);
     }
 
+    private void updateMud() {
+        if(tickCount%5!=0)return;
+        float value=mud();
+        if(isInWater()){setMud(value-.035f);return;}
+        boolean rain=level().isRainingAt(blockPosition().above());
+        if(getControllingPassenger()==null || rsCur.airborne || rsCur.vel.length()<1) {
+            if(rain && value>0)setMud(value-.0015f);
+            return;
+        }
+        if(serverColumns==null)serverColumns=new McColumns(level());
+        serverColumns.newTick();
+        double x=getX()+Math.sin(rsCur.yaw)*params().halfWheelbase,z=getZ()-Math.cos(rsCur.yaw)*params().halfWheelbase;
+        var hit=new com.descentmtb.physics.Terrain.GroundHit();
+        if(!serverColumns.terrain().ground(x,z,getY()+.8,getY()-1,hit))return;
+        var ground=hit.surface;
+        boolean soft=ground==com.descentmtb.physics.Terrain.Surface.MUD || rain&&(ground==com.descentmtb.physics.Terrain.Surface.DIRT || ground==com.descentmtb.physics.Terrain.Surface.GRASS || ground==com.descentmtb.physics.Terrain.Surface.TRAIL);
+        if(soft)setMud(value+(float)(Math.min(20,rsCur.vel.length())*.00065*(ground==com.descentmtb.physics.Terrain.Surface.MUD?1:.4)));
+    }
+
     private void serverTick() {
         rsCur.fromSynced(this, rsPrev); // keeps the server-side passenger placed correctly
         BikeLights.tick(this);
@@ -509,6 +534,14 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
 
     @Override
     public InteractionResult interact(Player player, InteractionHand hand) {
+        if(player.getItemInHand(hand).is(net.minecraft.world.item.Items.WATER_BUCKET) && mud()>0) {
+            if(!level().isClientSide) {
+                setMud(0);
+                player.setItemInHand(hand,net.minecraft.world.item.ItemUtils.createFilledResult(player.getItemInHand(hand),player,new ItemStack(net.minecraft.world.item.Items.BUCKET)));
+                level().playSound(null,blockPosition(),net.minecraft.sounds.SoundEvents.BUCKET_EMPTY,net.minecraft.sounds.SoundSource.PLAYERS,.7f,1);
+            }
+            return InteractionResult.sidedSuccess(level().isClientSide);
+        }
         if (player.getItemInHand(hand).is(com.descentmtb.registry.ModBlocks.BOOMBOX_ITEM.get()) && !hasBoombox()) {
             if (!player.mayBuild()) return InteractionResult.FAIL;
             if (!level().isClientSide) { entityData.set(D_BOOMBOX,true); if (!player.getAbilities().instabuild) player.getItemInHand(hand).shrink(1); }
@@ -612,11 +645,13 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
         b.define(D_BRAKE, 0f);
         b.define(D_BUILD, new CompoundTag());
         b.define(D_BOOMBOX,false);
+        b.define(D_MUD,0f);
     }
 
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
         entityData.set(D_BOOMBOX,tag.getBoolean("Boombox"));
+        setMud(tag.getFloat("Mud"));
         setBikeType(BikeType.byId(tag.getInt("BikeType")));
         if (tag.contains("FrontPsi")) setPressure(tag.getFloat("FrontPsi"), tag.getFloat("RearPsi"), tag.getFloat("ForkPsi"));
         if (tag.contains("Build", Tag.TAG_COMPOUND)) {   // older bikes have none: they keep the stock look
@@ -627,6 +662,7 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
         tag.putBoolean("Boombox",hasBoombox());
+        tag.putFloat("Mud",mud());
         tag.putInt("BikeType", bikeType().ordinal());
         tag.putBoolean("Boombox",hasBoombox());
             tag.putFloat("FrontPsi", frontPsi()); tag.putFloat("RearPsi", rearPsi()); tag.putFloat("ForkPsi", forkPsi());

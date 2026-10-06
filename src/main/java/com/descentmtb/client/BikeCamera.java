@@ -195,6 +195,7 @@ public final class BikeCamera {
 
         double kmh = speed * 3.6;
         double fovTarget = Math.max(0, Math.min(55, kmh - 15)) * 0.22;
+        if(ClientConfig.SPEC.isLoaded()) fovTarget*=ClientConfig.SPEED_FOV_STRENGTH.get();
         if (mode == Mode.DRONE) fovTarget *= 0.5;                 // gentle
         if (mode == Mode.FIRST_PERSON) fovTarget += HELMET_EXTRA_FOV;   // action-cam wide angle
         fovBoost += (fovTarget - fovBoost) * CameraMath.blend(dt, 0.4);

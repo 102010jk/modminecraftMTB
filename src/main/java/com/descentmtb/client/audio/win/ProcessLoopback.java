@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Captures what one program (and its child processes) plays, through Windows' process-loopback audio client
- * (Windows 10 2004 / build 19041 and newer). Delivers interleaved stereo float frames at {@link #RATE} Hz to a
+ * (Windows build 20348 and newer). Delivers interleaved stereo float frames at {@link #RATE} Hz to a
  * consumer on its own daemon thread. The program keeps playing on the speakers as well — callers decide what to do
  * with that (see the audio controller).
  */

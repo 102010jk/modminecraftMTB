@@ -12,6 +12,10 @@ public final class ModNetwork {
 
     private static void onRegister(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar r = event.registrar("10");
+        r.playBidirectional(TearOffPayload.TYPE,TearOffPayload.CODEC,(m,ctx)->{
+            if(ctx.flow()==net.minecraft.network.protocol.PacketFlow.CLIENTBOUND)TearOffPayload.client.run();
+            else TearOffPayload.handle(m,ctx);
+        });
         r.playToClient(WorkshopResultPayload.TYPE,WorkshopResultPayload.CODEC,WorkshopResultPayload::handle);
         r.playToServer(ShapeTunePayload.TYPE,ShapeTunePayload.CODEC,ShapeTunePayload::handle);
         r.playToServer(RagdollRecoveryPayload.TYPE,RagdollRecoveryPayload.CODEC,RagdollRecoveryPayload::handle);
