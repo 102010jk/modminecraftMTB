@@ -60,6 +60,24 @@ public final class ModKeyMappings {
     public static final KeyMapping BEND = riding("bend", GLFW.GLFW_KEY_S);
     public static final KeyMapping STRETCH = riding("stretch", GLFW.GLFW_KEY_D);
     public static final KeyMapping TRICK = riding("trick", GLFW.GLFW_KEY_C);
+    /**
+     * Independent trick keys (scheme INDEPENDENT), one per trick slot, all on the right hand so the left keeps the arrows:
+     * <pre>
+     *   U Heelclicker   I up            O up+side
+     *                   J side          L down+side      K down
+     * </pre>
+     * The slot's trick depends on the bike (see {@code BikeType}): up = No Hander / Tuck No Hander, up+side = Tabletop,
+     * side = Nac Nac / Barspin, down+side = Can Can / Tailwhip, down = Superman / Superman Seatgrab.
+     * In the CLASSIC scheme only the Heelclicker key is used (the rest is C + arrows).
+     */
+    public static final KeyMapping TRICK_UP = riding("trick_up", GLFW.GLFW_KEY_I);
+    public static final KeyMapping TRICK_UP_SIDE = riding("trick_up_side", GLFW.GLFW_KEY_O);
+    public static final KeyMapping TRICK_SIDE = riding("trick_side", GLFW.GLFW_KEY_J);
+    public static final KeyMapping TRICK_DOWN_SIDE = riding("trick_down_side", GLFW.GLFW_KEY_L);
+    public static final KeyMapping TRICK_DOWN = riding("trick_down", GLFW.GLFW_KEY_K);
+    public static final KeyMapping TRICK_HEEL = riding("trick_heel", GLFW.GLFW_KEY_U);
+    /** In slot order of {@code BikeType.trickAt}. */
+    public static final List<KeyMapping> TRICK_KEYS = List.of(TRICK_UP, TRICK_UP_SIDE, TRICK_SIDE, TRICK_DOWN_SIDE, TRICK_DOWN, TRICK_HEEL);
     public static final KeyMapping RESPAWN = riding("respawn", GLFW.GLFW_KEY_R);
     public static final KeyMapping RESPAWN_START = riding("respawn_start", GLFW.GLFW_KEY_BACKSPACE);
     public static final KeyMapping CAMERA = riding("camera", GLFW.GLFW_KEY_V);
@@ -68,7 +86,7 @@ public final class ModKeyMappings {
     public static final KeyMapping BELL = riding("bell", GLFW.GLFW_KEY_H);
 
     public static final List<KeyMapping> ALL = List.of(ACCELERATE, BRAKE, TWEAK, STEER_LEFT, STEER_RIGHT,
-            LEAN_FORWARD, LEAN_BACK, BUNNY_HOP, BEND, STRETCH, TRICK, RESPAWN, RESPAWN_START, CAMERA, RESET_CAMERA, BELL, TRAIL_MENU,
+            LEAN_FORWARD, LEAN_BACK, BUNNY_HOP, BEND, STRETCH, TRICK, TRICK_UP, TRICK_UP_SIDE, TRICK_SIDE, TRICK_DOWN_SIDE, TRICK_DOWN, TRICK_HEEL, RESPAWN, RESPAWN_START, CAMERA, RESET_CAMERA, BELL, TRAIL_MENU,
             TRAIL_UNDO);
 
     private static KeyMapping riding(String name, int glfwKey) {

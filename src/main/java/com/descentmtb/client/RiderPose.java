@@ -140,6 +140,10 @@ public final class RiderPose {
             m.leftLeg.yScale = 1f;
             if (trick == Trick.SUPERMAN || trick == Trick.SUPERMAN_SEATGRAB || trick == Trick.TAILWHIP) m.rightLeg.yScale = 1f;
         }
+        if (trick == Trick.HEELCLICKER) {
+            m.rightLeg.yScale = 1f;
+            m.leftLeg.yScale = 1f;
+        }
         switch (trick) {
             case NO_HANDER -> {
                 m.rightArm.xRot = -2.6f;
@@ -174,6 +178,17 @@ public final class RiderPose {
             case CAN_CAN -> {
                 m.leftLeg.xRot = -0.9f;
                 m.leftLeg.zRot = 0.5f;
+            }
+            case HEELCLICKER -> {
+                // Both legs thrown forward and up in front of the bars (negative xRot), the heels knocking together:
+                // the legs point forward, so the roll sign is flipped: positive swings the right foot inward, negative the left.
+                // Arms stay on the grips (the default pose).
+                float knock = 0.5f + 0.5f * (float) Math.sin((entity.tickCount + pt) * 1.1f);
+                float inward = 0.20f + 0.22f * knock * knock;
+                m.rightLeg.xRot = m.leftLeg.xRot = -2.05f;
+                m.rightLeg.zRot = inward;
+                m.leftLeg.zRot = -inward;
+                m.rightLeg.y = m.leftLeg.y = hipY - 1.5f;
             }
             case BARSPIN -> {
                 // Hands follow the catch/release in a full timed bar rotation.

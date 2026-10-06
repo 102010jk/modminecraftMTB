@@ -1,6 +1,8 @@
 package com.descentmtb.client;
 
+import com.descentmtb.entity.BikeType;
 import com.descentmtb.entity.MountainBikeEntity;
+import com.descentmtb.trick.Trick;
 import com.descentmtb.physics.Controls;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.logging.LogUtils;
@@ -31,7 +33,9 @@ import java.util.Arrays;
  *  Bunny hop           R down → R up         X (hold, release)
  *  Body lean (ground)  Right stick ← →       -   (into the turn = carve, out = drift)
  *  Tweak / table (air) Right stick ← →       Space (+ ← → picks the side)
- *  Tricks              LB + right stick      C + arrows
+ *  Tricks              LB + right stick      I J K L O U (one key per trick, default scheme)
+ *                                            or C + arrows (CLASSIC scheme); U = Heelclicker in both
+ *                      Heelclicker: LB + right stick click
  *  Respawn             B                     R
  *  Respawn at start    Back / View           Backspace
  *  Switch camera       Y                     V
@@ -55,6 +59,10 @@ public final class BikeInputHandler {
     private static boolean prevRespawn = true, prevRespawnStart = true, prevCamera = true, prevResetCamera = true;
     private static final InputTransitions.Hop hop = new InputTransitions.Hop();
     private static final InputTransitions.AirPress table = new InputTransitions.AirPress();
+    private static final TrickInput trickInput = new TrickInput();
+    private static final boolean[] trickDown = new boolean[TrickInput.SLOTS];
+    private static final int[] trickClicks = new int[TrickInput.SLOTS];
+    private static final boolean[] trickSpin = new boolean[TrickInput.SLOTS];
     private static float tableSide = 1;
     /** The bike seen riding on the last client tick, to notice a (re)mount. */
     private static MountainBikeEntity lastRiding;
@@ -88,6 +96,10 @@ public final class BikeInputHandler {
         instantKeyboardSteering = false;
         hop.reset();
         table.reset();
+        trickInput.reset();
+        for (KeyMapping k : ModKeyMappings.TRICK_KEYS) {
+            while (k.consumeClick()) { /* presses latched while not riding must not fire on the first tick */ }
+        }
         tableSide = 1;
         padCrouchTicks = 0;
         padPopTicks = 0;
@@ -104,9 +116,23 @@ public final class BikeInputHandler {
         long win = mc.getWindow().getWindow();
 
         // ---------------- keyboard ----------------
-        boolean trickKey = down(win, ModKeyMappings.TRICK);
         var ridden = BikeClientController.riding();
         boolean inAir = ridden != null && ridden.sim() != null && ridden.sim().airborne;
+        boolean independent = trickScheme() == TrickKeyScheme.INDEPENDENT;
+        boolean trickKey = !independent && down(win, ModKeyMappings.TRICK);
+        // dedicated trick keys: latched presses (no tap is lost between ticks) -> one trick slot for this tick
+        BikeType bikeType = ridden != null ? ridden.bikeType() : BikeType.ENDURO;
+        for (int slot = 0; slot < TrickInput.SLOTS; slot++) {
+            KeyMapping k = ModKeyMappings.TRICK_KEYS.get(slot);
+            int clicks = 0;
+            while (k.consumeClick()) clicks++;
+            boolean usable = independent || slot == BikeType.HEEL_SLOT;     // CLASSIC: only the Heelclicker key
+            trickClicks[slot] = usable ? clicks : 0;
+            trickDown[slot] = usable && down(win, k);
+            trickSpin[slot] = bikeType.trickAt(slot).kind == Trick.Kind.SPIN;
+        }
+        int trickSlot = trickInput.update(inAir, trickDown, trickClicks, trickSpin);
+        boolean slotTrick = trickSlot >= 0 && inAir;
         // Space is the brake on the ground and the tweak (table) in the air, as in Descenders
         // ... but only a fresh press in the air: Space still held from braking before the lip must not table
         boolean spaceDown = down(win, ModKeyMappings.TWEAK);
@@ -114,9 +140,16 @@ public final class BikeInputHandler {
         float arrowX = (down(win, ModKeyMappings.STEER_RIGHT) ? 1 : 0) - (down(win, ModKeyMappings.STEER_LEFT) ? 1 : 0);
         float arrowY = (down(win, ModKeyMappings.LEAN_FORWARD) ? 1 : 0) - (down(win, ModKeyMappings.LEAN_BACK) ? 1 : 0);
         float kSteer = 0, kLean = 0, kTweak = 0, kTrickX = 0, kTrickY = 0;
+        if (slotTrick) {
+            float[] stick = BikeType.stickForSlot(trickSlot, arrowX < 0 ? -1 : 1);   // arrows left / right = whip side
+            kTrickX = stick[0];
+            kTrickY = stick[1];
+        }
         if (trickKey) {
-            kTrickX = arrowX;
-            kTrickY = arrowY;
+            if (!slotTrick) {
+                kTrickX = arrowX;
+                kTrickY = arrowY;
+            }
         } else if (tweakKey) {
             if (arrowX != 0) {
                 tableSide = arrowX;
@@ -147,7 +180,7 @@ public final class BikeInputHandler {
         instantKeyboardSteering = ClientConfig.KEYBOARD_STEER_RAMP.get() < .001 && kSteer != 0
                 && (pad == null || Math.abs(kSteer) >= Math.abs(pad.lx));
         float steer = kSteer, lean = kLean, pedal = kPedal, brake = kBrake, body = kBody, tweak = kTweak;
-        boolean trick = trickKey;
+        boolean trick = trickKey || slotTrick;
         float trickX = kTrickX, trickY = kTrickY;
         if (pad != null) {
             steer = bigger(steer, pad.lx);
@@ -158,8 +191,13 @@ public final class BikeInputHandler {
             brake = Math.max(brake, pad.lt);
             if (pad.lb) {
                 trick = true;
-                trickX = bigger(trickX, pad.rx);
-                trickY = bigger(trickY, -pad.ry);
+                if (pad.rs) {                                    // LB + right stick click = Heelclicker
+                    trickX = BikeType.HEEL_X;
+                    trickY = 1;
+                } else if (!slotTrick) {
+                    trickX = bigger(trickX, pad.rx);
+                    trickY = bigger(trickY, -pad.ry);
+                }
             } else {
                 body = bigger(body, padHop(-pad.ry));
                 tweak = bigger(tweak, axial(pad.rx, 0.15f));
@@ -181,6 +219,30 @@ public final class BikeInputHandler {
     }
 
     private static float keyboardSteer;
+
+    private static TrickKeyScheme trickScheme() {
+        return ClientConfig.SPEC.isLoaded() ? ClientConfig.TRICK_KEY_SCHEME.get() : TrickKeyScheme.INDEPENDENT;
+    }
+
+    /**
+     * Runs at the start of every client tick, before vanilla reads its keys: while riding, presses of a trick key
+     * that another (vanilla) binding shares - L is "Advancements" - are swallowed on that binding, so L fires the
+     * trick instead of opening the advancements screen. The trick key's own latched presses are not touched.
+     */
+    public static void preTick() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.screen != null) return;
+        if (BikeClientController.riding() == null && !(mc.player.getVehicle() instanceof MountainBikeEntity)) return;
+        for (KeyMapping mine : ModKeyMappings.TRICK_KEYS) {
+            for (KeyMapping other : mc.options.keyMappings) {
+                if (other == mine || ModKeyMappings.ALL.contains(other)) continue;
+                InputConstants.Key a = mine.getKey(), b = other.getKey();
+                if (a.getType() == b.getType() && a.getValue() == b.getValue()) {
+                    while (other.consumeClick()) { /* swallowed */ }
+                }
+            }
+        }
+    }
 
     /**
      * A key is either 0 or full lock. Easing it in over {@code keyboardSteerRamp} seconds (a bit slower at
@@ -249,7 +311,7 @@ public final class BikeInputHandler {
 
     private static final class Pad {
         float lx, ly, rx, ry, lt, rt;
-        boolean a, b, x, y, lb, back;
+        boolean a, b, x, y, lb, back, rs;
     }
 
     /** Per joystick and trigger (LT, RT): the first value seen and whether the trigger ever left it. */
@@ -321,6 +383,7 @@ public final class BikeInputHandler {
             p.y = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_Y) == GLFW.GLFW_PRESS;
             p.lb = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_LEFT_BUMPER) == GLFW.GLFW_PRESS;
             p.back = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_BACK) == GLFW.GLFW_PRESS;
+            p.rs = gp.buttons(GLFW.GLFW_GAMEPAD_BUTTON_RIGHT_THUMB) == GLFW.GLFW_PRESS;
             controllerStatus = "gamepad: " + name(GLFW.glfwGetGamepadName(jid));
             return p;
         }
@@ -349,6 +412,7 @@ public final class BikeInputHandler {
             p.y = pressed(btn, 3);
             p.lb = pressed(btn, 4);
             p.back = pressed(btn, 6);
+            p.rs = pressed(btn, 9);
         }
         controllerStatus = "joystick (raw): " + name(GLFW.glfwGetJoystickName(jid));
         return p;

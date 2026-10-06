@@ -12,6 +12,7 @@ package com.descentmtb.trick;
  *
  * HOLD tricks blend in while the stick is held and out when released; SPIN tricks
  * (barspin, tailwhip) play one full rotation per flick and must finish before landing.
+ * Every bike also has the Heelclicker (a HOLD trick) as a sixth, extra slot: see {@link com.descentmtb.entity.BikeType}.
  */
 public enum Trick {
     NONE("", Kind.HOLD, 0, 0),
@@ -23,7 +24,9 @@ public enum Trick {
     SUPERMAN("Superman", Kind.HOLD, 0.24f, 0.18f),
     SUPERMAN_SEATGRAB("Superman Seatgrab", Kind.HOLD, 0.24f, 0.18f),
     BARSPIN("Barspin", Kind.SPIN, 0.42f, 0),
-    TAILWHIP("Tailwhip", Kind.SPIN, 0.58f, 0);
+    TAILWHIP("Tailwhip", Kind.SPIN, 0.58f, 0),
+    /** Both legs thrown forward over the bars, heels together. On every bike (extra mapping, not a stick direction). */
+    HEELCLICKER("Heelclicker", Kind.HOLD, 0.18f, 0.16f);
 
     public enum Kind { HOLD, SPIN }
 

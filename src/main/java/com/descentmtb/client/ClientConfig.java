@@ -33,6 +33,13 @@ public final class ClientConfig {
     public static final ModConfigSpec.DoubleValue CAM_THIRD_DIST, CAM_THIRD_HEIGHT, CAM_THIRD_SMOOTH;
     public static final ModConfigSpec.DoubleValue CAM_DRONE_DIST, CAM_DRONE_HEIGHT, CAM_DRONE_SMOOTH;
 
+    // ---- tricks (TrickInput / BikeInputHandler) ----
+    public static final ModConfigSpec.EnumValue<TrickKeyScheme> TRICK_KEY_SCHEME;
+
+    // ---- sound (client.sound.BikeSoundController) ----
+    public static final ModConfigSpec.DoubleValue BIKE_SOUND_VOLUME;
+    public static final ModConfigSpec.BooleanValue SCREAM_SOUND, WIND_SOUND, HUB_SOUND;
+
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
         b.push("riding");
@@ -85,6 +92,19 @@ public final class ClientConfig {
         CAM_DRONE_DIST = number(b, "camDroneDistance", "Drone camera: metres behind the rider.", 8, 3, 25);
         CAM_DRONE_HEIGHT = number(b, "camDroneHeight", "Drone camera: height above the rider, metres.", 4.5, 1, 15);
         CAM_DRONE_SMOOTH = number(b, "camDroneSmooth", "Drone camera: seconds it takes to follow the direction of travel (before the multiplier).", 0.5, 0, 3);
+        b.pop();
+
+        // ---- tricks (keyboard scheme; tricks milestone) ----
+        b.push("tricks");
+        TRICK_KEY_SCHEME = b.comment("Keyboard trick keys. INDEPENDENT: one key per trick (I J K L O U by default, see Controls), so the left hand keeps the arrows for rotation and lean and tricks chain freely. CLASSIC: hold C and press arrows.")
+                .translation("descentmtb.config.trickKeyScheme")
+                .defineEnum("trickKeyScheme", TrickKeyScheme.INDEPENDENT);
+        b.pop();
+        b.push("sound");
+        BIKE_SOUND_VOLUME = number(b, "bikeSoundVolume", "Overall volume of the bike sounds (freehub, wind, tyres, suspension, scream, tricks). 1 = default.", 1.0, 0.0, 1.5);
+        HUB_SOUND = b.comment("Freehub clicks and buzz while coasting.").translation("descentmtb.config.hubSound").define("hubSound", true);
+        WIND_SOUND = b.comment("Wind rushing past the rider (speed and air).").translation("descentmtb.config.windSound").define("windSound", true);
+        SCREAM_SOUND = b.comment("The rider screams before a crash that cannot be avoided.").translation("descentmtb.config.screamSound").define("screamSound", true);
         b.pop();
         SPEC = b.build();
     }

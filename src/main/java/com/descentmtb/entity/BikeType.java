@@ -40,8 +40,41 @@ public enum BikeType {
         return ordinal >= 0 && ordinal < v.length ? v[ordinal] : ENDURO;
     }
 
+    /** Trick slots: the five stick directions plus the Heelclicker (extra slot, same on every bike). */
+    public static final int TRICK_SLOTS = 6;
+    public static final int HEEL_SLOT = 5;
+    /**
+     * The Heelclicker is not a stick direction. It is requested with {@code y == 1, |x| == HEEL_X}, a point outside the
+     * unit circle that no radial stick reaches and the arrow keys never produce (so it never collides with a direction).
+     */
+    public static final float HEEL_X = 0.25f;
+
+    /** Trick in a slot: 0 up, 1 up+side, 2 side, 3 down+side, 4 down, 5 Heelclicker. */
+    public Trick trickAt(int slot) {
+        if (slot >= 0 && slot < tricks.length) return tricks[slot];
+        return slot == HEEL_SLOT ? Trick.HEELCLICKER : Trick.NONE;
+    }
+
+    /**
+     * The (x, y) {@link #trickFor} maps back to the trick of a slot; the sign of x is the side (whip direction).
+     * Used by the independent trick keys, which pick the trick directly instead of through a stick.
+     */
+    public static float[] stickForSlot(int slot, int side) {
+        float s = side < 0 ? -1 : 1;
+        return switch (slot) {
+            case 0 -> new float[]{0.1f * s, 1};
+            case 1 -> new float[]{s, 1};
+            case 2 -> new float[]{s, 0};
+            case 3 -> new float[]{s, -1};
+            case 4 -> new float[]{0.1f * s, -1};
+            case HEEL_SLOT -> new float[]{HEEL_X * s, 1};
+            default -> new float[]{0, 0};
+        };
+    }
+
     /** Trick for a right-stick direction (LB held), Descenders layout. */
     public Trick trickFor(float x, float y) {
+        if (y >= 0.999f && Math.abs(Math.abs(x) - HEEL_X) < 0.002f) return Trick.HEELCLICKER;
         if (Math.abs(x) < 0.35f && Math.abs(y) < 0.35f) return Trick.NONE;
         boolean side = Math.abs(x) >= 0.35f;
         if (y > 0.35f) return side ? tricks[1] : tricks[0];

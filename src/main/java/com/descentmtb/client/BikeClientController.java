@@ -13,13 +13,17 @@ import com.descentmtb.physics.Controls;
 import com.descentmtb.trail.SignContent;
 import com.descentmtb.trail.TrailSignEntity;
 import com.descentmtb.trail.TrailSignRegistry;
+import com.descentmtb.trick.ComboTracker;
 import com.descentmtb.trick.Trick;
+import com.descentmtb.trick.TrickScore;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -188,6 +192,7 @@ public final class BikeClientController {
                     bailTicks = 0;
                     DescentMtb.LOG.info("[bike] bail: {} at {} speed {} m/s", e.info(), sim.pos, String.format(Locale.ROOT, "%.1f", e.value()));
                     show(Component.translatable("descentmtb.msg.bail", e.info()).getString(), 0xFF5555, 60);
+                    showBailLine(sim, e.info());
                     PacketDistributor.sendToServer(new BikeBailPayload(riding.getId(),
                             sim.crashRiderPos.x, sim.crashRiderPos.y, sim.crashRiderPos.z,
                             (float) sim.crashRiderVel.x, (float) sim.crashRiderVel.y, (float) sim.crashRiderVel.z, epoch));
@@ -209,7 +214,7 @@ public final class BikeClientController {
         }
         sim.events.clear();
         if (sim.airborne && sim.airTime > .35) {
-            String label = sim.wallRide ? "Wallride" : trickName(sim);
+            String label = sim.wallRide ? "Wallride" : trickName(sim, jumpTricks(sim));
             if (!label.isEmpty() && !label.equals(airLabel)) {
                 TrickToast.show(label, Component.translatable("descentmtb.msg.in_the_air").getString());
                 airLabel = label;
@@ -218,34 +223,76 @@ public final class BikeClientController {
     }
 
     private static void showLanding(BikeSim sim) {
-        String trick = trickName(sim);
+        ComboTracker.Summary summary = sim.tricks.takeSummary();
+        List<Trick> tricks = new ArrayList<>(summary == null ? List.of() : summary.tricks());
+        // a hold trick that was fully in and still held at touchdown was landed, not abandoned
+        if (summary != null && summary.hasUnfinished() && summary.unfinished().kind == Trick.Kind.HOLD
+                && summary.unfinishedPeak() >= com.descentmtb.trick.TrickAnimation.COMPLETE_AMOUNT) tricks.add(summary.unfinished());
         String air = String.format(Locale.ROOT, "%.1f", sim.airTime);
+        String trick = trickName(sim, tricks);
         show(trick.isEmpty() ? Component.translatable("descentmtb.msg.air", air).getString()
                 : Component.translatable("descentmtb.msg.air_trick", trick, air).getString(), 0x55FFFF, 40);
-        if (!trick.isEmpty()) TrickToast.show(trick, Component.translatable("descentmtb.msg.landed", air).getString());
+        if (trick.isEmpty()) return;
+
+        int spin = spinDegrees(sim);
+        int flips = Math.abs((int) Math.round(sim.airPitchTravel / (2 * Math.PI)));
+        List<Trick> scored = new ArrayList<>(tricks);
+        if ((sim.maxWhip > .6 && spin < 180 || sim.maxTable > .75) && !scored.contains(Trick.TABLETOP)) scored.add(Trick.TABLETOP);
+        TrickScore.Result r = TrickScore.evaluate(scored, sim.airTime, spin, flips);
+        if (r.grade() == TrickScore.Grade.NONE) {
+            TrickToast.show(trick, Component.translatable("descentmtb.msg.landed", air).getString());
+            return;
+        }
+        boolean combo = r.combo() || trick.contains(ARROW);
+        String g = r.grade().name().toLowerCase(Locale.ROOT) + (combo ? ".combo" : ".air");
+        TrickToast.showGraded(r.grade(), Component.translatable("descentmtb.banner.title." + g).getString(),
+                Component.translatable("descentmtb.banner.line." + g, trick, air).getString());
     }
 
-    /** Names the flip/spin of the jump that just ended. */
-    private static String trickName(BikeSim sim) {
+    /** A bad landing gets one short dry line instead of a banner: what went wrong with the trick. */
+    private static void showBailLine(BikeSim sim, String reason) {
+        ComboTracker.Summary summary = sim.tricks.takeSummary();
+        TrickScore.BailLine line = TrickScore.bailLine(reason, summary == null ? Trick.NONE : summary.unfinished(),
+                Math.toDegrees(sim.airYawTravel), Math.toDegrees(sim.airPitchTravel));
+        String key = switch (line.kind()) {
+            case MID_TRICK -> "descentmtb.banner.bail.mid_trick";
+            case UNDER_SPIN, UNDER_FLIP -> "descentmtb.banner.bail.under_rotated";
+            default -> null;
+        };
+        if (key != null) TrickToast.showDry(Component.translatable(key, line.detail()).getString(), "");
+    }
+
+    private static final String ARROW = " → ";
+
+    private static int spinDegrees(BikeSim sim) {
+        return (int) Math.round(Math.abs(sim.airYawTravel) / Math.PI) * 180;
+    }
+
+    /** The tricks of this jump so far: the finished ones in order, then the one that is fully in right now. */
+    private static List<Trick> jumpTricks(BikeSim sim) {
+        List<Trick> list = new ArrayList<>(sim.tricks.combo.completed());
+        Trick now = sim.tricks.trick;
+        if (now != Trick.NONE && (sim.tricks.amount > .75 || sim.tricks.progress > .85)) list.add(now);
+        return list;
+    }
+
+    /** Names the flip/spin and the tricks of a jump, tricks in the order they were done ("360 Tailwhip to Barspin"). */
+    private static String trickName(BikeSim sim, List<Trick> tricks) {
         int flips = (int) Math.round(sim.airPitchTravel / (2 * Math.PI));
-        int spin = (int) Math.round(Math.abs(sim.airYawTravel) / Math.PI) * 180;
-        StringBuilder sb = new StringBuilder();
-        if (spin >= 360) sb.append(spin).append(' ');
+        int spin = spinDegrees(sim);
+        List<String> parts = new ArrayList<>();
         if (flips != 0) {
             int n = Math.abs(flips);
-            if (n > 1) sb.append(n == 2 ? "Double " : n == 3 ? "Triple " : n + "x ");
-            sb.append(flips > 0 ? "Backflip" : "Frontflip");
+            parts.add((n > 1 ? (n == 2 ? "Double " : n == 3 ? "Triple " : n + "x ") : "") + (flips > 0 ? "Backflip" : "Frontflip"));
         }
-        if (sim.maxWhip > .6 && spin < 180) appendTrick(sb, "Whip");
-        if (sim.maxTable > .75 && (sim.trickMask & (1 << Trick.TABLETOP.ordinal())) == 0) appendTrick(sb, "Tabletop");
-        for (Trick trick : Trick.values())
-            if (trick != Trick.NONE && (sim.trickMask & (1 << trick.ordinal())) != 0) appendTrick(sb, trick.displayName);
-        return sb.toString().trim();
-    }
-
-    private static void appendTrick(StringBuilder sb, String name) {
-        if (!sb.isEmpty()) sb.append(" + ");
-        sb.append(name);
+        if (sim.maxWhip > .6 && spin < 180) parts.add("Whip");
+        if (sim.maxTable > .75 && !tricks.contains(Trick.TABLETOP)) parts.add("Tabletop");
+        for (Trick t : tricks) parts.add(t.displayName);
+        if (spin >= 360) {
+            if (parts.isEmpty()) parts.add(Integer.toString(spin));
+            else parts.set(0, spin + " " + parts.get(0));
+        }
+        return String.join(ARROW, parts);
     }
 
     // ------------------------------------------------------------------ trail start
