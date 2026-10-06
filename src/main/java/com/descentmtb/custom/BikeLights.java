@@ -86,7 +86,7 @@ public final class BikeLights {
         }
         Active a = ACTIVE.computeIfAbsent(bike.getUUID(), id -> new Active(level));
         long now = level.getGameTime();
-        if (!force && now - a.lastMove < 2) {
+        if (!force && a.lastMove != Long.MIN_VALUE && now - a.lastMove < 2) {
             return;
         }
         a.lastMove = now;

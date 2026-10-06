@@ -1,0 +1,47 @@
+package com.descentmtb.client.custom;
+
+import com.descentmtb.custom.BikeParts.FrameShape;
+import com.descentmtb.custom.BikeParts.Tube;
+import com.descentmtb.entity.BikeType;
+
+/** Side-view anchors derived from the literal model tube geometry, in metres (forward, up). */
+public final class StickerAnchors {
+    public record Pick(Tube tube,float t,float distance) {}
+    private static final float[][][][] PATHS = {
+        {{{-0.308330f,0.789570f}, {0.286143f,0.994393f}}, {{0.313391f,0.956822f}, {-0.203966f,0.333166f}}, {{-0.187083f,0.337847f}, {-0.309642f,0.848341f}}, {{-0.263040f,0.516131f}, {-0.636960f,0.402619f}}, {{-0.284410f,0.378244f}, {-0.637465f,0.374881f}}, {{0.307792f,0.923200f}, {0.260383f,1.018287f}}, {{0.421317f,0.716515f}, {0.540675f,0.477120f}}},
+        {{{-0.308330f,0.789570f}, {0.286143f,0.994393f}}, {{0.313391f,0.956822f}, {-0.203966f,0.333166f}}, {{-0.187083f,0.337847f}, {-0.309642f,0.848341f}}, {{-0.263040f,0.516131f}, {-0.636960f,0.402619f}}, {{-0.284410f,0.378244f}, {-0.637465f,0.374881f}}, {{0.307792f,0.923200f}, {0.260383f,1.018287f}}, {{0.421317f,0.716515f}, {0.540675f,0.477120f}}},
+        {{{-0.308331f,0.789569f}, {-0.011094f,0.798231f}, {0.286144f,0.994394f}}, {{0.313391f,0.956822f}, {-0.203966f,0.333166f}}, {{-0.187083f,0.337847f}, {-0.309642f,0.848341f}}, {{-0.263040f,0.516131f}, {-0.636960f,0.402619f}}, {{-0.284410f,0.378244f}, {-0.637465f,0.374881f}}, {{0.307792f,0.923200f}, {0.260383f,1.018287f}}, {{0.421317f,0.716515f}, {0.540675f,0.477120f}}},
+        {{{-0.233827f,0.562362f}, {0.303177f,0.818500f}}, {{0.319164f,0.774599f}, {-0.140626f,0.310001f}}, {{-0.140497f,0.309685f}, {-0.232628f,0.562815f}}, {{-0.231150f,0.561534f}, {-0.530725f,0.330966f}}, {{-0.146874f,0.306875f}, {-0.523751f,0.333125f}}, {{0.291169f,0.847535f}, {0.327006f,0.754177f}}, {{0.395555f,0.593040f}, {0.473948f,0.388820f}}},
+        {{{-0.233828f,0.818500f}, {0.303178f,0.818500f}}, {{0.319164f,0.774599f}, {-0.140626f,0.310001f}}, {{-0.140497f,0.309685f}, {-0.232628f,0.562815f}}, {{-0.231150f,0.561534f}, {-0.530725f,0.330966f}}, {{-0.146874f,0.306875f}, {-0.523751f,0.333125f}}, {{0.291169f,0.847535f}, {0.327006f,0.754177f}}, {{0.395555f,0.593040f}, {0.473948f,0.388820f}}},
+        {{{-0.233827f,0.562359f}, {0.034675f,0.596685f}, {0.303175f,0.818503f}}, {{0.319164f,0.774599f}, {-0.140626f,0.310001f}}, {{-0.140497f,0.309685f}, {-0.232628f,0.562815f}}, {{-0.231150f,0.561534f}, {-0.530725f,0.330966f}}, {{-0.146874f,0.306875f}, {-0.523751f,0.333125f}}, {{0.291169f,0.847535f}, {0.327006f,0.754177f}}, {{0.395555f,0.593040f}, {0.473948f,0.388820f}}}
+    };
+    public static Pick pick(BikeType type,FrameShape shape,float x,float y) { return pick(type==BikeType.ENDURO,shape,x,y); }
+    public static Pick pick(boolean full,FrameShape shape,float x,float y) {
+        Pick pick=nearest(full,shape,x,y);
+        return pick.distance()<.12f ? pick : null;
+    }
+    public static Pick nearest(boolean full,FrameShape shape,float x,float y) {
+        Pick best=null;
+        for(Tube tube:Tube.values()) {
+            float[][] path=PATHS[shape.ordinal()][tube.ordinal()];
+            for(int i=0;i<path.length-1;i++) {
+                float[] a=path[i],b=path[i+1];float dx=b[0]-a[0],dy=b[1]-a[1];
+                float t=Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/(dx*dx+dy*dy)));
+                float d=(float)Math.hypot(x-a[0]-dx*t,y-a[1]-dy*t);
+                if(best==null || d<best.distance()) best=new Pick(tube,(i+t)/(path.length-1),d);
+            }
+        }
+        return best;
+    }
+    public static float[] positionOf(BikeType type,FrameShape shape,Tube tube,float t) { return pointOn(type==BikeType.ENDURO,shape,tube,t); }
+    public static float[] pointOn(boolean full,FrameShape shape,Tube tube,float t) {
+        float[][] path=PATHS[shape.ordinal()][tube.ordinal()];
+        float u=Math.max(0,Math.min(1,t))*(path.length-1);int i=Math.min(path.length-2,(int)u);u-=i;
+        return new float[]{path[i][0]+(path[i+1][0]-path[i][0])*u,path[i][1]+(path[i+1][1]-path[i][1])*u};
+    }
+    public static float[] segment(boolean full,FrameShape shape,Tube tube) {
+        float[] a=pointOn(full,shape,tube,0),b=pointOn(full,shape,tube,1);
+        return new float[]{a[0],a[1],b[0],b[1]};
+    }
+    private StickerAnchors() {}
+}

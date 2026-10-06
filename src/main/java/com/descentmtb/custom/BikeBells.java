@@ -5,7 +5,6 @@ import com.descentmtb.entity.MountainBikeEntity;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
@@ -69,20 +68,9 @@ public final class BikeBells {
 
     /** Plays a bell at a spot (second notes are scheduled). */
     static void play(ServerLevel level, double x, double y, double z, Bell bell, long now) {
-        SoundEvent chime = SoundEvents.NOTE_BLOCK_BELL.value();
-        switch (bell) {
-            case DING -> sound(level, x, y, z, chime, 1.0f, 1.6f);
-            case MINI -> sound(level, x, y, z, chime, .55f, 2.0f);
-            case CLASSIC -> {                                  // ring-ring
-                sound(level, x, y, z, chime, 1.0f, 1.35f);
-                soundLater(level, now + 3, x, y, z, chime, 1.0f, 1.35f);
-            }
-            case AIR_HORN -> sound(level, x, y, z, SoundEvents.GOAT_HORN_SOUND_VARIANTS.get(0).value(), 2.0f, 1.0f);
-            case RUBBER_DUCK -> {                              // squeak-squeak
-                sound(level, x, y, z, SoundEvents.CHICKEN_HURT, .9f, 1.9f);
-                soundLater(level, now + 2, x, y, z, SoundEvents.CHICKEN_HURT, .9f, 2.0f);
-            }
-            case NONE -> { }
+        for (var note : BellSounds.notes(bell)) {
+            if (note.delay() == 0) sound(level, x, y, z, note.sound(), note.volume(), note.pitch());
+            else soundLater(level, now + note.delay(), x, y, z, note.sound(), note.volume(), note.pitch());
         }
     }
 

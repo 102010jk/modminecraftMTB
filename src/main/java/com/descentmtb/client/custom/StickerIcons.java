@@ -24,6 +24,12 @@ final class StickerIcons {
         CACHE.clear();
     }
 
+    /** Shared with world decals so rectangular logos and square art keep their proportions. */
+    static float aspectRatio(StickerDesign design) {
+        Icon icon=get(design);
+        return icon.height>0 ? icon.width/(float)icon.height : 1f;
+    }
+
     private static Icon get(StickerDesign design) {
         return CACHE.computeIfAbsent(design, d -> {
             ResourceLocation id = ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, d.texture());

@@ -4,7 +4,6 @@ import com.descentmtb.custom.BikeParts.Bell;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundEvents;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,21 +27,8 @@ final class BellPreview {
 
     void play(Bell bell) {
         queue.clear();
-        // the same sounds BikeBells plays in the world
-        SoundEvent chime = SoundEvents.NOTE_BLOCK_BELL.value();
-        switch (bell) {
-            case DING -> add(0, chime, 1.6f, 1f);
-            case MINI -> add(0, chime, 2.0f, .55f);
-            case CLASSIC -> {
-                add(0, chime, 1.35f, 1f);
-                add(3, chime, 1.35f, 1f);
-            }
-            case AIR_HORN -> add(0, SoundEvents.GOAT_HORN_SOUND_VARIANTS.get(0).value(), 1.0f, 1f);
-            case RUBBER_DUCK -> {
-                add(0, SoundEvents.CHICKEN_HURT, 1.9f, .9f);
-                add(2, SoundEvents.CHICKEN_HURT, 2.0f, .9f);
-            }
-            case NONE -> { }
+        for (var note : com.descentmtb.custom.BellSounds.notes(bell)) {
+            add(note.delay(), note.sound(), note.pitch(), note.volume());
         }
         tick(true);
     }

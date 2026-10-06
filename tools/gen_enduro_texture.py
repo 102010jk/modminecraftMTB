@@ -9,6 +9,7 @@ those lines, checks that no two rectangles overlap, and paints each rectangle ac
 
 Needs Pillow; falls back to a pure zlib/struct PNG writer if Pillow is missing.
 """
+import bike_tex_common as tintable
 import math
 import os
 import random
@@ -39,6 +40,8 @@ MATERIALS = {
     "chain":     (74, 70, 66),
     "pedal":     (34, 34, 38),
 }
+
+MATERIALS = {**tintable.COMMON, **MATERIALS}
 
 NUM = r"(-?\d+(?:\.\d+)?)f"
 BONE_RE = re.compile(r'PartDefinition (\w+) = bone\((\w+), "(\w+)", ' + ", ".join([NUM] * 6) + r"\);")
@@ -199,25 +202,7 @@ def write_png(img, path):
 
 
 def main():
-    bones, cubes, (tw, th) = parse_java()
-    unknown = {c["mat"] for c in cubes} - set(MATERIALS)
-    if unknown:
-        raise SystemExit(f"unknown material tags: {unknown}")
-    check_overlaps(cubes, tw, th)
-    img = paint(cubes, tw, th)
-    # every referenced face texel must be painted
-    holes = 0
-    for c in cubes:
-        for (x0, y0, x1, y1) in faces(c).values():
-            for y in range(int(math.floor(y0)), int(math.ceil(y1)) + 1):
-                for x in range(int(math.floor(x0)), int(math.ceil(x1)) + 1):
-                    if 0 <= x < tw and 0 <= y < th and img[y][x][3] == 0:
-                        holes += 1
-    if holes:
-        raise SystemExit(f"{holes} unpainted texels referenced by cubes")
-    write_png(img, OUT)
-    used = sum(region(c)[2] * region(c)[3] for c in cubes)
-    print(f"wrote {OUT}  ({tw}x{th}, {len(cubes)} cubes, {100.0 * used / (tw * th):.1f}% of texels used, no overlaps, no holes)")
+    tintable.run(JAVA, "enduro_bike", {}, 7)
 
 
 if __name__ == "__main__":

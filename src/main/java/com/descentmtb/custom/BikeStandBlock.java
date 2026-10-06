@@ -39,10 +39,20 @@ public final class BikeStandBlock extends BaseEntityBlock {
     public static final MapCodec<BikeStandBlock> CODEC = simpleCodec(BikeStandBlock::new);
 
     /** Feet + post + the clamp arm (along the facing axis); must match models/block/bike_stand.json. */
-    private static final VoxelShape ALONG_Z = Shapes.or(
-            Block.box(2, 0, 2, 14, 2, 14), Block.box(7, 2, 7, 9, 13, 9), Block.box(6, 11, 2, 10, 15, 14));
-    private static final VoxelShape ALONG_X = Shapes.or(
-            Block.box(2, 0, 2, 14, 2, 14), Block.box(7, 2, 7, 9, 13, 9), Block.box(2, 11, 6, 14, 15, 10));
+    private static final VoxelShape NORTH = Shapes.or(
+            Block.box(1, 0, 6, 15, 2, 10), Block.box(6, 0, 1, 10, 2, 15),
+            Block.box(7, 2, 7, 9, 17, 9), Block.box(6.5, 10, 6.5, 9.5, 12, 9.5),
+            Block.box(7, 14.5, 8, 9, 16.5, 14), Block.box(6, 14.5, 12, 7, 18.5, 14),
+            Block.box(9, 14.5, 12, 10, 18.5, 14), Block.box(7, 14.5, 12, 9, 15.5, 14),
+            Block.box(7, 17.5, 12, 9, 18.5, 14), Block.box(10, 15.5, 12, 12, 17.5, 14));
+    private static final VoxelShape EAST = turn(NORTH), SOUTH = turn(EAST), WEST = turn(SOUTH);
+
+    private static VoxelShape turn(VoxelShape shape) {
+        VoxelShape turned=Shapes.empty();
+        for(var box:shape.toAabbs()) turned=Shapes.or(turned,Shapes.box(
+                1-box.maxZ,box.minY,box.minX,1-box.minZ,box.maxY,box.maxX));
+        return turned;
+    }
 
     public BikeStandBlock(Properties properties) {
         super(properties);
@@ -76,7 +86,12 @@ public final class BikeStandBlock extends BaseEntityBlock {
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return state.getValue(FACING).getAxis() == Direction.Axis.Z ? ALONG_Z : ALONG_X;
+        return switch(state.getValue(FACING)) {
+            case NORTH -> NORTH;
+            case EAST -> EAST;
+            case SOUTH -> SOUTH;
+            default -> WEST;
+        };
     }
 
     /** A bike item in hand: hang it on an empty stand. Anything else falls through to the bare click (workshop). */

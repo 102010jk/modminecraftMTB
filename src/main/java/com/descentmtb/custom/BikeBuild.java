@@ -55,7 +55,7 @@ public record BikeBuild(
 
         Sticker sanitized() {
             return new Sticker(design, tube, clamp(t, 0, 1), Math.max(-1, Math.min(1, side)),
-                    ((rotation % 360) + 360) % 360, clamp(scale, .4f, 2.5f), tint & 0xFFFFFF);
+                    Float.isFinite(rotation) ? ((rotation % 360) + 360) % 360 : 0, clamp(scale, .4f, 2.5f), tint & 0xFFFFFF);
         }
     }
 

@@ -11,7 +11,6 @@ import com.descentmtb.entity.MountainBikeEntity;
 import com.descentmtb.physics.BikeParams;
 import com.descentmtb.physics.V3;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.culling.Frustum;
@@ -78,13 +77,11 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
             hardtail.setupBrake((float) BikeRenderState.lerp(t, a.brake, b.brake));
             hardtail.setupTrick(b.trick, (float) BikeRenderState.lerp(t,
                     a.trick == b.trick ? a.trickProgress : 0, b.trickProgress), b.trickSide);
-            VertexConsumer vc = buffers.getBuffer(hardtail.renderType(HARDTAIL_TEXTURE));
-            hardtail.renderToBuffer(pose, vc, light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+            hardtail.renderCustomized(pose, buffers, light, OverlayTexture.NO_OVERLAY, bike.build());
         } else {
             model.setupPose(steer, compF, compR, spinF, spinR, crank);
             model.setupBrake((float) BikeRenderState.lerp(t, a.brake, b.brake));
-            VertexConsumer vc = buffers.getBuffer(model.renderType(TEXTURE));
-            model.renderToBuffer(pose, vc, light, OverlayTexture.NO_OVERLAY, 0xFFFFFFFF);
+            model.renderCustomized(pose, buffers, light, OverlayTexture.NO_OVERLAY, bike.build());
         }
         pose.popPose();
         super.render(bike, entityYaw, partialTick, pose, buffers, light);

@@ -1,4 +1,54 @@
 {
   "parent": "minecraft:item/generated",
-  "textures": { "layer0": "descentmtb:item/hardtail_bike" }
+  "loader": "neoforge:item_layers",
+  "textures": {
+    "layer0": "descentmtb:item/bike_layers/dj_classic_outline",
+    "layer1": "descentmtb:item/bike_layers/dj_classic_tyres",
+    "layer2": "descentmtb:item/bike_layers/dj_classic_rims",
+    "layer3": "descentmtb:item/bike_layers/dj_classic_frame",
+    "layer4": "descentmtb:item/bike_layers/dj_classic_fork",
+    "layer5": "descentmtb:item/bike_layers/dj_classic_cockpit",
+    "layer6": "descentmtb:item/bike_layers/acc_bell",
+    "layer7": "descentmtb:item/bike_layers/acc_duck",
+    "layer8": "descentmtb:item/bike_layers/acc_front_light",
+    "layer9": "descentmtb:item/bike_layers/acc_rear_light"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "descentmtb:shape": 0
+      },
+      "model": "descentmtb:item/bike_enduro_classic"
+    },
+    {
+      "predicate": {
+        "descentmtb:shape": 1
+      },
+      "model": "descentmtb:item/bike_enduro_high_pivot"
+    },
+    {
+      "predicate": {
+        "descentmtb:shape": 2
+      },
+      "model": "descentmtb:item/bike_enduro_low_slung"
+    },
+    {
+      "predicate": {
+        "descentmtb:shape": 3
+      },
+      "model": "descentmtb:item/bike_dj_classic"
+    },
+    {
+      "predicate": {
+        "descentmtb:shape": 4
+      },
+      "model": "descentmtb:item/bike_dj_straight"
+    },
+    {
+      "predicate": {
+        "descentmtb:shape": 5
+      },
+      "model": "descentmtb:item/bike_dj_curved"
+    }
+  ]
 }

@@ -67,7 +67,7 @@ public final class DevCustomTests {
             return;
         }
         ServerLevel level = e.getServer().overworld();
-        var fake = FakePlayerFactory.getMinecraft(level);
+        var fake = rider(level);
         fake.setPos(0.5, 200, 0.5);
         level.getChunkAt(BlockPos.ZERO);
         level.getChunkAt(new BlockPos(16, 200, 16));
@@ -198,6 +198,11 @@ public final class DevCustomTests {
     }
 
     private static void codecs(ServerLevel level) {
+        for (float bad : new float[]{Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY}) {
+            var sticker = new BikeBuild.Sticker(StickerDesign.STAR, Tube.DOWN, bad, 0, bad, bad, 0xFFFFFF).sanitized();
+            check(Float.isFinite(sticker.t()) && Float.isFinite(sticker.rotation()) && Float.isFinite(sticker.scale()),
+                    "non-finite sticker transforms are sanitized: " + bad);
+        }
         BikeBuild many = CUSTOM.with(b -> {
             for (int i = 0; i < 5; i++) {
                 b.stickers().add(new BikeBuild.Sticker(StickerDesign.FLAME, Tube.DOWN, .3f + i * .1f, 1, 10, 1, 0xFF8800));
@@ -354,7 +359,7 @@ public final class DevCustomTests {
     }
 
     private static void bell(ServerLevel level, BlockPos at, List<net.minecraft.world.entity.Entity> entities) {
-        var fake = FakePlayerFactory.getMinecraft(level);
+        var fake = rider(level);
         MountainBikeEntity bike = spawn(level, at, CUSTOM.with(b -> b.bell(Bell.CLASSIC)), entities);
         check(!BikeBells.ring(fake), "no bell rings for a player who is not riding");
         check(fake.startRiding(bike, true) && bike.getControllingPassenger() == fake, "a player can ride the test bike");
@@ -389,7 +394,7 @@ public final class DevCustomTests {
     }
 
     private static void lights(ServerLevel level, BlockPos at, List<BlockPos> blocks, List<net.minecraft.world.entity.Entity> entities) {
-        var fake = FakePlayerFactory.getMinecraft(level);
+        var fake = rider(level);
         MountainBikeEntity bike = spawn(level, at, CUSTOM, entities);   // front and rear light
         BlockPos ideal = BlockPos.containing(bike.getX(), bike.getY() + 1.0, bike.getZ() + 2.5);
         level.setBlock(ideal, Blocks.STONE.defaultBlockState(), 3);   // the ideal spot is not air
@@ -398,6 +403,8 @@ public final class DevCustomTests {
         BikeLights.update(bike, true, true);
         check(lightsAround(level, at) == 0, "a bike nobody rides gives no light");
         check(fake.startRiding(bike, true), "the light-test rider mounts");
+        BikeLights.update(bike, true, false);
+        check(lightsAround(level, at) == 2, "first ordinary light update works without force");
         BikeLights.update(bike, false, true);
         check(lightsAround(level, at) == 0, "no light in daylight");
         BikeLights.update(bike, true, true);
@@ -446,6 +453,15 @@ public final class DevCustomTests {
         bike.discard();
         check(lightsAround(level, at) == 0 && BikeLights.recorded(level) == 0, "a removed bike takes its light with it");
         fake.stopRiding();
+    }
+
+    /** FakePlayer itself refuses mount; use a normal server rider with its no-op test connection. */
+    private static ServerPlayer rider(ServerLevel level) {
+        var player = new ServerPlayer(level.getServer(),level,
+                new com.mojang.authlib.GameProfile(java.util.UUID.randomUUID(),"MTBCustomRider"),
+                net.minecraft.server.level.ClientInformation.createDefault());
+        player.connection = FakePlayerFactory.getMinecraft(level).connection;
+        return player;
     }
 
     private DevCustomTests() {}

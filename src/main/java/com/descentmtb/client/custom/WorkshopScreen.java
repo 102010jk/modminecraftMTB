@@ -63,7 +63,7 @@ public final class WorkshopScreen extends Screen {
     private static final int MARGIN = 4, BAR_H = 20, TAB_H = 14;
 
     /** Default view of the 3D preview (a three-quarter view from slightly above). */
-    private static final float DEFAULT_YAW = -35f, DEFAULT_PITCH = 12f;
+    private static final float DEFAULT_YAW = 65f, DEFAULT_PITCH = 12f;
     /**
      * The fixed side view used while placing stickers. TUNE HERE once the renderer is in: the yaw that shows the
      * bike from its side, whether the front then points to the right of the screen, and the model height (m) that
@@ -150,12 +150,13 @@ public final class WorkshopScreen extends Screen {
     protected void init() {
         StickerIcons.clear();
         int contentTop = MARGIN + 12;
-        int barY = height - MARGIN - BAR_H;
+        boolean narrow = width < 440;
+        int barY = height - MARGIN - (narrow ? 2 * BAR_H + 3 : BAR_H);
         int contentBottom = barY - MARGIN;
 
         panelW = Math.max(150, Math.min(260, Math.round(width * 0.42f)));
         panelX = width - MARGIN - panelW;
-        tabsPerRow = panelW >= 300 ? 6 : 3;
+        tabsPerRow = panelW >= 300 ? 6 : panelW >= 200 ? 3 : 2;
         int rows = Tab.values().length / tabsPerRow;
         tabW = (panelW - (tabsPerRow - 1) * 2) / tabsPerRow;
         tabsY = contentTop;
@@ -200,7 +201,9 @@ public final class WorkshopScreen extends Screen {
 
         // confirmation dialog (drawn and clicked by hand, only while it is up)
         dlgW = Math.min(width - 16, 250);
-        dlgH = 62;
+        int confirmLines = Math.max(font.split(t("confirm.text"), dlgW - 16).size(),
+                font.split(t("confirm.text.take"), dlgW - 16).size());
+        dlgH = 50 + confirmLines * 9;
         dlgX = (width - dlgW) / 2;
         dlgY = (height - dlgH) / 2;
         int bw = (dlgW - 16 - 8) / 3;
@@ -247,7 +250,7 @@ public final class WorkshopScreen extends Screen {
             int w = font.width(right[i].getMessage()) + pad;
             x -= w;
             right[i].setX(x);
-            right[i].setY(y);
+            right[i].setY(width < 440 ? y + BAR_H + 3 : y);
             right[i].setWidth(w);
             x -= 3;
         }
@@ -321,6 +324,13 @@ public final class WorkshopScreen extends Screen {
             b.bars(pick(List.of(Bars.values()))).grips(pick(List.of(Soft.values()))).saddle(pick(List.of(Soft.values())));
             b.pedals(pick(List.of(Anodized.values()))).brakes(pick(List.of(Brakes.values())));
             b.brakeColor(pick(List.of(Anodized.values())));
+            b.bell(pick(List.of(Bell.values()))).frontLight(random.nextBoolean()).rearLight(random.nextBoolean());
+            b.lightColor(pick(List.of(LightColor.values())));
+            List<BikeBuild.Sticker> stickers=new ArrayList<>();
+            for(int i=0,n=random.nextInt(4);i<n;i++) stickers.add(new BikeBuild.Sticker(
+                    pick(List.of(StickerDesign.values())),pick(List.of(Tube.values())),.2f+random.nextFloat()*.6f,
+                    0,random.nextInt(4)*90f,.7f+random.nextFloat()*.6f,0xFFFFFF));
+            b.stickers(stickers);
             return b;
         });
         commit(next, null);
@@ -782,21 +792,25 @@ public final class WorkshopScreen extends Screen {
 
     private void renderStickerOverlay(GuiGraphics g, int mx, int my) {
         FrameShape shape = build().shape();
-        StickerPicker.Pick hover = null;
+        StickerAnchors.Pick hover = null;
         boolean placing = selDesign != null && build().stickers().size() < BikeBuild.MAX_STICKERS;
         if (placing && inPreview(mx, my) && !draggingSticker) {
-            hover = StickerPicker.pick(fullSuspension, shape, modelX(mx), modelY(my));
+            hover = StickerAnchors.pick(fullSuspension, shape, modelX(mx), modelY(my));
         }
         Sticker sel = sticker(selSticker);
         for (Tube tube : Tube.values()) {
-            float[] s = StickerPicker.segment(fullSuspension, shape, tube);
             boolean hot = hover != null && hover.tube() == tube || sel != null && sel.tube() == tube;
-            line(g, screenX(s[0]), screenY(s[1]), screenX(s[2]), screenY(s[3]), hot ? 0xb0e2c48a : placing ? 0x40ffffff : 0x20ffffff);
+            int color=hot ? 0xb0e2c48a : placing ? 0x40ffffff : 0x20ffffff;
+            float[] start=StickerAnchors.pointOn(fullSuspension,shape,tube,0);
+            float[] middle=StickerAnchors.pointOn(fullSuspension,shape,tube,.5f);
+            float[] end=StickerAnchors.pointOn(fullSuspension,shape,tube,1);
+            line(g,screenX(start[0]),screenY(start[1]),screenX(middle[0]),screenY(middle[1]),color);
+            line(g,screenX(middle[0]),screenY(middle[1]),screenX(end[0]),screenY(end[1]),color);
         }
         List<Sticker> stickers = build().stickers();
         for (int i = 0; i < stickers.size(); i++) {
             Sticker s = stickers.get(i);
-            float[] p = StickerPicker.pointOn(fullSuspension, shape, s.tube(), s.t());
+            float[] p = StickerAnchors.pointOn(fullSuspension, shape, s.tube(), s.t());
             int x = Math.round(screenX(p[0])), y = Math.round(screenY(p[1]));
             boolean selected = i == selSticker;
             int r = selected ? 5 : 4;
@@ -805,7 +819,7 @@ public final class WorkshopScreen extends Screen {
             g.drawString(font, String.valueOf(i + 1), x + r + 3, y - 4, selected ? GOLD : 0xffb8c4ca, true);
         }
         if (hover != null) {
-            float[] p = StickerPicker.pointOn(fullSuspension, shape, hover.tube(), hover.t());
+            float[] p = StickerAnchors.pointOn(fullSuspension, shape, hover.tube(), hover.t());
             int x = Math.round(screenX(p[0])), y = Math.round(screenY(p[1]));
             g.renderOutline(x - 6, y - 6, 13, 13, 0xffffffff);
             g.renderOutline(x - 5, y - 5, 11, 11, 0xff000000);
@@ -823,7 +837,7 @@ public final class WorkshopScreen extends Screen {
         double best = 8 * 8;
         for (int i = 0; i < stickers.size(); i++) {
             Sticker s = stickers.get(i);
-            float[] p = StickerPicker.pointOn(fullSuspension, shape, s.tube(), s.t());
+            float[] p = StickerAnchors.pointOn(fullSuspension, shape, s.tube(), s.t());
             double dx = screenX(p[0]) - mx, dy = screenY(p[1]) - my;
             if (dx * dx + dy * dy <= best) {
                 best = dx * dx + dy * dy;
@@ -838,7 +852,7 @@ public final class WorkshopScreen extends Screen {
             return;
         }
         if (selDesign != null && stickers.size() < BikeBuild.MAX_STICKERS) {
-            StickerPicker.Pick pick = StickerPicker.pick(fullSuspension, shape, modelX(mx), modelY(my));
+            StickerAnchors.Pick pick = StickerAnchors.pick(fullSuspension, shape, modelX(mx), modelY(my));
             if (pick != null) {
                 List<Sticker> list = new ArrayList<>(stickers);
                 list.add(new Sticker(selDesign, pick.tube(), pick.t(), 0, 0f, 1f, 0xFFFFFF));
@@ -878,6 +892,7 @@ public final class WorkshopScreen extends Screen {
         }
 
         renderPreview(g, mx, my);
+        resetViewButton.render(g, mouseX, mouseY, partialTick);
 
         // tabs
         Tab[] tabs = Tab.values();
@@ -966,7 +981,7 @@ public final class WorkshopScreen extends Screen {
             return true;
         }
         if (draggingSticker && selSticker >= 0) {
-            StickerPicker.Pick pick = StickerPicker.nearest(fullSuspension, build().shape(), modelX(mx), modelY(my));
+            StickerAnchors.Pick pick = StickerAnchors.nearest(fullSuspension, build().shape(), modelX(mx), modelY(my));
             int index = selSticker;
             editSticker(index, s -> new Sticker(s.design(), pick.tube(), pick.t(), s.side(), s.rotation(), s.scale(), s.tint()), "move" + index);
             return true;
