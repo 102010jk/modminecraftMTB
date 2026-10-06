@@ -41,6 +41,9 @@ for code,(mid,seat,down,dw,tw,eye,arm) in FRAMES.items():
  tube('frame','down_front',code,(-15.31,-4.55),down,dw,dw*1.07)
  tube('frame','down_rear',code,down,(-5.6,3.04),dw,dw*1.07)
 
+ # Paired tabs and a through-bolt join the shock eye to the actual mount.
+ cube('frame','brand_shock_bolt__'+code,'silver',(0,eye[0],eye[1]),(1.35,.28,.28))
+ cube('swingarm','brand_arm_bolt__'+code,'silver',(0,arm[0]+8.3,arm[1]-4.2),(1.35,.28,.28))
  for side in [-1,1]:
   cube('frame','brand_shock_mount_'+str(side).replace('-','l')+'__'+code,'frame',
        (side*.55,eye[0],eye[1]),(.3,.9,.9))
@@ -54,12 +57,12 @@ for code,(mid,seat,down,dw,tw,eye,arm) in FRAMES.items():
  elif code=='u':
   tube('frame','one77_rocker',code,(-10.8,4.7),(-9.1,2.7),1.4,.6)
  elif code=='m':
-  tube('frame','vcs_upper',code,(-10.1,4.6),(-9.3,2.9),1.4,.5)
-  tube('frame','vcs_lower',code,(-6.5,4.0),(-7.1,2.8),1.35,.5)
+  tube('frame','vcs_upper',code,(-10.1,4.6),(-9.8,-.7),1.4,.5)
+  tube('frame','vcs_lower',code,(-6.1,3.1),(-7.8,3.6),1.35,.5)
  elif code=='g':
-  tube('frame','asymmetric_brace',code,seat,(-8.2,.6),.5,.55,-.8)
+  tube('frame','asymmetric_brace',code,seat,(-8.2,.6),.5,.55,-.5)
  elif code=='j':
-  for side in [-1,1]:tube('frame','stumpy_rocker_'+('l' if side<0 else 'r'),code,(-12.3,4.7),(-10.2,2.7),.3,.55,side*.7)
+  for side in [-1,1]:tube('frame','stumpy_rocker_'+('l' if side<0 else 'r'),code,(-12.6,3.6),(-9.2,-.5),.3,.55,side*.55)
 catalog='\n        // BEGIN FRAME CATALOG\n'+'\n'.join(lines)+'\n        // END FRAME CATALOG\n'
 source=source.replace('        return LayerDefinition.create(mesh, 128, 256);',catalog+'        return LayerDefinition.create(mesh, 128, 256);')
 FILE.write_text(source,encoding='utf-8')
