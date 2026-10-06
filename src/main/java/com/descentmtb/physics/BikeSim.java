@@ -178,6 +178,7 @@ public final class BikeSim {
     /** Advances one game tick ({@code dt} seconds, normally 0.05) in {@code p.substeps} substeps. */
     public void tick(Controls c, double dt) {
         Controls in = bailed ? Controls.NONE : c;
+        lastControls = in;
         double h = dt / p.substeps;
         substepTime = 0;
         for (int i = 0; i < p.substeps; i++) {
@@ -759,6 +760,19 @@ public final class BikeSim {
     //  Air
     // =====================================================================
 
+    /** Seconds the spin input has been held in this flight. */
+    private double spinHold;
+
+    /** Dead zone + progressive curve: small deflections do nothing, the rate builds up toward full stick. */
+    private double shapedSpin(double steer) {
+        double a = Math.abs(steer), dz = clamp(p.airSpinDeadzone, 0, .9);
+        if (a <= dz) {
+            return 0;
+        }
+        double t = (a - dz) / (1 - dz);
+        return Math.signum(steer) * Math.pow(t, 1.6);
+    }
+
     private void airControl(Controls c, double h) {
         double a = omega.dot(V3.Y);
         double b = omega.dot(right);
@@ -781,8 +795,11 @@ public final class BikeSim {
             bT = b;                                     // mid-flip: keep rotating
         }
         double na;
-        if (Math.abs(c.steer) > 0.15) {
-            double aT = -c.steer * p.spinRate * authority;
+        double spin = shapedSpin(c.steer);
+        spinHold = spin != 0 ? spinHold + h : 0;
+        if (spin != 0) {
+            double windup = clamp(spinHold / Math.max(.01, p.airSpinWindup), .25, 1);
+            double aT = -spin * p.spinRate * p.airSpinSensitivity * authority * windup;
             na = a + (aT - a) * k;
         } else {
             // no spin input: stop turning, and ease the nose toward the direction of flight (yaw error < 60°)
@@ -846,6 +863,9 @@ public final class BikeSim {
                 airPitchTravel = 0;
                 airYawTravel = 0;
                 maxWhip = maxTable = 0;
+                whipPeak = 0;
+                whipInput = false;
+                spinHold = 0;
                 trickMask = 0;
                 // Rotations must be earned at take-off: a real rider cannot start a
                 // spin in mid-air. Popping hard (and launching off a lip) buys authority.
@@ -859,13 +879,40 @@ public final class BikeSim {
             lastAirVel = vel;
             airPitchTravel += omega.dot(right) * h;
             airYawTravel += -omega.dot(V3.Y) * h;
-            if (vel.horizontalLength() > 2) maxWhip = Math.max(maxWhip, Math.abs(wrap(yaw - Math.atan2(-vel.x, vel.z))));
+            trackWhip(lastControls);
             maxTable = Math.max(maxTable, Math.abs(lean));
             return;
         }
         if (airborne) {
             airborne = false;
             onTouchdown();
+        }
+    }
+
+    /** Largest sideways kick of the bike against its flight path in this flight, and whether the rider drove it. */
+    private double whipPeak;
+
+    /** Largest sideways offset of the bike against its flight path so far in this flight (rad). */
+    public double whipOffset() {
+        return whipPeak;
+    }
+    private boolean whipInput;
+    private Controls lastControls = Controls.NONE;
+
+    /**
+     * A whip is the rear kicked out sideways in the air by the rider (steer / tweak input while the offset grows)
+     * and straightened again before landing. Merely flying a bit crooked or drifting off a lip is not a whip.
+     */
+    private void trackWhip(Controls c) {
+        if (vel.horizontalLength() <= 2) {
+            return;
+        }
+        double offset = Math.abs(wrap(yaw - Math.atan2(-vel.x, vel.z)));
+        if (offset > whipPeak) {
+            whipPeak = offset;
+            if (Math.abs(c.steer) > .5 || Math.abs(c.tweak) > .5) {
+                whipInput = true;
+            }
         }
     }
 
@@ -882,11 +929,15 @@ public final class BikeSim {
         // speed into the ground just before the tyres touched (the suspension has
         // already started slowing us by the time this runs)
         double impact = Math.max(0, -lastAirVel.sub(w.hit.velocity).dot(w.normal));
+        // a whip only counts when the rider kicked it out and brought the bike back straight before the wheels touched
+        maxWhip = whipPeak >= 0.6 && whipInput && yawErr < 0.35 ? whipPeak : 0;
         if (airTime > 0.25) {
             if (impact > p.bailImpactSpeed && w.surface!=Terrain.Surface.AIRBAG) {
                 bail("landed too hard (" + String.format(java.util.Locale.ROOT, "%.1f", impact) + " m/s into the ground)");
             } else if (pitchErr > p.bailPitchError && w.surface!=Terrain.Surface.AIRBAG) {
                 bail("landed with the nose " + (int) Math.toDegrees(pitchErr) + "° off");
+            } else if (p.riskReward && yawErr > p.riskYawLimit && w.surface != Terrain.Surface.AIRBAG) {
+                bail("landed sideways (" + (int) Math.toDegrees(yawErr) + "°)");
             } else {
                 // Descenders-style "magnet": ease pitch onto the slope and finish an
                 // under/over-rotated spin onto the direction of travel

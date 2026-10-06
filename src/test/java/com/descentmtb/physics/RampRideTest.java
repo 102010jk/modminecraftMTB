@@ -91,9 +91,23 @@ class RampRideTest {
         }
     }
 
+    @Test void sidewaysLandingIsACrashWithRiskAndReward() {
+        BikeParams p = new BikeParams();
+        p.airAlignAssist = 0;
+        p.riskReward = true;
+        BikeSim sim = new BikeSim(p, TestTerrains.flat(64, Terrain.Surface.DIRT));
+        sim.place(0, 64, 0, Math.PI / 2);
+        sim.pos = sim.pos.add(new V3(0, 2, 0));
+        sim.riderPos = sim.riderPos.add(new V3(0, 2, 0));
+        sim.vel = sim.riderVel = new V3(0, 0, 6);
+        for (int i = 0; i < 60 && !sim.bailed; i++) { sim.tick(Controls.NONE, .05); sim.events.clear(); }
+        assertTrue(sim.bailed, "landing 90 degrees sideways is a crash in risk & reward mode");
+    }
+
     @Test void gentleSidewaysLandingIsASkidRatherThanABail() {
         BikeParams p = new BikeParams();
         p.airAlignAssist = 0;
+        p.riskReward = false;      // casual mode forgives it
         BikeSim sim = new BikeSim(p, TestTerrains.flat(64, Terrain.Surface.DIRT));
         sim.place(0, 64, 0, Math.PI / 2);
         sim.pos = sim.pos.add(new V3(0, 2, 0));

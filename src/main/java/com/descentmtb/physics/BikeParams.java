@@ -105,6 +105,16 @@ public final class BikeParams {
     public double airSpinDamping = 0.15;
     /** ... and the bike turns toward its flight direction at this rate (1/s), Descenders-style. */
     public double airYawAlignRate = 1.4;
+    /** Spin input below this stick deflection does nothing in the air (a brushed stick must not turn the bike). */
+    public double airSpinDeadzone = 0.35;
+    /** Multiplier of the spin rate (config "airRotationSensitivity"). */
+    public double airSpinSensitivity = 1.0;
+    /** Seconds of held spin input until the full spin rate is reached (a deliberate hold, not a twitch). */
+    public double airSpinWindup = 0.25;
+    /** Risk & reward: landing mid-trick or clearly sideways is a crash (config "experimentalRiskReward"). */
+    public boolean riskReward = true;
+    /** With risk & reward, landing with more yaw error than this (rad) is a crash. */
+    public double riskYawLimit = Math.toRadians(55);
 
     // ---------------- landing / bails ----------------
     public double bailPitchError = Math.toRadians(100);   // only landing on your back / nose

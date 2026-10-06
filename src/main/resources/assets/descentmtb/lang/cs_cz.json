@@ -565,5 +565,8 @@
   "descentmtb.custom.shape.specialized_stumpjumper": "Specialized Stumpjumper 15",
   "descentmtb.workshop.sticker.wrap": "Obtočit kolem trubky",
   "descentmtb.workshop.sticker.wrap_hint": "Pokrývá všechny plochy. Napříč posouvá spoj; Levá/Pravá vybírá vzpěru nebo nohu vidlice.",
-  "descentmtb.workshop.sticker.missing": "Chybí PNG: %s — zapni jeho resource pack."
+  "descentmtb.workshop.sticker.missing": "Chybí PNG: %s — zapni jeho resource pack.",
+  "descentmtb.config.airRotationSensitivity": "Citlivost rotace ve vzduchu",
+  "descentmtb.config.airRotationDeadzone": "Mrtvá zóna rotace ve vzduchu",
+  "descentmtb.config.experimentalRiskReward": "Risk & reward (experimentální)"
 }

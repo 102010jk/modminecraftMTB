@@ -565,5 +565,8 @@
   "descentmtb.custom.shape.specialized_stumpjumper": "Specialized Stumpjumper 15",
   "descentmtb.workshop.sticker.wrap": "Wrap around tube",
   "descentmtb.workshop.sticker.wrap_hint": "Covers all faces. Across rotates the seam; Left/Right chooses a stay or fork leg.",
-  "descentmtb.workshop.sticker.missing": "Missing PNG: %s — enable its resource pack."
+  "descentmtb.workshop.sticker.missing": "Missing PNG: %s — enable its resource pack.",
+  "descentmtb.config.airRotationSensitivity": "Air rotation sensitivity",
+  "descentmtb.config.airRotationDeadzone": "Air rotation dead zone",
+  "descentmtb.config.experimentalRiskReward": "Risk & reward (experimental)"
 }

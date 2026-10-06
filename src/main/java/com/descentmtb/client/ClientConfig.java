@@ -22,6 +22,8 @@ public final class ClientConfig {
     public static final ModConfigSpec.BooleanValue WALL_RIDES, TRICK_BANNER;
     public static final ModConfigSpec.DoubleValue WALL_RIDE_SPEED;
     public static final ModConfigSpec.DoubleValue STEERING_GRIP, KEYBOARD_STEER_RAMP;
+    public static final ModConfigSpec.DoubleValue AIR_ROTATION_SENSITIVITY, AIR_ROTATION_DEADZONE;
+    public static final ModConfigSpec.BooleanValue RISK_REWARD;
 
     // ---- camera (BikeCamera) ----
     public static final ModConfigSpec.EnumValue<BikeCamera.Mode> CAMERA_MODE;
@@ -58,6 +60,10 @@ public final class ClientConfig {
         PRESSURE_EFFECT = number(b, "pressureEffect", "How strongly tyre pressure affects rolling resistance and grip.", 1, 0, 2);
         STEERING_GRIP = number(b, "steeringGripDemand", "How much of the cornering grip full steering asks for (0.78 = planted; above ~0.95 the rear starts sliding by itself).", 0.78, 0.5, 1.1);
         KEYBOARD_STEER_RAMP = number(b, "keyboardSteerRamp", "Optional keyboard steering ramp in seconds. Default 0 reacts immediately.", 0, 0, 0.5);
+        AIR_ROTATION_SENSITIVITY = number(b, "airRotationSensitivity", "How fast the bike spins in the air at full stick (1 = default).", 1, .3, 1.6);
+        AIR_ROTATION_DEADZONE = number(b, "airRotationDeadzone", "Stick deflection that is ignored for spins in the air (a brushed stick must not turn the bike).", .35, .1, .7);
+        RISK_REWARD = b.comment("Experimental risk & reward: landing mid-trick or clearly sideways is a crash. Off = casual, forgiving landings.")
+                .translation("descentmtb.config.experimentalRiskReward").define("experimentalRiskReward", true);
         WALL_RIDES = b.translation("descentmtb.config.wallRides").define("wallRides", true);
         WALL_RIDE_SPEED = number(b, "wallRideMinSpeedKmh", "Minimum speed along the wall needed to start a wallride after a jump.", 28.8, 18, 60);
         TRICK_BANNER = b.translation("descentmtb.config.trickBanner").define("trickBanner", true);
@@ -110,6 +116,9 @@ public final class ClientConfig {
         p.wallRides = WALL_RIDES.get();
         p.wallRideMinSpeed = WALL_RIDE_SPEED.get() / 3.6;
         p.steerGripDemand = STEERING_GRIP.get();
+        p.airSpinSensitivity = AIR_ROTATION_SENSITIVITY.get();
+        p.airSpinDeadzone = AIR_ROTATION_DEADZONE.get();
+        p.riskReward = RISK_REWARD.get();
         com.descentmtb.physics.BikeTuning.apply(p, defaults, bike.frontPsi(), bike.rearPsi(), bike.forkPsi(), PRESSURE_EFFECT.get());
     }
 

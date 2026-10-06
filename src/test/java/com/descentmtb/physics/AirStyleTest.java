@@ -17,7 +17,7 @@ class AirStyleTest {
     }
     @Test void whipCanBeThrownAndCountersteeredWithoutTrickButton() {
         BikeSim s=jump();for(int i=0;i<6;i++)s.tick(new Controls(1,0,0,0,0,0,false,0,0),.05);
-        assertTrue(s.maxWhip>.55);
+        assertTrue(s.whipOffset()>.55, "the rear is kicked out (it only scores as a whip once straightened before landing)");
         double before=Math.abs(s.yaw);
         for(int i=0;i<6;i++)s.tick(new Controls(-1,0,0,0,0,0,false,0,0),.05);
         assertTrue(Math.abs(s.yaw)<before,"opposite stick should bring the whip back");

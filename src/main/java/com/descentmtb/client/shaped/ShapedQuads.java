@@ -241,6 +241,11 @@ final class ShapedQuads {
                 }
             }
         }
+        if (!deck) {
+            // solid dirt/stone layers are closed underneath too: a jump or line built over air (or seen from below)
+            // must not be hollow. Cullable DOWN quad, so it costs nothing when a block lies below.
+            bottom();
+        }
         if (key.beam()) {
             beam(bottomOf(c, deck, .5, .5));
         }
