@@ -1,6 +1,7 @@
 package com.descentmtb.registry;
 
 import com.descentmtb.DescentMtb;
+import com.descentmtb.custom.BikeBuild;
 import com.descentmtb.item.MountainBikeItem;
 import com.descentmtb.entity.BikeType;
 import net.minecraft.core.registries.Registries;
@@ -19,9 +20,13 @@ public final class ModItems {
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, DescentMtb.MODID);
 
     public static final DeferredItem<MountainBikeItem> MOUNTAIN_BIKE =
-            ITEMS.registerItem("mountain_bike", MountainBikeItem::new, new Item.Properties().stacksTo(1));
+            ITEMS.registerItem("mountain_bike",
+                    p -> new MountainBikeItem(p.component(ModComponents.BIKE_BUILD.get(), BikeBuild.ENDURO_DEFAULT)),
+                    new Item.Properties().stacksTo(1));
     public static final DeferredItem<MountainBikeItem> HARDTAIL_BIKE =
-            ITEMS.registerItem("hardtail_bike", p -> new MountainBikeItem(p, BikeType.HARDTAIL), new Item.Properties().stacksTo(1));
+            ITEMS.registerItem("hardtail_bike",
+                    p -> new MountainBikeItem(p.component(ModComponents.BIKE_BUILD.get(), BikeBuild.HARDTAIL_DEFAULT), BikeType.HARDTAIL),
+                    new Item.Properties().stacksTo(1));
     public static final DeferredItem<com.descentmtb.item.BikePumpItem> BIKE_PUMP =
             ITEMS.registerItem("bike_pump", com.descentmtb.item.BikePumpItem::new, new Item.Properties().stacksTo(1));
 
@@ -36,6 +41,11 @@ public final class ModItems {
                         ModBlocks.TAB_ITEMS.forEach(s -> output.accept(s.get()));
                     })
                     .build());
+
+    /** The bike item of a type. */
+    public static MountainBikeItem itemFor(BikeType type) {
+        return (type == BikeType.HARDTAIL ? HARDTAIL_BIKE : MOUNTAIN_BIKE).get();
+    }
 
     private ModItems() {}
 

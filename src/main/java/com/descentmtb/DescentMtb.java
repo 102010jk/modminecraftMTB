@@ -24,10 +24,16 @@ public class DescentMtb {
 
     public DescentMtb(IEventBus modBus, net.neoforged.fml.ModContainer container) {
         container.registerConfig(net.neoforged.fml.config.ModConfig.Type.COMMON, com.descentmtb.trail.TrailConfig.SPEC);
+        container.registerConfig(net.neoforged.fml.config.ModConfig.Type.SERVER, com.descentmtb.custom.CustomizationConfig.SPEC);
+        com.descentmtb.registry.ModComponents.register(modBus);
         ModItems.register(modBus);
         ModEntities.register(modBus);
         ModBlocks.register(modBus);
         ModNetwork.register(modBus);
+        com.descentmtb.custom.BikeLights.registerEvents();
+        com.descentmtb.custom.BikeBells.registerEvents();
+        NeoForge.EVENT_BUS.addListener(com.descentmtb.custom.DevCustomTests::register);
+        NeoForge.EVENT_BUS.addListener(com.descentmtb.custom.DevCustomTests::onServerStarted);
         NeoForge.EVENT_BUS.addListener(com.descentmtb.trail.DevTrailTests::register);
         NeoForge.EVENT_BUS.addListener(com.descentmtb.trail.DevPumpTrack::register);
         NeoForge.EVENT_BUS.addListener(com.descentmtb.trail.DevManualBerm::register);

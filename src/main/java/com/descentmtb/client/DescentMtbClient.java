@@ -66,6 +66,7 @@ public final class DescentMtbClient {
         });
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> BikeClientController.checkDismount());
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> BikeInputHandler.clientTick());
+        NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> com.descentmtb.client.custom.BikeBellClient.tick());
         NeoForge.EVENT_BUS.addListener((ViewportEvent.ComputeFov e) -> {
             if (e.usedConfiguredFov()) e.setFOV(e.getFOV() + BikeCamera.fovBoost());
         });

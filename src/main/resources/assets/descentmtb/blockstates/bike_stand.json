@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "descentmtb:block/bike_stand", "y": 0 },
+    "facing=east": { "model": "descentmtb:block/bike_stand", "y": 90 },
+    "facing=south": { "model": "descentmtb:block/bike_stand", "y": 180 },
+    "facing=west": { "model": "descentmtb:block/bike_stand", "y": 270 }
+  }
+}

@@ -65,11 +65,16 @@ public final class DevAutopilot {
             if (WALL_ONLY) mc.getSingleplayerServer().execute(() -> com.descentmtb.world.DevWallTests.run(mc.getSingleplayerServer().overworld(), o));
             else cmd(p,"mtbdevtrail");
         }
+        if (tick == 36 && !WALL_ONLY) cmd(p, "mtbdevcustom");   // customisation backend: build round trip, bike stand, bell, lights
         if (tick == 45) spawn(p);
         if (tick == 60) {
             boolean passed = WALL_ONLY ? com.descentmtb.world.DevWallTests.PASSED : com.descentmtb.trail.DevTrailTests.PASSED;
             boolean failed = WALL_ONLY ? com.descentmtb.world.DevWallTests.FAILED : com.descentmtb.trail.DevTrailTests.FAILED;
             if (!passed) { if (failed) fail(mc, "world construction/collision tests failed"); else tick = 59; return; }
+            if (!WALL_ONLY && !com.descentmtb.custom.DevCustomTests.PASSED) {
+                if (com.descentmtb.custom.DevCustomTests.FAILED) fail(mc, "customisation backend tests failed"); else tick = 59;
+                return;
+            }
         }
         if (tick == 60 || tick == mountAt) {
             mountAt = -1;

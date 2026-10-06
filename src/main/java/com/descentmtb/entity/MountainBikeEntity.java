@@ -10,7 +10,16 @@ import com.descentmtb.physics.Controls;
 import com.descentmtb.physics.V3;
 import com.descentmtb.registry.ModItems;
 import com.descentmtb.world.McColumns;
+import com.descentmtb.custom.BikeBuild;
+import com.descentmtb.custom.BikeLights;
+import com.descentmtb.item.MountainBikeItem;
+import com.descentmtb.registry.ModComponents;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -80,6 +89,46 @@ public class MountainBikeEntity extends Entity {
         serverSim = null; restTicks = 0;
     }
 
+    /** What the player chose for this bike (see {@link BikeBuild}), synced as NBT. Empty tag = the stock look of the type. */
+    private static final EntityDataAccessor<CompoundTag> D_BUILD = def(EntityDataSerializers.COMPOUND_TAG);
+    private BikeBuild build;
+
+    /** The bike's customisation (never null): the stock look of its type until one was set. */
+    public BikeBuild build() {
+        if (build == null) {
+            CompoundTag tag = entityData.get(D_BUILD);
+            build = tag.isEmpty() ? null : BikeBuild.CODEC.parse(NbtOps.INSTANCE, tag).result().map(b -> b.sanitized(isEnduro())).orElse(null);
+            if (build == null) build = BikeBuild.defaultFor(isEnduro());
+        }
+        return build;
+    }
+
+    /** Stores a build (clamped to what this bike type allows) and syncs it to every viewer. */
+    public void setBuild(BikeBuild b) {
+        BikeBuild clean = b.sanitized(isEnduro());
+        build = clean;
+        entityData.set(D_BUILD, (CompoundTag) BikeBuild.CODEC.encodeStart(NbtOps.INSTANCE, clean).getOrThrow());
+    }
+
+    private boolean isEnduro() { return bikeType() == BikeType.ENDURO; }
+
+    /** Takes the build and the tyre / fork pressures an item carries (placing a bike). */
+    public void applyFromItem(ItemStack stack) {
+        setBuild(MountainBikeItem.buildOf(stack));
+        CompoundTag tune = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        if (tune.contains("FrontPsi")) setPressure(tune.getFloat("FrontPsi"), tune.getFloat("RearPsi"), tune.getFloat("ForkPsi"));
+    }
+
+    /** The item form of this bike, with its build and pressures: what breaking or picking it up gives back. */
+    public ItemStack toItemStack() {
+        ItemStack stack = new ItemStack(ModItems.itemFor(bikeType()));
+        stack.set(ModComponents.BIKE_BUILD.get(), build());
+        CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
+            tag.putFloat("FrontPsi", frontPsi()); tag.putFloat("RearPsi", rearPsi()); tag.putFloat("ForkPsi", forkPsi());
+        });
+        return stack;
+    }
+
     public BikeType bikeType() { return BikeType.byId(entityData.get(D_TYPE)); }
     public void setBikeType(BikeType type) { entityData.set(D_TYPE, type.ordinal()); bikeParams = null; }
     public BikeParams params() {
@@ -88,7 +137,8 @@ public class MountainBikeEntity extends Entity {
     }
     public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
         super.onSyncedDataUpdated(key);
-        if (key == D_TYPE) bikeParams = null;
+        if (key == D_TYPE) { bikeParams = null; build = null; }
+        if (key == D_BUILD) build = null;
     }
 
     @SuppressWarnings("unchecked")
@@ -296,6 +346,7 @@ public class MountainBikeEntity extends Entity {
 
     private void serverTick() {
         rsCur.fromSynced(this, rsPrev); // keeps the server-side passenger placed correctly
+        BikeLights.tick(this);
         if (getControllingPassenger() != null) {   // the rider's client drives it
             serverSim = null;
             restTicks = 0;
@@ -451,11 +502,26 @@ public class MountainBikeEntity extends Entity {
             }
             return InteractionResult.sidedSuccess(level().isClientSide);
         }
+        if (player.isSecondaryUseActive() && !isVehicle()) {      // sneak + click a parked bike: straight into the inventory
+            if (!player.mayBuild()) return InteractionResult.FAIL;
+            if (!level().isClientSide) pickUp(player);
+            return InteractionResult.sidedSuccess(level().isClientSide);
+        }
         if (player.isSecondaryUseActive() || isVehicle()) return InteractionResult.PASS;
         if (!level().isClientSide) {
             return player.startRiding(this) ? InteractionResult.CONSUME : InteractionResult.PASS;
         }
         return InteractionResult.SUCCESS;
+    }
+
+    /** Server: the bike goes into the player's inventory (or drops at their feet when it is full), build and pressures kept. */
+    public void pickUp(Player player) {
+        ItemStack stack = toItemStack();
+        if (!player.getInventory().add(stack)) {
+            player.spawnAtLocation(stack);
+        }
+        level().playSound(null, blockPosition(), net.minecraft.sounds.SoundEvents.ITEM_PICKUP, net.minecraft.sounds.SoundSource.PLAYERS, .4f, 1.1f);
+        discard();
     }
 
     @Override
@@ -464,11 +530,7 @@ public class MountainBikeEntity extends Entity {
         // only players who may break things (not adventure / spectator); creative breaks it instantly
         if (source.getEntity() instanceof Player player && player.mayBuild() && !isVehicle()) {
             if (!player.getAbilities().instabuild) {
-                var stack = new net.minecraft.world.item.ItemStack(bikeType() == BikeType.HARDTAIL ? ModItems.HARDTAIL_BIKE.get() : ModItems.MOUNTAIN_BIKE.get());
-                net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA, stack, tag -> {
-                    tag.putFloat("FrontPsi", frontPsi()); tag.putFloat("RearPsi", rearPsi()); tag.putFloat("ForkPsi", forkPsi());
-                });
-                spawnAtLocation(stack);
+                spawnAtLocation(toItemStack());
             }
             discard();
             return true;
@@ -520,18 +582,29 @@ public class MountainBikeEntity extends Entity {
         b.define(D_TRICK_SIDE, 1);
         b.define(D_FRONT_PSI, DEFAULT_FRONT_PSI); b.define(D_REAR_PSI, DEFAULT_REAR_PSI); b.define(D_FORK_PSI, DEFAULT_FORK_PSI);
         b.define(D_BRAKE, 0f);
+        b.define(D_BUILD, new CompoundTag());
     }
 
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
         setBikeType(BikeType.byId(tag.getInt("BikeType")));
         if (tag.contains("FrontPsi")) setPressure(tag.getFloat("FrontPsi"), tag.getFloat("RearPsi"), tag.getFloat("ForkPsi"));
+        if (tag.contains("Build", Tag.TAG_COMPOUND)) {   // older bikes have none: they keep the stock look
+            BikeBuild.CODEC.parse(NbtOps.INSTANCE, tag.getCompound("Build")).result().ifPresent(this::setBuild);
+        }
     }
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
         tag.putInt("BikeType", bikeType().ordinal());
         tag.putFloat("FrontPsi", frontPsi()); tag.putFloat("RearPsi", rearPsi()); tag.putFloat("ForkPsi", forkPsi());
+        tag.put("Build", BikeBuild.CODEC.encodeStart(NbtOps.INSTANCE, build()).getOrThrow());
+    }
+
+    @Override
+    public void onRemovedFromLevel() {
+        super.onRemovedFromLevel();
+        if (!level().isClientSide) BikeLights.release(this);
     }
 
     @Override

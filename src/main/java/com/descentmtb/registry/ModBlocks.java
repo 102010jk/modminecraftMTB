@@ -70,7 +70,11 @@ public final class ModBlocks {
     public static final DeferredBlock<com.descentmtb.trail.TrailObstacleBlock> TRAIL_ROCK=BLOCKS.registerBlock("trail_rock",p->new com.descentmtb.trail.TrailObstacleBlock(p,true),BlockBehaviour.Properties.of().strength(.8f).sound(SoundType.STONE).noOcclusion());
     public static final DeferredItem<com.descentmtb.trail.SurfaceOverlayItem> ROOT_ITEM=ITEMS.registerItem("trail_roots",p->new com.descentmtb.trail.SurfaceOverlayItem(TRAIL_ROOTS.get(),p,1),new Item.Properties());
     public static final DeferredItem<com.descentmtb.trail.SurfaceOverlayItem> ROCK_ITEM=ITEMS.registerItem("trail_rock",p->new com.descentmtb.trail.SurfaceOverlayItem(TRAIL_ROCK.get(),p,2),new Item.Properties());
-    public static final List<Supplier<? extends ItemLike>> TAB_ITEMS = List.of(TRAIL_SHOVEL, TRAIL_DIRT, TRAIL_DECK, ROOT_ITEM, ROCK_ITEM, SUPPORT_ITEM, AIRBAG_ITEM, BARRIER_ITEM, SIGN_ITEM);
+    /** The bike work stand: hang a bike on it and open the workshop to customise it. */
+    public static final DeferredBlock<com.descentmtb.custom.BikeStandBlock> BIKE_STAND=BLOCKS.registerBlock("bike_stand",com.descentmtb.custom.BikeStandBlock::new,BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2f).sound(SoundType.METAL).noOcclusion());
+    public static final DeferredHolder<BlockEntityType<?>,BlockEntityType<com.descentmtb.custom.BikeStandBlockEntity>> BIKE_STAND_BE=BLOCK_ENTITIES.register("bike_stand",()->BlockEntityType.Builder.of(com.descentmtb.custom.BikeStandBlockEntity::new,BIKE_STAND.get()).build(null));
+    public static final DeferredItem<BlockItem> BIKE_STAND_ITEM=ITEMS.registerSimpleBlockItem("bike_stand",BIKE_STAND);
+    public static final List<Supplier<? extends ItemLike>> TAB_ITEMS = List.of(TRAIL_SHOVEL, TRAIL_DIRT, TRAIL_DECK, ROOT_ITEM, ROCK_ITEM, SUPPORT_ITEM, AIRBAG_ITEM, BARRIER_ITEM, SIGN_ITEM, BIKE_STAND_ITEM);
 
     private ModBlocks() {}
 

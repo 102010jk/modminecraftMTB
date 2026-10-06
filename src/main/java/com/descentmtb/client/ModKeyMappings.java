@@ -64,9 +64,11 @@ public final class ModKeyMappings {
     public static final KeyMapping RESPAWN_START = riding("respawn_start", GLFW.GLFW_KEY_BACKSPACE);
     public static final KeyMapping CAMERA = riding("camera", GLFW.GLFW_KEY_V);
     public static final KeyMapping RESET_CAMERA = riding("reset_camera", GLFW.GLFW_KEY_B);
+    /** Rings the bell of the bike's build (customisation); see client.custom.BikeBellClient. */
+    public static final KeyMapping BELL = riding("bell", GLFW.GLFW_KEY_H);
 
     public static final List<KeyMapping> ALL = List.of(ACCELERATE, BRAKE, TWEAK, STEER_LEFT, STEER_RIGHT,
-            LEAN_FORWARD, LEAN_BACK, BUNNY_HOP, BEND, STRETCH, TRICK, RESPAWN, RESPAWN_START, CAMERA, RESET_CAMERA, TRAIL_MENU,
+            LEAN_FORWARD, LEAN_BACK, BUNNY_HOP, BEND, STRETCH, TRICK, RESPAWN, RESPAWN_START, CAMERA, RESET_CAMERA, BELL, TRAIL_MENU,
             TRAIL_UNDO);
 
     private static KeyMapping riding(String name, int glfwKey) {
