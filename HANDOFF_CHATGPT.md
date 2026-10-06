@@ -2,6 +2,8 @@
 
 ## Aktuální stav po milníku 12
 
+Opravný milník 13: `dist/descentmtb-milestone-13-launch-fix.jar` (také `descentmtb-latest.jar`) odstraňuje duplicitně přibalenou JNA platform knihovnu, která blokovala ModLauncher. Detaily: `docs/milestone-13-launch-fix.md`. Oprava geometrie podle následných snímků je právě rozpracovaná.
+
 Aktuální JAR: `dist/descentmtb-milestone-12-immersion-complete.jar`; `dist/descentmtb-latest.jar` je jeho shodná kopie. Milníky 10–12 dokončují audio zařízení, GPS mapy/cedule/rámečky a bláto, trhací fólie, roost částice, speed lines a nastavitelné FOV. Ovládání a technická omezení: `docs/milestones-10-12.md`.
 
 Ověření tohoto dokončení: pouze `assemble`, úspěšné. Nebyla spuštěna hra, screenshoty ani runtime/multiplayer testy. Historické tvrzení o unit testech níže se týká staršího předání, nikoli této práce.
