@@ -541,5 +541,12 @@
   "descentmtb.custom.sticker.mountain": "Hory",
   "descentmtb.custom.sticker.paw": "Tlapka",
   "descentmtb.custom.sticker.racing_7": "Závodní 7",
-  "descentmtb.workshop.status.rejected": "Uložení odmítnuto: stojan je prázdný nebo mimo dosah."
+  "descentmtb.workshop.status.rejected": "Uložení odmítnuto: stojan je prázdný nebo mimo dosah.",
+  "descentmtb.workshop.bike_name": "Název kola",
+  "descentmtb.workshop.design_name": "Název designu",
+  "descentmtb.workshop.design_library": "Moje designy",
+  "descentmtb.workshop.design_save": "Uložit design",
+  "descentmtb.workshop.design_delete": "Smazat design",
+  "descentmtb.workshop.design_portable": "Knihovna hráče je společná pro všechny světy. Načtený návrh potvrdíš přes Uložit.",
+  "descentmtb.workshop.design_error": "Knihovnu nelze načíst nebo uložit; podrobnosti jsou v logu. Původní data zůstala zachována."
 }

@@ -541,5 +541,12 @@
   "descentmtb.custom.sticker.mountain": "Mountain",
   "descentmtb.custom.sticker.paw": "Paw",
   "descentmtb.custom.sticker.racing_7": "Racing 7",
-  "descentmtb.workshop.status.rejected": "Save rejected: the stand is empty or out of reach."
+  "descentmtb.workshop.status.rejected": "Save rejected: the stand is empty or out of reach.",
+  "descentmtb.workshop.bike_name": "Bike name",
+  "descentmtb.workshop.design_name": "Design name",
+  "descentmtb.workshop.design_library": "My designs",
+  "descentmtb.workshop.design_save": "Save design",
+  "descentmtb.workshop.design_delete": "Delete design",
+  "descentmtb.workshop.design_portable": "Your player library is shared across worlds. Loading only changes the draft; Apply confirms it.",
+  "descentmtb.workshop.design_error": "Could not read or save the library; check the log. Original data is preserved."
 }

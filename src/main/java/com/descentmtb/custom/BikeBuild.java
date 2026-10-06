@@ -37,7 +37,15 @@ public record BikeBuild(
         Anodized rims, Anodized hubs, TyreWall tyres,
         Bars bars, Soft grips, Soft saddle, Anodized pedals, Brakes brakes, Anodized brakeColor,
         Bell bell, boolean frontLight, boolean rearLight, LightColor lightColor,
-        List<Sticker> stickers) {
+        List<Sticker> stickers, String name) {
+
+    /** Source compatibility with existing stock builds and old integrations. */
+    public BikeBuild(FrameShape shape,int frameColor,int accentColor,Finish finish,Fork fork,int forkLowerColor,Shock shock,
+                     Anodized rims,Anodized hubs,TyreWall tyres,Bars bars,Soft grips,Soft saddle,Anodized pedals,Brakes brakes,
+                     Anodized brakeColor,Bell bell,boolean frontLight,boolean rearLight,LightColor lightColor,List<Sticker> stickers) {
+        this(shape,frameColor,accentColor,finish,fork,forkLowerColor,shock,rims,hubs,tyres,bars,grips,saddle,pedals,brakes,
+                brakeColor,bell,frontLight,rearLight,lightColor,stickers,"");
+    }
 
     public static final int MAX_STICKERS = 24;
 
@@ -89,10 +97,11 @@ public record BikeBuild(
     public static final Codec<BikeBuild> CODEC = RecordCodecBuilder.create(i -> i.group(
             Frame.CODEC.fieldOf("frame").forGetter(Frame::of),
             Parts.CODEC.fieldOf("parts").forGetter(Parts::of),
-            Sticker.CODEC.listOf().optionalFieldOf("stickers", List.of()).forGetter(BikeBuild::stickers)
-    ).apply(i, (f, p, s) -> new BikeBuild(f.shape, f.frameColor, f.accentColor, f.finish, p.fork, p.forkLowerColor, p.shock,
+            Sticker.CODEC.listOf().optionalFieldOf("stickers", List.of()).forGetter(BikeBuild::stickers),
+            Codec.STRING.optionalFieldOf("name", "").forGetter(BikeBuild::name)
+    ).apply(i, (f, p, s, n) -> new BikeBuild(f.shape, f.frameColor, f.accentColor, f.finish, p.fork, p.forkLowerColor, p.shock,
             p.rims, p.hubs, p.tyres, p.bars, p.grips, p.saddle, p.pedals, p.brakes, p.brakeColor,
-            f.bell, f.frontLight, f.rearLight, f.lightColor, s)));
+            f.bell, f.frontLight, f.rearLight, f.lightColor, s, n)));
 
     public static final StreamCodec<ByteBuf, BikeBuild> STREAM_CODEC = ByteBufCodecs.fromCodec(CODEC);
 
@@ -164,7 +173,7 @@ public record BikeBuild(
         }
         return new BikeBuild(s, frameColor & 0xFFFFFF, accentColor & 0xFFFFFF, finish, f, lower, shock,
                 rims, hubs, tyres, bars, grips, saddle, pedals, brakes, brakeColor,
-                bell, frontLight, rearLight, lightColor, List.copyOf(list));
+                bell, frontLight, rearLight, lightColor, List.copyOf(list), cleanText(name,48));
     }
 
     /** A cheap stable hash for caches (item icon, baked tints). */
@@ -183,15 +192,18 @@ public record BikeBuild(
         FrameShape shape; int frameColor, accentColor; Finish finish; Fork fork; int forkLowerColor; Shock shock;
         Anodized rims, hubs; TyreWall tyres; Bars bars; Soft grips, saddle; Anodized pedals; Brakes brakes;
         Anodized brakeColor; Bell bell; boolean frontLight, rearLight; LightColor lightColor; List<Sticker> stickers;
+        String name;
 
         Builder(BikeBuild b) {
             shape = b.shape; frameColor = b.frameColor; accentColor = b.accentColor; finish = b.finish; fork = b.fork;
             forkLowerColor = b.forkLowerColor; shock = b.shock; rims = b.rims; hubs = b.hubs; tyres = b.tyres; bars = b.bars;
             grips = b.grips; saddle = b.saddle; pedals = b.pedals; brakes = b.brakes; brakeColor = b.brakeColor; bell = b.bell;
             frontLight = b.frontLight; rearLight = b.rearLight; lightColor = b.lightColor; stickers = new ArrayList<>(b.stickers);
+            name=b.name;
         }
 
         public Builder shape(FrameShape v) { shape = v; return this; }
+        public Builder name(String v) { name=cleanText(v,48); return this; }
         public Builder frameColor(int v) { frameColor = v; return this; }
         public Builder accentColor(int v) { accentColor = v; return this; }
         public Builder finish(Finish v) { finish = v; return this; }
@@ -216,11 +228,17 @@ public record BikeBuild(
 
         public BikeBuild build() {
             return new BikeBuild(shape, frameColor, accentColor, finish, fork, forkLowerColor, shock, rims, hubs, tyres,
-                    bars, grips, saddle, pedals, brakes, brakeColor, bell, frontLight, rearLight, lightColor, List.copyOf(stickers));
+                    bars, grips, saddle, pedals, brakes, brakeColor, bell, frontLight, rearLight, lightColor, List.copyOf(stickers),name);
         }
     }
 
     private static float clamp(float v, float lo, float hi) {
         return Float.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : lo;
+    }
+
+    public static String cleanText(String text,int limit) {
+        if(text==null) return "";
+        String safe=text.replaceAll("[\\p{Cntrl}§]","").strip();
+        return safe.substring(0,Math.min(limit,safe.length()));
     }
 }

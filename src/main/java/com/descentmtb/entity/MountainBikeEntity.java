@@ -107,6 +107,7 @@ public class MountainBikeEntity extends Entity {
     public void setBuild(BikeBuild b) {
         BikeBuild clean = b.sanitized(isEnduro());
         build = clean;
+        setCustomName(clean.name().isBlank() ? null : net.minecraft.network.chat.Component.literal(clean.name()));
         entityData.set(D_BUILD, (CompoundTag) BikeBuild.CODEC.encodeStart(NbtOps.INSTANCE, clean).getOrThrow());
     }
 

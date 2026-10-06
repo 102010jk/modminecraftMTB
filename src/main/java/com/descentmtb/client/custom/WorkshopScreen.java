@@ -114,6 +114,9 @@ public final class WorkshopScreen extends Screen {
 
     private WorkshopPanel panel;
     private ColorPicker framePicker, tintPicker;
+    private WorkshopPanel.TextField bikeNameField,designNameField;
+    private String designName="",libraryError="";
+    private List<BikeDesignStore.Design> designs=List.of();
     private Button undoButton, redoButton, stockButton, randomButton, applyButton, takeButton, resetViewButton;
     private Button dlgSave, dlgDiscard, dlgCancel;
     private int dlgX, dlgY, dlgW, dlgH;
@@ -175,6 +178,11 @@ public final class WorkshopScreen extends Screen {
         framePicker.bind(this::frameColorOfTarget, this::setFrameColor);
         tintPicker = new ColorPicker("pick.tint", font, history::endGesture);
         tintPicker.bind(() -> sticker(selSticker) != null ? sticker(selSticker).tint() : 0xFFFFFF, this::setStickerTint);
+        bikeNameField=new WorkshopPanel.TextField("bike.name",font,t("bike_name"),48,history::endGesture);
+        bikeNameField.bind(()->build().name(),s->commit(build().with(b->b.name(s)),"bike.name"));
+        designNameField=new WorkshopPanel.TextField("design.name",font,t("design_name"),48,()->{});
+        designNameField.bind(()->designName,s->{ designName=s;rebuild(); });
+        reloadDesigns();
 
         // bottom bar: undo, redo, stock, random on the left; apply, take on the right
         undoButton = button("undo", b -> undo());
@@ -462,6 +470,20 @@ public final class WorkshopScreen extends Screen {
     private List<Item> frameItems() {
         BikeBuild b = build();
         List<Item> list = new ArrayList<>();
+        list.add(new Header(t("bike_name")));list.add(bikeNameField);
+        list.add(new Header(t("design_library")));list.add(designNameField);
+        list.add(new Chips(List.of(
+                new Chip(t("design_save"),false,!designName.isBlank(),-1,()->libraryAction(true)),
+                new Chip(t("design_delete"),false,!designName.isBlank(),-1,()->libraryAction(false)))));
+        if(!libraryError.isEmpty()) list.add(new Note(t("design_error"),0xffff8866));
+        list.add(new Note(t("design_portable"),DIM));
+        List<Option> savedDesigns=new ArrayList<>();
+        for(var design:designs) savedDesigns.add(new Option(Component.literal(design.name()),
+                name("descentmtb.workshop.type."+design.type().id),null,0,design.build().frameColor(),
+                design.name().equals(designName),design.type()==type,()->{
+                    designName=design.name();commit(design.build(),null);
+                }));
+        if(!savedDesigns.isEmpty()) list.add(new Options(savedDesigns));
         list.add(new Header(t("section.shape")));
         List<Option> shapes = new ArrayList<>();
         for (FrameShape s : BikeParts.shapesFor(fullSuspension)) {
@@ -491,6 +513,19 @@ public final class WorkshopScreen extends Screen {
         }
         list.add(new Chips(finishes));
         return list;
+    }
+
+    private void reloadDesigns() {
+        try { designs=BikeDesignStore.load();libraryError=""; }
+        catch(Exception e) { libraryError=e.toString();com.descentmtb.DescentMtb.LOG.warn("Bike design library",e); }
+    }
+    private void libraryAction(boolean save) {
+        panel.unfocusAll();
+        try {
+            if(save) BikeDesignStore.save(designName,type,build());else BikeDesignStore.delete(designName,type);
+            reloadDesigns();
+        } catch(Exception e) { libraryError=e.toString();com.descentmtb.DescentMtb.LOG.warn("Bike design library",e); }
+        rebuild();
     }
 
     // ---- suspension ----
@@ -888,7 +923,8 @@ public final class WorkshopScreen extends Screen {
         randomButton.active = takeButton.active = resetViewButton.active = !modal;
         super.render(g, mx, my, partialTick);
 
-        Component heading = t("title.full", name("descentmtb.workshop.type." + type.id));
+        Component heading = t("title.full", build().name().isBlank() ? name("descentmtb.workshop.type." + type.id)
+                : Component.literal(build().name()));
         g.drawString(font, heading, MARGIN, MARGIN + 1, GOLD, false);
         Component status = savedFlash > 0 ? t("status.saved") : dirty() ? t("status.unsaved") : null;
         if (status != null) {

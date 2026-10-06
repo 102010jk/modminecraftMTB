@@ -339,6 +339,38 @@ final class WorkshopPanel {
 
     // ---- swatches ----
 
+    /** Focus-aware plain text field shared by bike names, library names and custom decals. */
+    static final class TextField extends Item {
+        private final EditBox box;
+        private java.util.function.Supplier<String> source=()->"";
+        private java.util.function.Consumer<String> sink=s->{};
+        private boolean syncing;
+        private final Runnable end;
+        TextField(String key,Font font,Component hint,int limit,Runnable end) {
+            this.key=key;this.end=end;
+            box=new EditBox(font,0,0,100,18,hint);box.setMaxLength(limit);
+            box.setFilter(s->s.chars().noneMatch(c->Character.isISOControl(c) || c=='§'));
+            box.setResponder(s->{ if(!syncing) sink.accept(s); });
+        }
+        void bind(java.util.function.Supplier<String> source,java.util.function.Consumer<String> sink) { this.source=source;this.sink=sink; }
+        int layout(Font font,int width) { box.setWidth(width);return 18; }
+        void render(GuiGraphics g,Font font,int mx,int my) {
+            box.setX(ax);box.setY(ay);
+            if(!box.isFocused() && !box.getValue().equals(source.get())) {
+                syncing=true;box.setValue(source.get());syncing=false;
+            }
+            box.render(g,mx,my,0);
+        }
+        boolean click(double x,double y) { box.setFocused(true);return box.mouseClicked(x,y,0); }
+        boolean key(int key,int scan,int mods) {
+            if(key==256 || key==257 || key==335) { unfocus();return true; }
+            return box.keyPressed(key,scan,mods);
+        }
+        boolean typed(char c,int mods) { return box.charTyped(c,mods); }
+        void unfocus() { if(box.isFocused()) { box.setFocused(false);end.run(); } }
+        boolean focused() { return box.isFocused(); }
+    }
+
     interface Painter {
         void paint(GuiGraphics g, int x, int y, int size);
     }

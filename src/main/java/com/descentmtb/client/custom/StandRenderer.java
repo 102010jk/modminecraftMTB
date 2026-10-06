@@ -36,6 +36,15 @@ public final class StandRenderer implements BlockEntityRenderer<BikeStandBlockEn
         pose.translate(0,dj ? 9.3/16 : 14.0645/16,-(dj ? 3.8376/16 : 5.0721/16));
         BikeBuildRenderer.render(stand.bikeType(),stand.build(),pose,buffers,light);
         pose.popPose();
+        var mc=net.minecraft.client.Minecraft.getInstance();
+        String name=stand.build().name();
+        if(!name.isBlank() && mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit && hit.getBlockPos().equals(stand.getBlockPos())) {
+            pose.pushPose();pose.translate(.5,1.4,.5);
+            pose.mulPose(mc.getEntityRenderDispatcher().cameraOrientation());pose.scale(-.015f,-.015f,.015f);
+            mc.font.drawInBatch(name,-mc.font.width(name)/2f,0,0xFFE2C48A,false,pose.last().pose(),buffers,
+                    net.minecraft.client.gui.Font.DisplayMode.NORMAL,0x80000000,light);
+            pose.popPose();
+        }
     }
     @Override public net.minecraft.world.phys.AABB getRenderBoundingBox(BikeStandBlockEntity stand) {
         return new net.minecraft.world.phys.AABB(stand.getBlockPos()).inflate(1.2,1,1.2);

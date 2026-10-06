@@ -30,6 +30,11 @@ public class MountainBikeItem extends Item {
         return bikeType;
     }
 
+    @Override public net.minecraft.network.chat.Component getName(ItemStack stack) {
+        String name=buildOf(stack).name();
+        return name.isBlank() ? super.getName(stack) : net.minecraft.network.chat.Component.literal(name);
+    }
+
     /** The build a bike item carries, sanitized for its type; the stock look when the stack has none (old bikes, commands). */
     public static BikeBuild buildOf(ItemStack stack) {
         BikeType type = stack.getItem() instanceof MountainBikeItem bike ? bike.bikeType : BikeType.ENDURO;
