@@ -82,7 +82,7 @@ public final class McColumns implements BlockTerrain.Columns {
             mpos.set(bx, y, bz);
             if (!level.isLoaded(mpos)) return false;
             BlockState s = level.getBlockState(mpos);
-            if (s.getCollisionShape(level, mpos).isEmpty()) continue;
+            if (passable(s) || s.getCollisionShape(level, mpos).isEmpty()) continue;
             if (s.getBlock() instanceof com.descentmtb.trail.TrailObstacleBlock obstacle) {
                 double fx=x-bx,fz=z-bz,h=y+obstacle.height(s,fx,fz);
                 if(h>yTop+.001)return false;
@@ -182,6 +182,11 @@ public final class McColumns implements BlockTerrain.Columns {
         mpos.set(x, y, z);
         if (!level.isLoaded(mpos)) return Block.box(0, 0, 0, 16, 16, 16); // unloaded = solid wall
         BlockState s = level.getBlockState(mpos);
-        return s.getCollisionShape(level, mpos);
+        return passable(s) ? net.minecraft.world.phys.shapes.Shapes.empty() : s.getCollisionShape(level, mpos);
+    }
+
+    /** Leaves don't stop a bike: you ride through the bushes and low branches (the physics ignores them). */
+    static boolean passable(BlockState s) {
+        return s.is(BlockTags.LEAVES);
     }
 }

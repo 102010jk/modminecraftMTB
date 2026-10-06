@@ -63,7 +63,7 @@ public final class BikeParams {
     public double steerGripDemand = 0.78;
     /** Rear brake + full lock multiplies the cornering demand by this (a controlled drift). */
     public double driftDemandBoost = 1.25;
-    public double steerResponse = 0.09;       // s, stick → bar smoothing
+    public double steerResponse = 0.06;       // s, stick → bar smoothing
     /** Visible lean = this × the physical lean angle atan(a/g); 1 = fully realistic. */
     public double leanFactor = 0.75;
     /** Visible lean limit on the ground (rad). */
@@ -100,7 +100,7 @@ public final class BikeParams {
     public double airRampTime = 0.18;
     /** 0..1: how strongly the bike noses toward its flight path with no input (feel F8). */
     public double airAlignAssist = 0.85;
-    public double airAlignRate = 3.5;         // 1/s
+    public double airAlignRate = 2.6;         // 1/s
     /** With no spin input the yaw rate dies with this time constant (s) ... */
     public double airSpinDamping = 0.15;
     /** ... and the bike turns toward its flight direction at this rate (1/s), Descenders-style. */
@@ -114,7 +114,7 @@ public final class BikeParams {
     public double crashSpeed = 4.5;
     public double wallCrashSpeed = 8.0;
     public double landingAssistAngle = Math.toRadians(42);
-    public double landingAssistRate = 10.0;   // 1/s pitch snap toward the slope
+    public double landingAssistRate = 5.5;   // 1/s pitch snap toward the slope
 
     // ---------------- assists (0 = sim, 1 = full arcade help) ----------------
     public double balanceAssist = 1.0;        // reserved: roll is kinematic today
