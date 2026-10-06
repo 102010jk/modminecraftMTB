@@ -14,6 +14,7 @@ Model units: 16 = 1 m, +Y down, forward -Z.  Exit code 1 if any issue is found.
     python tools/check_frames.py [--png]      (--png also renders a side view per shape into tools/preview/frames_<bike>_<code>.png)
 """
 import math
+import json
 import os
 import re
 import sys
@@ -35,8 +36,6 @@ EYE_GAP = 0.30        # shock eye centre to mount cube
 AXIS_DEG, AXIS_OFF = 2.0, 0.2
 ENDURO_CODES = "chlntumgj"
 HARDTAIL_CODES = "csv"
-BRAND_CASE = {"SANTA_CRUZ_NOMAD": "n", "CANYON_TORQUE": "t", "CUBE_STEREO_ONE77": "u",
-              "COMMENCAL_META_SX": "m", "YT_CAPRA": "g"}
 
 
 # ------------------------------------------------------------------ maths
@@ -144,14 +143,9 @@ def analyse(full, code):
     eyeF = eyeA = None
     if full:
         eyeF, eyeA = (K["SHOCK_FRAME_Y"], K["SHOCK_FRAME_Z"]), (K["SHOCK_ARM_Y"], K["SHOCK_ARM_Z"])
-        for m in re.finditer(r"case (\w+) -> new float\[\]\{([^}]*)\}", src):
-            if BRAND_CASE.get(m.group(1)) == code:
-                v = [float(x.strip().rstrip("f")) for x in m.group(2).split(",")]
-                eyeF, eyeA = (v[0], v[1]), (v[2], v[3])
-        if code == "j":
-            m = re.search(r"default -> new float\[\]\{([^}]*)\}", src)
-            v = [float(x.strip().rstrip("f")) for x in m.group(1).split(",")]
-            eyeF, eyeA = (v[0], v[1]), (v[2], v[3])
+        profile = json.loads(open(os.path.join(HERE, 'frame_profiles.json'), encoding='utf-8').read()).get(code)
+        if profile:
+            eyeF, eyeA = profile['fixedEye'], profile['movingEye']
     P = {}
     for n, b in bones.items():
         px, py, pz = b["pivot"]
@@ -165,10 +159,12 @@ def analyse(full, code):
         P["shock_shaft"].update(y=eyeA[0] - piv[0], z=eyeA[1] - piv[1], rx=math.atan2(dy, -dz))
         if code in "ntumgj":
             P["shock_body"]["zs"] = P["shock_shaft"]["zs"] = ln / K["SHOCK_LEN0"]
-        P["shock_spring"]["zs"] = max(0.2, (ln - 2 * K["SPRING_PAD"]) / (K["SHOCK_LEN0"] - 2 * K["SPRING_PAD"]))
+            P["shock_spring"]["zs"] = 1.0
+        else:
+            P["shock_spring"]["zs"] = max(0.2, (ln - 2 * K["SPRING_PAD"]) / (K["SHOCK_LEN0"] - 2 * K["SPRING_PAD"]))
     W = world(bones, P)
 
-    structural = {"frame", "swingarm", "shock_body", "shock_shaft"} if full else {"frame"}
+    structural = {"frame", "swingarm", "shock_body", "shock_shaft", "catalog_upper", "catalog_lower", "catalog_stays"} if full else {"frame"}
     boxes = [Box(c, W) for c in vis]
     by = {b.name: b for b in boxes}
     base = {}
@@ -334,7 +330,8 @@ def analyse(full, code):
         piv = np.array(bones["swingarm"]["pivot"])
         pf = np.array([0.0, eyeF[0], eyeF[1]])
         pa = np.array([0.0, eyeA[0], eyeA[1]])
-        for lab, p, bone in (("frame", pf, "frame"), ("swingarm", pa, "swingarm")):
+        arm_bone = ('catalog_lower' if profile['dual'] else 'catalog_upper') if profile else 'swingarm'
+        for lab, p, bone in (("frame", pf, "frame"), ("rear", pa, arm_bone)):
             mounts = [b for b in chk if b.bone == bone and b.base not in ("saddle_clamp",) and not b.base.startswith(("saddle", "seatpost", "dropper", "seat_collar", "bb_", "head", "pivot_axle"))]
             ds = sorted((b.dist(p)[0], b.name) for b in mounts)
             # eye must sit on a cube that is not a long main tube only: mount/boss/rocker/bar cubes count, tubes count too
@@ -360,7 +357,7 @@ def render(full, code, boxes):
     img = Image.new("RGB", (900, 640), (236, 238, 242))
     d = ImageDraw.Draw(img)
     cols = {"frame": (16, 94, 100), "black": (40, 40, 44), "silver": (170, 175, 180), "saddle": (30, 30, 30)}
-    keep = [b for b in boxes if b.bone in (("frame", "swingarm", "shock_body", "shock_shaft") if full else ("frame",))
+    keep = [b for b in boxes if b.bone in (("frame", "swingarm", "shock_body", "shock_shaft", "catalog_upper", "catalog_lower", "catalog_stays") if full else ("frame",))
             and not b.base.startswith(("acc_", "chain_"))]
     keep.sort(key=lambda b: b.c[0])
     for b in keep:

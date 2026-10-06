@@ -1,14 +1,14 @@
 # Předání pro ChatGPT – Descent MTB (stav 2026-10-06)
 
-## Aktuální stav po milníku 12
+## Aktuální stav po milníku 14
 
-Opravný milník 13: `dist/descentmtb-milestone-13-launch-fix.jar` (také `descentmtb-latest.jar`) odstraňuje duplicitně přibalenou JNA platform knihovnu, která blokovala ModLauncher. Detaily: `docs/milestone-13-launch-fix.md`. Oprava geometrie podle následných snímků je právě rozpracovaná.
+Aktuální JAR: `dist/descentmtb-milestone-14-frame-linkages.jar`; `dist/descentmtb-latest.jar` je jeho shodná kopie. Milník 14 nahrazuje společnou zadní stavbu značkových rámů propojenými členy a opravuje kompaktní dirtové sedlo. Detaily a omezení ověření: `docs/milestone-14-frame-linkages.md`.
 
-Aktuální JAR: `dist/descentmtb-milestone-12-immersion-complete.jar`; `dist/descentmtb-latest.jar` je jeho shodná kopie. Milníky 10–12 dokončují audio zařízení, GPS mapy/cedule/rámečky a bláto, trhací fólie, roost částice, speed lines a nastavitelné FOV. Ovládání a technická omezení: `docs/milestones-10-12.md`.
+Opravný milník 13 odstranil duplicitně přibalenou JNA platform knihovnu, která blokovala ModLauncher. Oprava je obsažená i v milníku 14; detaily: `docs/milestone-13-launch-fix.md`. Milníky 10–12 dokončují audio zařízení, GPS mapy/cedule/rámečky a bláto, trhací fólie, roost částice, speed lines a nastavitelné FOV. Ovládání a technická omezení: `docs/milestones-10-12.md`.
 
 Ověření tohoto dokončení: pouze `assemble`, úspěšné. Nebyla spuštěna hra, screenshoty ani runtime/multiplayer testy. Historické tvrzení o unit testech níže se týká staršího předání, nikoli této práce.
 
-Milník 08 odstranil hlas jezdce z pádů prázdného kola. Milník 09 opravil spoje rámů a sedel; checker byl tehdy na 0 chyb. Zbývá samostatná práce na věrné geometrii zadních staveb jednotlivých značek. Audio WIP ve `wip/` už není aktivní kód; jeho dokončená verze je v `src/main/java/com/descentmtb/audio` a `client/audio`.
+Milník 08 odstranil hlas jezdce z pádů prázdného kola. Milník 09 upravil spoje rámů a sedel; tehdejší checker na 0 chyb neodhalil nesprávnou společnou zadní stavbu značkových modelů. Milník 14 ji nahrazuje, ale vizuální ověření ve hře zůstává neprovedené. Audio WIP ve `wip/` už není aktivní kód; jeho dokončená verze je v `src/main/java/com/descentmtb/audio` a `client/audio`.
 
 ## Historické předání před milníky 08–12
 

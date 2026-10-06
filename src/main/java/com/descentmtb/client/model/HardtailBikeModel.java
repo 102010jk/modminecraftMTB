@@ -202,12 +202,12 @@ public class HardtailBikeModel extends Model {
         cube(frame, "seat_tube", "frame", 47, 0, 0.0f, -6.98f, 2.985f, 0.85f, 0.85f, 4.31f, 70.0f, 0.0f, 0.0f);
         cube(frame, "seat_collar", "black", 35, 55, 0.0f, -9.0750f, 3.7557f, 1.05f, 1.05f, 0.3725f, 70.0f, 0.0f, 0.0f);
         cube(frame, "seatpost", "silver", 39, 55, 0.0f, -8.9081f, 3.6950f, 0.52f, 0.52f, 0.915f, 70.0f, 0.0f, 0.0f);
-        cube(frame, "saddle_nose", "saddle", 96, 36, 0.0f, -9.8100f, 2.9800f, 0.9f, 0.38f, 1.5f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "saddle_mid", "saddle", 89, 36, 0.0f, -9.7800f, 4.2800f, 1.45f, 0.44f, 1.5f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "saddle_rear", "saddle", 36, 31, 0.0f, -9.7800f, 5.6800f, 1.95f, 0.44f, 1.6f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "saddle_under", "saddle", 66, 13, 0.0f, -9.5200f, 4.3800f, 1.2f, 0.16f, 3.5f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "saddle_rail_l", "silver", 117, 26, 0.55f, -9.3800f, 4.4800f, 0.1f, 0.12f, 3.3f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "saddle_rail_r", "silver", 0, 31, -0.55f, -9.3800f, 4.4800f, 0.1f, 0.12f, 3.3f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "saddle_nose", "saddle", 96, 36, 0.0f, -9.8200f, 3.1800f, 0.78f, 0.36f, 1.1f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "saddle_mid", "saddle", 89, 36, 0.0f, -9.7800f, 4.1600f, 1.28f, 0.44f, 1.1f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "saddle_rear", "saddle", 36, 31, 0.0f, -9.7600f, 5.1900f, 1.8f, 0.44f, 1.2f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "saddle_under", "saddle", 66, 13, 0.0f, -9.5200f, 4.2300f, 1.08f, 0.16f, 2.5f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "saddle_rail_l", "silver", 117, 26, 0.36f, -9.3800f, 4.3800f, 0.1f, 0.12f, 1.8f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "saddle_rail_r", "silver", 0, 31, -0.36f, -9.3800f, 4.3800f, 0.1f, 0.12f, 1.8f, 0.0f, 0.0f, 0.0f);
         cube(frame, "saddle_clamp", "black", 5, 40, 0.0f, -9.3380f, 3.8515f, 0.9f, 0.3f, 0.85f, 0.0f, 0.0f, 0.0f);
         cube(frame, "bb_shell", "frame", 84, 31, 0.0f, -4.96f, 2.25f, 1.5f, 1.1f, 1.1f, 0.0f, 0.0f, 0.0f);
         cube(frame, "bb_cup_l", "silver", 99, 55, 0.82f, -4.96f, 2.25f, 0.2f, 0.8f, 0.8f, 0.0f, 0.0f, 0.0f);
@@ -218,7 +218,7 @@ public class HardtailBikeModel extends Model {
         cube(frame, "chainstay_r", "frame", 109, 0, -1.0f, -5.12f, 5.365f, 0.42f, 0.6f, 6.0494f, 3.9812f, -2.2792f, 0.0f);
         cube(frame, "seatstay_r", "frame", 79, 0, -0.8f, -6.965f, 6.0714f, 0.4f, 0.5f, 6.0474f, -33.8701f, -9.1675f, 0.0f);
         cube(frame, "dropout_r", "black", 41, 36, -1.2f, -5.28f, 8.55f, 0.4f, 1.3f, 1.1f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "seat_bridge", "frame", 102, 36, 0.0f, -8.40f, 3.96f, 1.4f, 0.4f, 0.45f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "seat_bridge", "frame", 102, 36, 0.0f, -8.20f, 4.24f, 1.05f, 0.4f, 0.45f, 0.0f, 0.0f, 0.0f);
         cube(frame, "caliper_r", "brake", 43, 55, 0.85f, -4.43f, 7.63f, 0.55f, 1.0f, 0.9f, 0.0f, 0.0f, 0.0f);
         cube(frame, "caliper_bolt", "silver", 123, 60, 1.15f, -4.68f, 7.58f, 0.14f, 0.14f, 0.14f, 0.0f, 0.0f, 0.0f);
         cube(frame, "chain_top", "chain", 0, 13, -0.8f, -5.955f, 5.365f, 0.1f, 0.2f, 6.231f, -1.0115f, 0.0f, 0.0f);
