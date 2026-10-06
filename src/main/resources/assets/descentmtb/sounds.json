@@ -1,126 +1,138 @@
 {
-  "bike.hub.i9.click": {
+  "bike.hub.click": {
     "subtitle": "descentmtb.subtitle.hub_click",
     "sounds": [
       {
-        "name": "descentmtb:hub/i9_click",
+        "name": "descentmtb:hub/click_1",
+        "volume": 0.4,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:hub/click_2",
+        "volume": 0.4,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:hub/click_3",
+        "volume": 0.4,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:hub/click_4",
+        "volume": 0.4,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:hub/click_5",
+        "volume": 0.4,
         "stream": false
       }
     ]
   },
-  "bike.hub.i9.buzz": {
+  "bike.hub.buzz.6": {
     "subtitle": "descentmtb.subtitle.hub_buzz",
     "sounds": [
       {
-        "name": "descentmtb:hub/i9_buzz",
+        "name": "descentmtb:hub/buzz_6",
+        "volume": 0.4,
         "stream": false
       }
     ]
   },
-  "bike.hub.dt.click": {
-    "subtitle": "descentmtb.subtitle.hub_click",
-    "sounds": [
-      {
-        "name": "descentmtb:hub/dt_click",
-        "stream": false
-      }
-    ]
-  },
-  "bike.hub.dt.buzz": {
+  "bike.hub.buzz.10": {
     "subtitle": "descentmtb.subtitle.hub_buzz",
     "sounds": [
       {
-        "name": "descentmtb:hub/dt_buzz",
+        "name": "descentmtb:hub/buzz_10",
+        "volume": 0.4,
         "stream": false
       }
     ]
   },
-  "bike.hub.ck.click": {
-    "subtitle": "descentmtb.subtitle.hub_click",
-    "sounds": [
-      {
-        "name": "descentmtb:hub/ck_click",
-        "stream": false
-      }
-    ]
-  },
-  "bike.hub.ck.buzz": {
+  "bike.hub.buzz.16": {
     "subtitle": "descentmtb.subtitle.hub_buzz",
     "sounds": [
       {
-        "name": "descentmtb:hub/ck_buzz",
+        "name": "descentmtb:hub/buzz_16",
+        "volume": 0.4,
         "stream": false
       }
     ]
   },
-  "bike.hub.hope.click": {
-    "subtitle": "descentmtb.subtitle.hub_click",
-    "sounds": [
-      {
-        "name": "descentmtb:hub/hope_click",
-        "stream": false
-      }
-    ]
-  },
-  "bike.hub.hope.buzz": {
+  "bike.hub.buzz.25": {
     "subtitle": "descentmtb.subtitle.hub_buzz",
     "sounds": [
       {
-        "name": "descentmtb:hub/hope_buzz",
+        "name": "descentmtb:hub/buzz_25",
+        "volume": 0.4,
         "stream": false
       }
     ]
   },
-  "bike.wind": {
-    "subtitle": "descentmtb.subtitle.wind",
+  "bike.hub.buzz.40": {
+    "subtitle": "descentmtb.subtitle.hub_buzz",
     "sounds": [
       {
-        "name": "descentmtb:ride/wind_loop",
+        "name": "descentmtb:hub/buzz_40",
+        "volume": 0.4,
         "stream": false
       }
     ]
   },
-  "bike.roll.soft": {
-    "subtitle": "descentmtb.subtitle.roll",
+  "bike.pedal": {
     "sounds": [
       {
-        "name": "descentmtb:ride/roll_soft",
+        "name": "descentmtb:ride/pedal_1",
+        "volume": 0.3,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:ride/pedal_2",
+        "volume": 0.3,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:ride/pedal_3",
+        "volume": 0.3,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:ride/pedal_4",
+        "volume": 0.3,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:ride/pedal_5",
+        "volume": 0.3,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:ride/pedal_6",
+        "volume": 0.3,
         "stream": false
       }
     ]
   },
-  "bike.roll.hard": {
-    "subtitle": "descentmtb.subtitle.roll",
+  "bike.bunnyhop": {
     "sounds": [
       {
-        "name": "descentmtb:ride/roll_hard",
+        "name": "descentmtb:ride/bunnyhop_1",
+        "volume": 0.45,
         "stream": false
-      }
-    ]
-  },
-  "bike.roll.wood": {
-    "subtitle": "descentmtb.subtitle.roll",
-    "sounds": [
+      },
       {
-        "name": "descentmtb:ride/roll_wood",
+        "name": "descentmtb:ride/bunnyhop_2",
+        "volume": 0.45,
         "stream": false
-      }
-    ]
-  },
-  "bike.suspension.hiss": {
-    "subtitle": "descentmtb.subtitle.suspension",
-    "sounds": [
+      },
       {
-        "name": "descentmtb:ride/susp_hiss",
+        "name": "descentmtb:ride/bunnyhop_3",
+        "volume": 0.45,
         "stream": false
-      }
-    ]
-  },
-  "bike.rider.scream": {
-    "subtitle": "descentmtb.subtitle.scream",
-    "sounds": [
+      },
       {
-        "name": "descentmtb:ride/scream",
+        "name": "descentmtb:ride/bunnyhop_4",
+        "volume": 0.45,
         "stream": false
       }
     ]
@@ -129,25 +141,1278 @@
     "subtitle": "descentmtb.subtitle.heel_click",
     "sounds": [
       {
-        "name": "descentmtb:trick/heel_click",
+        "name": "descentmtb:crash/bike_soft_1",
+        "volume": 0.4,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/bike_soft_2",
+        "volume": 0.4,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/bike_soft_3",
+        "volume": 0.4,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/bike_soft_4",
+        "volume": 0.4,
         "stream": false
       }
     ]
   },
-  "bike.trick.barspin": {
-    "subtitle": "descentmtb.subtitle.barspin",
+  "bike.trick.flick": {
+    "subtitle": "descentmtb.subtitle.flick",
     "sounds": [
       {
-        "name": "descentmtb:trick/barspin_whirr",
+        "name": "descentmtb:ride/bunnyhop_1",
+        "volume": 0.4,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:ride/bunnyhop_2",
+        "volume": 0.4,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:ride/bunnyhop_3",
+        "volume": 0.4,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:ride/bunnyhop_4",
+        "volume": 0.4,
         "stream": false
       }
     ]
   },
-  "bike.trick.tailwhip": {
-    "subtitle": "descentmtb.subtitle.tailwhip",
+  "bike.wind": {
+    "subtitle": "descentmtb.subtitle.wind",
     "sounds": [
       {
-        "name": "descentmtb:trick/tailwhip_swish",
+        "name": "descentmtb:ride/wind",
+        "volume": 0.45,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.soft.1": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_soft_1",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.soft.2": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_soft_2",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.soft.3": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_soft_3",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.soft.4": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_soft_4",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.hard.1": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_hard_1",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.hard.2": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_hard_2",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.hard.3": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_hard_3",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.hard.4": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_hard_4",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.wood.2": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_wood_2",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.wood.3": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_wood_3",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.wood.4": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_wood_4",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.snow.1": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_snow_1",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.snow.2": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_snow_2",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.snow.3": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_snow_3",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.roll.snow.4": {
+    "subtitle": "descentmtb.subtitle.roll",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/roll_snow_4",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.slide.soft": {
+    "subtitle": "descentmtb.subtitle.slide",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/slide_soft",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.slide.hard": {
+    "subtitle": "descentmtb.subtitle.slide",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/slide_hard",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.slide.wood": {
+    "subtitle": "descentmtb.subtitle.slide",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/slide_wood",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.slide.snow": {
+    "subtitle": "descentmtb.subtitle.slide",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/slide_snow",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.slide.skid.soft": {
+    "subtitle": "descentmtb.subtitle.slide",
+    "sounds": [
+      {
+        "name": "descentmtb:ride/slide_skid_soft",
+        "volume": 0.5,
+        "stream": false
+      }
+    ]
+  },
+  "bike.land.front.soft": {
+    "subtitle": "descentmtb.subtitle.land",
+    "sounds": [
+      {
+        "name": "descentmtb:land/front_soft_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/front_soft_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/front_soft_3",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/front_soft_4",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.land.front.medium": {
+    "subtitle": "descentmtb.subtitle.land",
+    "sounds": [
+      {
+        "name": "descentmtb:land/front_medium_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/front_medium_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/front_medium_3",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/front_medium_4",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.land.front.hard": {
+    "subtitle": "descentmtb.subtitle.land",
+    "sounds": [
+      {
+        "name": "descentmtb:land/front_hard_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/front_hard_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/front_hard_3",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/front_hard_4",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.land.back.soft": {
+    "subtitle": "descentmtb.subtitle.land",
+    "sounds": [
+      {
+        "name": "descentmtb:land/back_soft_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/back_soft_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/back_soft_3",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/back_soft_4",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.land.back.medium": {
+    "subtitle": "descentmtb.subtitle.land",
+    "sounds": [
+      {
+        "name": "descentmtb:land/back_medium_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/back_medium_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/back_medium_3",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/back_medium_4",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.land.back.hard": {
+    "subtitle": "descentmtb.subtitle.land",
+    "sounds": [
+      {
+        "name": "descentmtb:land/back_hard_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/back_hard_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/back_hard_3",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:land/back_hard_4",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.land.bigdrop": {
+    "subtitle": "descentmtb.subtitle.land",
+    "sounds": [
+      {
+        "name": "descentmtb:land/bigdrop",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.bike.soft": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/bike_soft_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/bike_soft_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/bike_soft_3",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/bike_soft_4",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.bike.medium": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/bike_medium_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/bike_medium_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/bike_medium_3",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/bike_medium_4",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.bike.hard": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/bike_hard_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/bike_hard_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/bike_hard_3",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/bike_hard_4",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.dirt.small": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/dirt_small_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/dirt_small_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/dirt_small_3",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.dirt.med": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/dirt_med_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/dirt_med_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/dirt_med_3",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.dirt.hard": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/dirt_hard_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/dirt_hard_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/dirt_hard_3",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.grass.small": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/grass_small_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/grass_small_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/grass_small_3",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.grass.med": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/grass_med_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/grass_med_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/grass_med_3",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.grass.hard": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/grass_hard_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/grass_hard_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/grass_hard_3",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.stone.small": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/stone_small_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/stone_small_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/stone_small_3",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.stone.med": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/stone_med_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/stone_med_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/stone_med_3",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.stone.hard": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/stone_hard_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/stone_hard_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/stone_hard_3",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.wood.small": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/wood_small_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/wood_small_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/wood_small_3",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.wood.med": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/wood_med_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/wood_med_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/wood_med_3",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.crash.wood.hard": {
+    "subtitle": "descentmtb.subtitle.crash",
+    "sounds": [
+      {
+        "name": "descentmtb:crash/wood_hard_1",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/wood_hard_2",
+        "volume": 0.6,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:crash/wood_hard_3",
+        "volume": 0.6,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.male.scream": {
+    "subtitle": "descentmtb.subtitle.scream",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/male_scream_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_scream_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_scream_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_scream_4",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_scream_5",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.male.bail": {
+    "subtitle": "descentmtb.subtitle.grunt",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/male_bail_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_bail_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_bail_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_bail_4",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.male.impact.soft": {
+    "subtitle": "descentmtb.subtitle.grunt",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/male_impact_soft_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_impact_soft_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_impact_soft_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_impact_soft_4",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.male.impact.med": {
+    "subtitle": "descentmtb.subtitle.grunt",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/male_impact_med_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_impact_med_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_impact_med_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_impact_med_4",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.male.impact.hard": {
+    "subtitle": "descentmtb.subtitle.grunt",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/male_impact_hard_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_impact_hard_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_impact_hard_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_impact_hard_4",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.male.landed.normal": {
+    "subtitle": "descentmtb.subtitle.cheer",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/male_landed_normal_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_landed_normal_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_landed_normal_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_landed_normal_4",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.male.landed.big": {
+    "subtitle": "descentmtb.subtitle.cheer",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/male_landed_big_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_landed_big_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_landed_big_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_landed_big_4",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.male.landed.huge": {
+    "subtitle": "descentmtb.subtitle.cheer",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/male_landed_huge_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_landed_huge_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_landed_huge_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/male_landed_huge_4",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.female.scream": {
+    "subtitle": "descentmtb.subtitle.scream",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/female_scream_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_scream_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_scream_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_scream_4",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_scream_5",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.female.bail": {
+    "subtitle": "descentmtb.subtitle.grunt",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/female_bail_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_bail_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_bail_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_bail_4",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.female.impact.soft": {
+    "subtitle": "descentmtb.subtitle.grunt",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/female_impact_soft_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_impact_soft_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_impact_soft_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_impact_soft_4",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.female.impact.med": {
+    "subtitle": "descentmtb.subtitle.grunt",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/female_impact_med_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_impact_med_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_impact_med_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_impact_med_4",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.female.impact.hard": {
+    "subtitle": "descentmtb.subtitle.grunt",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/female_impact_hard_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_impact_hard_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_impact_hard_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_impact_hard_4",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.female.landed.normal": {
+    "subtitle": "descentmtb.subtitle.cheer",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/female_landed_normal_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_landed_normal_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_landed_normal_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_landed_normal_4",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.female.landed.big": {
+    "subtitle": "descentmtb.subtitle.cheer",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/female_landed_big_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_landed_big_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_landed_big_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_landed_big_4",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.rider.female.landed.huge": {
+    "subtitle": "descentmtb.subtitle.cheer",
+    "sounds": [
+      {
+        "name": "descentmtb:voice/female_landed_huge_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_landed_huge_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_landed_huge_3",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:voice/female_landed_huge_4",
+        "volume": 0.7,
+        "stream": false
+      }
+    ]
+  },
+  "bike.bell.ding": {
+    "subtitle": "descentmtb.subtitle.bell",
+    "sounds": [
+      {
+        "name": "descentmtb:bell/ding_1",
+        "volume": 0.8,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:bell/ding_2",
+        "volume": 0.8,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:bell/ding_3",
+        "volume": 0.8,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:bell/ding_4",
+        "volume": 0.8,
+        "stream": false
+      }
+    ]
+  },
+  "bike.bell.mini": {
+    "subtitle": "descentmtb.subtitle.bell",
+    "sounds": [
+      {
+        "name": "descentmtb:bell/mini_1",
+        "volume": 0.8,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:bell/mini_2",
+        "volume": 0.8,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:bell/mini_3",
+        "volume": 0.8,
+        "stream": false
+      }
+    ]
+  },
+  "bike.bell.classic": {
+    "subtitle": "descentmtb.subtitle.bell",
+    "sounds": [
+      {
+        "name": "descentmtb:bell/classic_1",
+        "volume": 0.8,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:bell/classic_2",
+        "volume": 0.8,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:bell/classic_3",
+        "volume": 0.8,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:bell/classic_4",
+        "volume": 0.8,
+        "stream": false
+      }
+    ]
+  },
+  "bike.bell.horn": {
+    "subtitle": "descentmtb.subtitle.horn",
+    "sounds": [
+      {
+        "name": "descentmtb:bell/horn_1",
+        "volume": 0.8,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:bell/horn_2",
+        "volume": 0.8,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:bell/horn_3",
+        "volume": 0.8,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:bell/horn_4",
+        "volume": 0.8,
+        "stream": false
+      }
+    ]
+  },
+  "bike.bell.duck": {
+    "subtitle": "descentmtb.subtitle.duck",
+    "sounds": [
+      {
+        "name": "descentmtb:bell/duck_1",
+        "volume": 0.8,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:bell/duck_2",
+        "volume": 0.8,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:bell/duck_3",
+        "volume": 0.8,
+        "stream": false
+      }
+    ]
+  },
+  "tape.break": {
+    "subtitle": "descentmtb.subtitle.tape",
+    "sounds": [
+      {
+        "name": "descentmtb:misc/tape_break_1",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:misc/tape_break_2",
+        "volume": 0.7,
+        "stream": false
+      },
+      {
+        "name": "descentmtb:misc/tape_break_3",
+        "volume": 0.7,
         "stream": false
       }
     ]

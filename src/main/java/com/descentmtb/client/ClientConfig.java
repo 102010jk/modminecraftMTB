@@ -36,9 +36,14 @@ public final class ClientConfig {
     // ---- tricks (TrickInput / BikeInputHandler) ----
     public static final ModConfigSpec.EnumValue<TrickKeyScheme> TRICK_KEY_SCHEME;
 
+    public enum RiderVoice {
+        MALE, FEMALE, OFF
+    }
+
     // ---- sound (client.sound.BikeSoundController) ----
     public static final ModConfigSpec.DoubleValue BIKE_SOUND_VOLUME;
     public static final ModConfigSpec.BooleanValue SCREAM_SOUND, WIND_SOUND, HUB_SOUND;
+    public static final ModConfigSpec.EnumValue<RiderVoice> RIDER_VOICE;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -101,10 +106,13 @@ public final class ClientConfig {
                 .defineEnum("trickKeyScheme", TrickKeyScheme.INDEPENDENT);
         b.pop();
         b.push("sound");
-        BIKE_SOUND_VOLUME = number(b, "bikeSoundVolume", "Overall volume of the bike sounds (freehub, wind, tyres, suspension, scream, tricks). 1 = default.", 1.0, 0.0, 1.5);
+        BIKE_SOUND_VOLUME = number(b, "bikeSoundVolume", "Overall volume of the bike sounds (freehub, wind, tyres, suspension, scream, tricks). 0.6 = default.", 0.6, 0.0, 1.5);
         HUB_SOUND = b.comment("Freehub clicks and buzz while coasting.").translation("descentmtb.config.hubSound").define("hubSound", true);
         WIND_SOUND = b.comment("Wind rushing past the rider (speed and air).").translation("descentmtb.config.windSound").define("windSound", true);
         SCREAM_SOUND = b.comment("The rider screams before a crash that cannot be avoided.").translation("descentmtb.config.screamSound").define("screamSound", true);
+        RIDER_VOICE = b.comment("Rider voice sounds (screams, bails, landings): MALE, FEMALE or OFF.")
+                .translation("descentmtb.config.riderVoice")
+                .defineEnum("riderVoice", RiderVoice.MALE);
         b.pop();
         SPEC = b.build();
     }

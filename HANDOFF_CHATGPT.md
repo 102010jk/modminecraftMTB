@@ -1,10 +1,14 @@
 # Předání pro ChatGPT – Descent MTB (stav 2026-10-06)
 
-Repo `C:/MTBMod`, NeoForge 1.21.1, Java 21. Build (PowerShell): `$env:JAVA_HOME='C:/Users/jakub/AppData/Local/Programs/Eclipse Adoptium/jdk-21.0.11.10-hotspot'; .\gradlew.bat assemble --console=plain`. Pravidla: žádné herní testy/screenshoty, jen build; nikdy `git add -A`; JAR po milníku do `dist/` + `descentmtb-latest.jar`. Poslední JAR: `dist/descentmtb-milestone-07-immersion-partial.jar`.
+Repo `C:/MTBMod`, NeoForge 1.21.1, Java 21. Build (PowerShell): `$env:JAVA_HOME='C:/Users/jakub/AppData/Local/Programs/Eclipse Adoptium/jdk-21.0.11.10-hotspot'; .\gradlew.bat assemble --console=plain`. Pravidla: žádné herní testy/screenshoty, jen build; nikdy `git add -A`; JAR po milníku do `dist/` + `descentmtb-latest.jar`. Poslední JAR: `dist/descentmtb-milestone-07-sound-update.jar`.
 
-## PRIORITA 1 – Zvuky (uživatel: současné jsou hrozné a moc hlasité)
-- Vzorky z Descenders už importované (commit d09914e): `tools/import_descenders_sounds.py`, 201 OGG v `assets/descentmtb/sounds/`. Hra je ZATÍM NEPOUŽÍVÁ.
-- Udělat: spustit importér → nový `sounds.json`; přepojit `registry/ModSounds.java` a `client/sound/*` (BikeSoundController, BikeVoice, FreewheelPlayer, TrickSounds, scream) na nové eventy; zvonky (`custom/BellSounds`, `BikeBells`, `client/custom/BellPreview`) na nm_bell/horn/duck; config `riderVoice` MALE/FEMALE/OFF; default `bikeSoundVolume` 0.6; smazat `tools/gen_sounds.py` a staré syntetické .ogg; upravit unit testy.
+## PRIORITA 1 – Zvuky (HOTOVO)
+- Descenders zvuky plně integrovány: `sounds.json` s 75 eventy a 201 OGG vzorky vygenerován z `tools/import_descenders_sounds.py`.
+- `ModSounds.java` a `client/sound/*` (`BikeSoundController`, `BikeVoice`, `FreewheelPlayer`, `TrickSounds`, scream, landing, crash/bail) kompletně přepojeny.
+- Zvonky (`custom/BellSounds`, `BikeBells`, `client/custom/BellPreview`) přepojeny na Descenders vzorky (`ding`, `mini`, `classic`, `horn`, `duck`).
+- Config `riderVoice` (MALE, FEMALE, OFF) přidán do `ClientConfig.java`, default `bikeSoundVolume` nastaven na 0.6.
+- `tools/gen_sounds.py` a staré syntetické `.ogg` smazány.
+- Unit testy (`BikeSoundMathTest`, `ScreamTest` a celý test suite) 100% zelené.
 
 ## PRIORITA 2 – Rámy kol (uživatel: všechna kola mají chyby, hlavně sedlo; dirt kolo sedlo)
 - `python tools/check_frames.py` vypíše 40 chyb (commit 831a251). Opravit v `client/model/EnduroBikeModel.java`, `HardtailBikeModel.java`, `tools/gen_frame_catalog.py`, pak `gen_enduro_texture.py`, `gen_hardtail_texture.py`, `gen_custom_assets.py`, dokud checker nehlásí 0 chyb:

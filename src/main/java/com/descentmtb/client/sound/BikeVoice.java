@@ -1,5 +1,6 @@
 package com.descentmtb.client.sound;
 
+import com.descentmtb.client.ClientConfig;
 import com.descentmtb.client.sound.BikeSoundMath.RollFamily;
 import com.descentmtb.custom.BikeParts.HubType;
 import com.descentmtb.entity.MountainBikeEntity;
@@ -13,24 +14,26 @@ import net.minecraft.util.RandomSource;
 import java.util.EnumMap;
 
 /**
- * Everything one bike is heard doing: the freehub, wind, tyres on the ground, suspension hiss, the rider's scream
- * and trick sounds. One voice per audible bike; {@link BikeSoundController} feeds it a {@link BikeAudioFrame}
- * every tick. The rider's own bike is heard directly (no distance), others from where they are.
+ * Everything one bike is heard doing: the freehub, wind, tyres on the ground, landings, crash impacts,
+ * the rider's voice (screams, bails, cheers) and trick sounds. One voice per audible bike; {@link BikeSoundController}
+ * feeds it a {@link BikeAudioFrame} every tick. The rider's own bike is heard directly (no distance), others from
+ * where they are.
  */
 final class BikeVoice {
     /** What the controller reads from the config for one tick. */
-    record Settings(double master, boolean hub, boolean wind, boolean scream) {}
+    record Settings(double master, boolean hub, boolean wind, boolean scream, ClientConfig.RiderVoice voice) {}
 
     final MountainBikeEntity bike;
     final boolean local;
     private final MountainBikeEntity follow;
     private final FreewheelPlayer freewheel;
     private final EnumMap<RollFamily, LoopSound> roll = new EnumMap<>(RollFamily.class);
-    private final SuspensionHiss forkHiss = new SuspensionHiss(), shockHiss = new SuspensionHiss();
+    private final EnumMap<RollFamily, Integer> rollLevels = new EnumMap<>(RollFamily.class);
     private final ScreamTrigger screamTrigger = new ScreamTrigger();
     private final RandomSource random = RandomSource.create();
     private LoopSound wind, scream;
     private Trick lastTrick = Trick.NONE;
+    private boolean prevAirborne, prevBailed;
     /** Ticks in the air so far (for the "just left the ground" rule of the crash predictor). */
     int airTicks;
 
@@ -60,23 +63,43 @@ final class BikeVoice {
         double rollVol = BikeSoundMath.rollVolume(f.speed, BikeSoundMath.contactFraction(f), surface) * master;
         double rollPitch = BikeSoundMath.rollPitch(f.speed);
         for (RollFamily fam : RollFamily.values()) {
-            LoopSound current = drive(manager, roll.get(fam), rollEvent(fam), fam == family ? rollVol : 0, rollPitch, 0.18f);
-            if (current == null) roll.remove(fam);
-            else roll.put(fam, current);
+            int curLevel = rollLevels.getOrDefault(fam, 0);
+            int newLevel = BikeSoundMath.rollLevel(f.speed, curLevel);
+            LoopSound sound = roll.get(fam);
+            if (sound != null && curLevel != newLevel && (fam == family && rollVol > 0.012)) {
+                // crossfade to new speed ladder sample
+                sound.fadeOutFast();
+                sound = null;
+                roll.remove(fam);
+            }
+            SoundEvent event = ModSounds.rollEvent(fam, newLevel);
+            LoopSound current = drive(manager, sound, event, fam == family ? rollVol : 0, rollPitch, 0.18f);
+            if (current == null) {
+                roll.remove(fam);
+                rollLevels.remove(fam);
+            } else {
+                roll.put(fam, current);
+                rollLevels.put(fam, newLevel);
+            }
         }
 
-        // ---- suspension hiss on hard compressions / snaps back ----
-        playHiss(forkHiss.tick(f.forkVel), master, 0.92);
-        if (f.fullSuspension) playHiss(shockHiss.tick(f.shockVel), master, 1.1);
-        else shockHiss.reset();
+        // ---- landings ----
+        if (prevAirborne && !f.airborne && !f.bailed && airTicks >= 4) {
+            playLanding(f, master, cfg.voice());
+        }
+
+        // ---- crash / bail ----
+        if (!prevBailed && f.bailed) {
+            playCrash(f, master, cfg.voice());
+        }
 
         // ---- the scream ----
         if (f.airborne) airTicks++;
         else airTicks = 0;
         f.airTime = airTicks * 0.05;
-        if (cfg.scream()) {
+        if (cfg.scream() && cfg.voice() != ClientConfig.RiderVoice.OFF) {
             switch (screamTrigger.update(f.airborne, CrashPredictor.unavoidable(f), f.bailed)) {
-                case START -> startScream(manager, master);
+                case START -> startScream(manager, master, cfg.voice());
                 case STOP -> {
                     if (scream != null) scream.fadeOutFast();
                     scream = null;
@@ -96,20 +119,71 @@ final class BikeVoice {
             if (trick != Trick.NONE) playTrick(trick, master);
             lastTrick = trick;
         }
+
+        prevAirborne = f.airborne;
+        prevBailed = f.bailed;
     }
 
-    private void startScream(SoundManager manager, double master) {
-        if (master <= 0.004) return;
+    private void startScream(SoundManager manager, double master, ClientConfig.RiderVoice voice) {
+        if (master <= 0.004 || voice == ClientConfig.RiderVoice.OFF) return;
         if (scream != null) scream.fadeOutFast();
-        scream = new LoopSound(ModSounds.SCREAM.get(), follow, false, (float) Math.min(1.0, 0.95 * master),
+        SoundEvent screamEvent = voice == ClientConfig.RiderVoice.FEMALE
+                ? ModSounds.RIDER_FEMALE_SCREAM.get()
+                : ModSounds.RIDER_MALE_SCREAM.get();
+        scream = new LoopSound(screamEvent, follow, false, (float) Math.min(1.0, 0.95 * master),
                 (float) (0.94 + 0.16 * random.nextDouble()));
         manager.play(scream);
     }
 
-    private void playHiss(double volume, double master, double pitch) {
-        if (volume > 0) {
-            Sfx.play(ModSounds.SUSPENSION_HISS.get(), follow, volume * master, pitch * (0.95 + 0.1 * random.nextDouble()));
+    private void playLanding(BikeAudioFrame f, double master, ClientConfig.RiderVoice voice) {
+        if (master <= 0.004) return;
+        boolean hard = f.forkVel > 2.0 || f.shockVel > 2.0 || f.vel.y < -7;
+        boolean med = f.forkVel > 1.0 || f.shockVel > 1.0 || f.vel.y < -4;
+
+        SoundEvent landSound;
+        if (f.vel.y < -12 || airTicks > 30) {
+            landSound = ModSounds.LAND_BIGDROP.get();
+        } else if (f.frontContact && !f.rearContact) {
+            landSound = hard ? ModSounds.LAND_FRONT_HARD.get() : (med ? ModSounds.LAND_FRONT_MED.get() : ModSounds.LAND_FRONT_SOFT.get());
+        } else {
+            landSound = hard ? ModSounds.LAND_BACK_HARD.get() : (med ? ModSounds.LAND_BACK_MED.get() : ModSounds.LAND_BACK_SOFT.get());
         }
+        Sfx.play(landSound, follow, 0.9 * master, 0.95 + 0.1 * random.nextDouble());
+
+        // rider landing cheer for big air or landed trick
+        if (voice != ClientConfig.RiderVoice.OFF) {
+            SoundEvent cheer = null;
+            if (airTicks > 35 || (airTicks > 20 && f.speed > 14)) {
+                cheer = voice == ClientConfig.RiderVoice.FEMALE
+                        ? ModSounds.RIDER_FEMALE_LANDED_HUGE.get()
+                        : ModSounds.RIDER_MALE_LANDED_HUGE.get();
+            } else if (airTicks > 22 || lastTrick != Trick.NONE) {
+                cheer = voice == ClientConfig.RiderVoice.FEMALE
+                        ? ModSounds.RIDER_FEMALE_LANDED_BIG.get()
+                        : ModSounds.RIDER_MALE_LANDED_BIG.get();
+            } else if (airTicks > 12) {
+                cheer = voice == ClientConfig.RiderVoice.FEMALE
+                        ? ModSounds.RIDER_FEMALE_LANDED_NORMAL.get()
+                        : ModSounds.RIDER_MALE_LANDED_NORMAL.get();
+            }
+            if (cheer != null) {
+                Sfx.play(cheer, follow, 0.85 * master, 0.96 + 0.08 * random.nextDouble());
+            }
+        }
+    }
+
+    private void playCrash(BikeAudioFrame f, double master, ClientConfig.RiderVoice voice) {
+        if (master <= 0.004) return;
+        if (voice != ClientConfig.RiderVoice.OFF) {
+            SoundEvent bailVoice = voice == ClientConfig.RiderVoice.FEMALE
+                    ? ModSounds.RIDER_FEMALE_BAIL.get()
+                    : ModSounds.RIDER_MALE_BAIL.get();
+            Sfx.play(bailVoice, follow, 0.95 * master, 0.95 + 0.1 * random.nextDouble());
+        }
+        SoundEvent crashBike = f.speed > 10
+                ? ModSounds.CRASH_BIKE_HARD.get()
+                : (f.speed > 5 ? ModSounds.CRASH_BIKE_MED.get() : ModSounds.CRASH_BIKE_SOFT.get());
+        Sfx.play(crashBike, follow, 0.9 * master, 0.95 + 0.1 * random.nextDouble());
     }
 
     private void playTrick(Trick trick, double master) {
@@ -117,18 +191,9 @@ final class BikeVoice {
         if (kind == null) return;
         SoundEvent event = switch (kind) {
             case HEEL_CLICK -> ModSounds.HEEL_CLICK.get();
-            case BARSPIN -> ModSounds.BARSPIN.get();
-            case TAILWHIP -> ModSounds.TAILWHIP.get();
+            case BARSPIN, TAILWHIP -> ModSounds.TRICK_FLICK.get();
         };
         Sfx.play(event, follow, 0.8 * master, 0.97 + 0.06 * random.nextDouble());
-    }
-
-    private static SoundEvent rollEvent(RollFamily family) {
-        return switch (family) {
-            case SOFT -> ModSounds.ROLL_SOFT.get();
-            case HARD -> ModSounds.ROLL_HARD.get();
-            case WOOD -> ModSounds.ROLL_WOOD.get();
-        };
     }
 
     /**
@@ -157,10 +222,11 @@ final class BikeVoice {
         wind = null;
         roll.values().forEach(LoopSound::fadeOut);
         roll.clear();
+        rollLevels.clear();
         if (scream != null) scream.fadeOutFast();
         scream = null;
         screamTrigger.reset();
-        forkHiss.reset();
-        shockHiss.reset();
+        prevAirborne = false;
+        prevBailed = false;
     }
 }

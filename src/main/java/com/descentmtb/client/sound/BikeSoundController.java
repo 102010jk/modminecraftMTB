@@ -62,7 +62,7 @@ public final class BikeSoundController {
         columns.newTick();
 
         BikeVoice.Settings settings = new BikeVoice.Settings(ClientConfig.BIKE_SOUND_VOLUME.get(), ClientConfig.HUB_SOUND.get(),
-                ClientConfig.WIND_SOUND.get(), ClientConfig.SCREAM_SOUND.get());
+                ClientConfig.WIND_SOUND.get(), ClientConfig.SCREAM_SOUND.get(), ClientConfig.RIDER_VOICE.get());
 
         MountainBikeEntity riding = BikeClientController.riding();
         List<MountainBikeEntity> chosen = new ArrayList<>(MAX_REMOTE + 1);

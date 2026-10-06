@@ -145,6 +145,25 @@ class BikeSoundMathTest {
     }
 
     @Test
+    void rollLevelSelectsSpeedBracketWithHysteresis() {
+        assertEquals(1, BikeSoundMath.rollLevel(0));
+        assertEquals(1, BikeSoundMath.rollLevel(10 / 3.6));
+        assertEquals(2, BikeSoundMath.rollLevel(20 / 3.6));
+        assertEquals(3, BikeSoundMath.rollLevel(35 / 3.6));
+        assertEquals(4, BikeSoundMath.rollLevel(50 / 3.6));
+
+        // Hysteresis deadband: level 1 stays until 18 km/h
+        assertEquals(1, BikeSoundMath.rollLevel(16 / 3.6, 1));
+        assertEquals(2, BikeSoundMath.rollLevel(19 / 3.6, 1));
+
+        // Level 2 drops to 1 below 12 km/h, climbs to 3 above 33 km/h
+        assertEquals(2, BikeSoundMath.rollLevel(14 / 3.6, 2));
+        assertEquals(1, BikeSoundMath.rollLevel(11 / 3.6, 2));
+        assertEquals(2, BikeSoundMath.rollLevel(31 / 3.6, 2));
+        assertEquals(3, BikeSoundMath.rollLevel(34 / 3.6, 2));
+    }
+
+    @Test
     void dominantSurfaceIsTheRearTyresUnlessOnlyTheFrontTouches() {
         BikeAudioFrame f = new BikeAudioFrame();
         f.frontContact = f.rearContact = true;

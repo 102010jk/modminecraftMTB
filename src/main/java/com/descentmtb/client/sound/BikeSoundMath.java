@@ -118,6 +118,27 @@ public final class BikeSoundMath {
         return 0.6 + 0.8 * clamp(speed / 18, 0, 1);
     }
 
+    /** Speed bracket for rolling loops: 1 = slow (<15 km/h), 2 = normal (15-30), 3 = fast (30-45), 4 = very fast (>45). */
+    public static int rollLevel(double speed) {
+        return rollLevel(speed, 0);
+    }
+
+    /**
+     * Speed bracket with hysteresis around transitions to prevent rapid toggling between loop samples.
+     * @param speed speed in m/s
+     * @param currentLevel currently active level (1..4), or 0 for direct lookup
+     */
+    public static int rollLevel(double speed, int currentLevel) {
+        double kmh = speed * 3.6;
+        return switch (currentLevel) {
+            case 1 -> kmh > 18 ? 2 : 1;
+            case 2 -> kmh < 12 ? 1 : (kmh > 33 ? 3 : 2);
+            case 3 -> kmh < 27 ? 2 : (kmh > 48 ? 4 : 3);
+            case 4 -> kmh < 42 ? 3 : 4;
+            default -> kmh < 15 ? 1 : (kmh < 30 ? 2 : (kmh < 45 ? 3 : 4));
+        };
+    }
+
     /** The surface that dominates: under the rear tyre if it touches, else under the front one. */
     public static Surface dominantSurface(BikeAudioFrame f) {
         return f.rearContact || !f.frontContact ? f.rearSurface : f.frontSurface;
