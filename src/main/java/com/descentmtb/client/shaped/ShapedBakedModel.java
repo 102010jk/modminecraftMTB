@@ -11,12 +11,15 @@ import net.minecraft.client.renderer.block.model.ItemTransforms;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.Direction;
+import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.client.ChunkRenderTypeSet;
 import net.neoforged.neoforge.client.model.IDynamicBakedModel;
 import net.neoforged.neoforge.client.model.data.ModelData;
+import net.neoforged.neoforge.client.model.data.ModelProperty;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
@@ -37,6 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
 final class ShapedBakedModel implements IDynamicBakedModel {
     private static final int MAX_CACHED_SHAPES = 8192;
     private static final BlockState DEFAULT_MATERIAL = Blocks.COARSE_DIRT.defaultBlockState();
+    private static final ModelProperty<Integer> COVERED_FACES = new ModelProperty<>();
 
     private record CacheKey(BlockState state, ShapeKey shape) {}
 
@@ -62,11 +66,29 @@ final class ShapedBakedModel implements IDynamicBakedModel {
     }
 
     @Override
+    public ModelData getModelData(BlockAndTintGetter level, BlockPos pos, BlockState state, ModelData data) {
+        ShapeKey own = shapeOf(data);
+        int mask = 0;
+        for (Direction face : Direction.values()) {
+            BlockPos next = pos.relative(face);
+            BlockState neighbor = level.getBlockState(next);
+            if (!(neighbor.getBlock() instanceof com.descentmtb.ramp.RampBlock)) continue;
+            if (!(level.getBlockEntity(next) instanceof RampBlockEntity be)) continue;
+            ShapeKey shape = be.getModelData().get(RampBlockEntity.SHAPE);
+            if (shape != null && shape.material().canOcclude()
+                    && ShapedOcclusion.covered(state, own, neighbor, shape, face)) mask |= 1 << face.ordinal();
+        }
+        return data.derive().with(COVERED_FACES, mask).build();
+    }
+
+    @Override
     public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand,
                                     ModelData data, @Nullable RenderType renderType) {
         if (state == null) {
             return List.of();
         }
+        Integer covered = data.get(COVERED_FACES);
+        if (side != null && covered != null && (covered & 1 << side.ordinal()) != 0) return List.of();
         ShapeKey shape = shapeOf(data);
         if (renderType != null && renderType != layer(shape.material())) {
             return List.of();

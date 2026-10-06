@@ -226,17 +226,8 @@ public class RampBlock extends BaseEntityBlock {
 
     @Override
     protected boolean skipRendering(BlockState state, BlockState neighborState, Direction face) {
-        if (neighborState.is(this)) {
-            if (state.getValue(FACING) == neighborState.getValue(FACING)
-                    && state.getValue(START).equals(neighborState.getValue(START))
-                    && state.getValue(END).equals(neighborState.getValue(END))
-                    && state.getValue(PROFILE) == neighborState.getValue(PROFILE)) {
-                Direction facing = state.getValue(FACING);
-                if (face == facing.getClockWise() || face == facing.getCounterClockWise()) {
-                    return true;
-                }
-            }
-        }
-        return super.skipRendering(state, neighborState, face);
+        // Material and trail corner heights live in the block entity. State-only culling cannot
+        // distinguish an opaque matching surface from a lower, thinner or transparent neighbor.
+        return false; // ShapedBakedModel checks actual boundary coverage during chunk meshing.
     }
 }

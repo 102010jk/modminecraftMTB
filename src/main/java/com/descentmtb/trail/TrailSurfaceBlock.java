@@ -32,10 +32,9 @@ public final class TrailSurfaceBlock extends RampBlock {
 
     @Override
     protected boolean skipRendering(BlockState state, BlockState neighborState, net.minecraft.core.Direction face) {
-        if (neighborState.is(this)) {
-            return true;
-        }
-        return super.skipRendering(state, neighborState, face);
+        // The two block states contain no corner heights. Equal states may have completely different
+        // exposed walls; only the baked model's world/model-data comparison can safely hide them.
+        return false;
     }
 
     @Override protected VoxelShape getCollisionShape(BlockState s, BlockGetter l, BlockPos p, CollisionContext c) { return getShape(s, l, p, c); }

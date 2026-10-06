@@ -21,12 +21,13 @@ import java.util.List;
 final class ShapedQuads {
     /**
      * The quads of one shape. {@code unculled} are always drawn (sloped top surface and interior features);
-     * {@code down} is the full bottom face. Boundary faces (side and end walls) are directional so vanilla
-     * occlusion culling and {@code skipRendering} can cull internal walls between adjacent trail/ramp blocks
-     * and against solid ground, eliminating dark seam artifacts.
+     * {@code up}/{@code down} are faces on the block's horizontal boundaries. Side/end walls are directional,
+     * so vanilla can cull them against solid ground; model data removes only walls actually covered by the
+     * adjoining shaped block. Raised deck undersides remain unculled.
      */
     record Built(
             List<BakedQuad> unculled,
+            List<BakedQuad> up,
             List<BakedQuad> down,
             List<BakedQuad> north,
             List<BakedQuad> south,
@@ -43,7 +44,7 @@ final class ShapedQuads {
                 case SOUTH -> south;
                 case WEST -> west;
                 case EAST -> east;
-                case UP -> List.of();
+                case UP -> up;
             };
         }
     }
@@ -61,6 +62,7 @@ final class ShapedQuads {
 
     private Faces faces;
     private final List<BakedQuad> unculled = new ArrayList<>();
+    private final List<BakedQuad> up = new ArrayList<>();
     private final List<BakedQuad> down = new ArrayList<>();
     private final List<BakedQuad> north = new ArrayList<>();
     private final List<BakedQuad> south = new ArrayList<>();
@@ -85,6 +87,7 @@ final class ShapedQuads {
         }
         return new Built(
                 List.copyOf(b.unculled),
+                List.copyOf(b.up),
                 List.copyOf(b.down),
                 List.copyOf(b.north),
                 List.copyOf(b.south),
@@ -215,6 +218,21 @@ final class ShapedQuads {
     private void surface(ShapeKey key) {
         double[] c = key.corners();
         boolean deck = key.deck();
+        if (!deck && c[0] >= 1 && c[1] >= 1 && c[2] >= 1 && c[3] >= 1) {
+            // These are real full dirt layers, including the final layer of an integer-height flat.
+            // Never omit their exposed top or walls. Six quads instead of 8x8 cells.
+            bottom();
+            set(0,0,1,0);set(3,1,1,0);set(6,1,1,1);set(9,0,1,1);
+            emit(up,Direction.UP,0,1,0);
+            double[][] p={{0,0},{1,0},{1,1},{0,1}};
+            for (int side=0;side<4;side++) {
+                int next=(side+1)%4;
+                set(0,p[side][0],0,p[side][1]);set(3,p[next][0],0,p[next][1]);
+                set(6,p[next][0],1,p[next][1]);set(9,p[side][0],1,p[side][1]);
+                Direction face=SIDES[side];emitToFace(face,face.getStepX(),0,face.getStepZ());
+            }
+            return;
+        }
         // A plane that stays inside the block and is not twisted is a single quad; anything else is cut into 8x8
         // cells so the clamping at the block's top / bottom follows the real clipped surface.
         double twist = Math.abs(c[0] + c[3] - c[1] - c[2]);
@@ -231,7 +249,7 @@ final class ShapedQuads {
                 double[] h = {height(c, x, z), height(c, x + d, z), height(c, x + d, z + d), height(c, x, z + d)};
                 double max = Math.max(Math.max(h[0], h[1]), Math.max(h[2], h[3]));
                 double min = Math.min(Math.min(h[0], h[1]), Math.min(h[2], h[3]));
-                if (max < .001 || (deck ? (min >= 1 && bottomOf(c, true, x, z) >= 1 && bottomOf(c, true, x + d, z + d) >= 1) : min >= 1)) {
+                if (max < .001 || (deck && min >= 1 && bottomOf(c, true, x, z) >= 1 && bottomOf(c, true, x + d, z + d) >= 1)) {
                     continue;
                 }
                 double[][] corner = {{x, z}, {x + d, z}, {x + d, z + d}, {x, z + d}};
@@ -245,7 +263,7 @@ final class ShapedQuads {
                     sx = (float) -((c[1] - c[0]) * (1 - mz) + (c[3] - c[2]) * mz);
                     sz = (float) -((c[2] - c[0]) * (1 - mx) + (c[3] - c[1]) * mx);
                 }
-                emit(unculled, Direction.UP, sx, 1f, sz);
+                emit(min >= 1 ? up : unculled, Direction.UP, sx, 1f, sz);
 
                 for (int side = 0; side < 4; side++) {
                     boolean edge = (side == 0 && iz == 0) || (side == 1 && ix == n - 1) || (side == 2 && iz == n - 1) || (side == 3 && ix == 0);
@@ -263,10 +281,13 @@ final class ShapedQuads {
                     emitToFace(face, face.getStepX(), 0f, face.getStepZ());
                 }
                 if (deck) {
+                    boolean boundary = true;
                     for (int i = 0; i < 4; i++) {
-                        set(i * 3, corner[i][0], bottomOf(c, true, corner[i][0], corner[i][1]), corner[i][1]);
+                        double low = bottomOf(c, true, corner[i][0], corner[i][1]);
+                        boundary &= low == 0;
+                        set(i * 3, corner[i][0], low, corner[i][1]);
                     }
-                    emit(down, Direction.DOWN, 0f, -1f, 0f);
+                    emit(boundary ? down : unculled, Direction.DOWN, 0f, -1f, 0f);
                 }
             }
         }
