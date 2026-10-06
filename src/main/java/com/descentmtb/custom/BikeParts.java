@@ -52,7 +52,9 @@ public final class BikeParts {
         // full suspension (enduro)
         ENDURO_CLASSIC(true), ENDURO_HIGH_PIVOT(true), ENDURO_LOW_SLUNG(true),
         // hardtail (dirt jump)
-        DJ_CLASSIC(false), DJ_STRAIGHT(false), DJ_CURVED(false);
+        DJ_CLASSIC(false), DJ_STRAIGHT(false), DJ_CURVED(false),
+        SANTA_CRUZ_NOMAD(true), CANYON_TORQUE(true), CUBE_STEREO_ONE77(true),
+        COMMENCAL_META_SX(true), YT_CAPRA(true), SPECIALIZED_STUMPJUMPER(true);
 
         public final boolean fullSuspension;
 

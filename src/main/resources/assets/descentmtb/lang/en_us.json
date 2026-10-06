@@ -556,5 +556,11 @@
   "descentmtb.workshop.sticker.across": "Across tube surface",
   "descentmtb.workshop.sticker.duplicate": "Duplicate",
   "descentmtb.workshop.sticker.opposite": "Copy to opposite side",
-  "descentmtb.workshop.sticker.flip": "Mirror artwork"
+  "descentmtb.workshop.sticker.flip": "Mirror artwork",
+  "descentmtb.custom.shape.santa_cruz_nomad": "Santa Cruz Nomad",
+  "descentmtb.custom.shape.canyon_torque": "Canyon Torque AL",
+  "descentmtb.custom.shape.cube_stereo_one77": "Cube Stereo ONE77",
+  "descentmtb.custom.shape.commencal_meta_sx": "Commencal META SX V5",
+  "descentmtb.custom.shape.yt_capra": "YT Capra",
+  "descentmtb.custom.shape.specialized_stumpjumper": "Specialized Stumpjumper 15"
 }

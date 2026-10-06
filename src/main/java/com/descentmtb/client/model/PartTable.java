@@ -92,6 +92,12 @@ public final class PartTable {
             case ENDURO_LOW_SLUNG -> 'l';
             case DJ_STRAIGHT -> 's';
             case DJ_CURVED -> 'v';
+            case SANTA_CRUZ_NOMAD -> 'n';
+            case CANYON_TORQUE -> 't';
+            case CUBE_STEREO_ONE77 -> 'u';
+            case COMMENCAL_META_SX -> 'm';
+            case YT_CAPRA -> 'g';
+            case SPECIALIZED_STUMPJUMPER -> 'j';
         };
     }
 }

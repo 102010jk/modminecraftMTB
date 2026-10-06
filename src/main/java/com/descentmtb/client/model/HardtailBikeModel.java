@@ -218,7 +218,7 @@ public class HardtailBikeModel extends Model {
         cube(frame, "chainstay_r", "frame", 109, 0, -1.0f, -5.12f, 5.365f, 0.42f, 0.6f, 6.0494f, 3.9812f, -2.2792f, 0.0f);
         cube(frame, "seatstay_r", "frame", 79, 0, -0.96f, -7.14f, 6.095f, 0.4f, 0.5f, 6.06f, -37.5f, -4.4531f, 0.0f);
         cube(frame, "dropout_r", "black", 41, 36, -1.2f, -5.28f, 8.55f, 0.4f, 1.3f, 1.1f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "seat_bridge", "frame", 102, 36, 0.0f, -10.65f, 4.321f, 1.8f, 0.5f, 0.55f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "seat_bridge", "frame", 102, 36, 0.0f, -8.60f, 4.321f, 1.8f, 0.5f, 0.55f, 0.0f, 0.0f, 0.0f);
         cube(frame, "caliper_r", "brake", 43, 55, 0.85f, -4.43f, 7.63f, 0.55f, 1.0f, 0.9f, 0.0f, 0.0f, 0.0f);
         cube(frame, "caliper_bolt", "silver", 123, 60, 1.15f, -4.68f, 7.58f, 0.14f, 0.14f, 0.14f, 0.0f, 0.0f, 0.0f);
         cube(frame, "chain_top", "chain", 0, 13, -0.8f, -5.955f, 5.365f, 0.1f, 0.2f, 6.231f, -1.0115f, 0.0f, 0.0f);
@@ -538,8 +538,7 @@ public class HardtailBikeModel extends Model {
         cube(rear_wheel, "cog_lock", "black", 120, 60, -0.92f, 0.0f, 0.0f, 0.1f, 0.45f, 0.45f, 0.0f, 0.0f, 0.0f);
                 cube(frame, "top_front__v", "frame", 0, 128, 0.0000f, -11.3215f, -2.7028f, 0.8000f, 0.9000f, 5.5724f, -39.5613f, 0.0000f, 0.0000f);
         cube(frame, "top_rear__v", "frame", 14, 128, 0.0000f, -9.2723f, 1.5932f, 0.8000f, 0.9000f, 4.3310f, -7.2838f, 0.0000f, 0.0000f);
-        cube(frame, "top_straight__s", "frame", 26, 128, 0.0000f, -13.0960f, -0.5548f, 0.8000f, 0.9000f, 8.5921f, -0.0000f, 0.0000f, 0.0000f);
-        cube(frame, "top_join__s", "frame", 46, 128, 0.0000f, -11.0469f, 3.7412f, 0.8000f, 0.9000f, 4.0982f, -90.0000f, 0.0000f, 0.0000f);
+        cube(frame, "top_straight__s", "frame", 26, 128, 0.0000f, -10.5550f, -0.6800f, 0.8000f, 0.9000f, 9.2813f, -21.4231f, 0.0000f, 0.0000f);
         cube(fork_upper, "acc_ding_bell", "chrome", 57, 128, 3.0000f, -2.6000f, -1.0000f, 0.7000f, 0.5500f, 0.7000f, 0.0000f, 0.0000f, 0.0000f);
         cube(fork_upper, "acc_ding_mount", "black", 61, 128, 3.0000f, -2.1000f, -1.0000f, 0.4000f, 0.5000f, 0.4000f, 0.0000f, 0.0000f, 0.0000f);
         cube(fork_upper, "acc_mini_bell", "chrome", 64, 128, 3.0000f, -2.6000f, -1.0000f, 0.5000f, 0.5500f, 0.5000f, 0.0000f, 0.0000f, 0.0000f);

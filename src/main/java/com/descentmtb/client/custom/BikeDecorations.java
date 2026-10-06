@@ -31,6 +31,10 @@ public final class BikeDecorations {
                 if(name.equals("top_rear")) { if(local<.5f) continue; local=(local-.5f)*2; }
                 if(name.equals("top_join")) continue;
             }
+            if(tube==Tube.DOWN) {
+                if(name.equals("down_front")) { if(local>=.5f) continue;local*=2; }
+                if(name.equals("down_rear")) { if(local<.5f) continue;local=(local-.5f)*2; }
+            }
             float z=tube==Tube.FORK_LEG ? 0 : (local-.5f)*spec.sz()/16;
             float y=tube==Tube.FORK_LEG ? (local-.5f)*spec.sy()/16 : 0;
             for(int side=-1;side<=1;side+=2) {
@@ -65,12 +69,12 @@ public final class BikeDecorations {
                 pose.popPose();
             }
         }
-        if(!preview && name.equals("acc_flight_lens")) cone(pose,buffers,build.lightColor().rgb);
+        // Real block lighting and emissive lenses remain; no volume crossing water or other geometry.
     }
 
     public static Tube tube(String name) {
         if(name.startsWith("top_tube") || name.equals("top_front") || name.equals("top_rear") || name.equals("top_straight")) return Tube.TOP;
-        if(name.equals("down_tube")) return Tube.DOWN;
+        if(name.equals("down_tube") || name.equals("down_front") || name.equals("down_rear")) return Tube.DOWN;
         if(name.equals("seat_tube")) return Tube.SEAT;
         if(name.startsWith("seatstay_")) return Tube.SEAT_STAY;
         if(name.startsWith("chainstay_")) return Tube.CHAIN_STAY;
@@ -79,16 +83,5 @@ public final class BikeDecorations {
         return null;
     }
 
-    private static void cone(PoseStack pose,MultiBufferSource buffers,int rgb) {
-        var vc=buffers.getBuffer(RenderType.lightning());var p=pose.last();
-        int color=0x0C000000|rgb;
-        for(int i=0;i<8;i++) {
-            double a=i*Math.PI/4,b=(i+1)*Math.PI/4;
-            vc.addVertex(p,0,0,-.01f).setColor(color);
-            vc.addVertex(p,(float)Math.cos(a)*.35f,(float)Math.sin(a)*.22f,-2).setColor(0x02000000|rgb);
-            vc.addVertex(p,(float)Math.cos(b)*.35f,(float)Math.sin(b)*.22f,-2).setColor(0x02000000|rgb);
-            vc.addVertex(p,0,0,-.01f).setColor(color);
-        }
-    }
     private BikeDecorations() {}
 }

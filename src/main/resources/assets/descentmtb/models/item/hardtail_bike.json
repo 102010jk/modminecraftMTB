@@ -36,6 +36,42 @@
         "descentmtb:shape": 5
       },
       "model": "descentmtb:item/bike_dj_curved"
+    },
+    {
+      "predicate": {
+        "descentmtb:shape": 6
+      },
+      "model": "descentmtb:item/bike_santa_cruz_nomad"
+    },
+    {
+      "predicate": {
+        "descentmtb:shape": 7
+      },
+      "model": "descentmtb:item/bike_canyon_torque"
+    },
+    {
+      "predicate": {
+        "descentmtb:shape": 8
+      },
+      "model": "descentmtb:item/bike_cube_stereo_one77"
+    },
+    {
+      "predicate": {
+        "descentmtb:shape": 9
+      },
+      "model": "descentmtb:item/bike_commencal_meta_sx"
+    },
+    {
+      "predicate": {
+        "descentmtb:shape": 10
+      },
+      "model": "descentmtb:item/bike_yt_capra"
+    },
+    {
+      "predicate": {
+        "descentmtb:shape": 11
+      },
+      "model": "descentmtb:item/bike_specialized_stumpjumper"
     }
   ]
 }

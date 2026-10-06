@@ -10,7 +10,7 @@ def rotate(p,r):
  x,y=x*math.cos(rz)-y*math.sin(rz),x*math.sin(rz)+y*math.cos(rz)
  return x,y,z
 arrays=[]
-for full,code in [(True,'c'),(True,'h'),(True,'l'),(False,'c'),(False,'s'),(False,'v')]:
+for full,code in [(True,'c'),(True,'h'),(True,'l'),(False,'c'),(False,'s'),(False,'v')]+[(True,c) for c in 'ntumgj']:
  bones,cubes,size=tex.parse_java('src/main/java/com/descentmtb/client/model/'+('EnduroBikeModel' if full else 'HardtailBikeModel')+'.java')
  selected={c['base']:c for c in cubes if not c['codes'] or code in c['codes']}
  def point(c,positive,axis=2):
@@ -19,12 +19,15 @@ for full,code in [(True,'c'),(True,'h'),(True,'l'),(False,'c'),(False,'s'),(Fals
   while b!='root':
    spec=bones[b];p=[a+b for a,b in zip(rotate(p,spec['rot']),spec['pivot'])];b=spec['parent']
   return [-p[2]/16,-p[1]/16]
- topname='top_tube' if code not in ('l','s','v') else 'top_straight' if code=='s' else 'top_front'
- if code in ('l','v'):
+ topname='top_tube' if code not in 'lsvntumgj' else 'top_straight' if code=='s' else 'top_front'
+ if code in 'lvntumgj':
   points=[point(selected['top_rear'],True),point(selected['top_front'],True),point(selected['top_front'],False)]
  else:points=[point(selected[topname],True),point(selected[topname],False)]
  tubes=[points]
- for name in ['down_tube','seat_tube','seatstay_l','chainstay_l','head_tube','leg_up_l']:
+ if code in 'ntumgj':
+  tubes.append([point(selected['down_front'],False),point(selected['down_front'],True),point(selected['down_rear'],True)])
+ else:tubes.append([point(selected['down_tube'],False),point(selected['down_tube'],True)])
+ for name in ['seat_tube','seatstay_l','chainstay_l','head_tube','leg_up_l']:
   c=selected[name];tubes.append([point(c,False,1 if name=='leg_up_l' else 2),point(c,True,1 if name=='leg_up_l' else 2)])
  arrays.append(tubes)
  literal='{\n'+',\n'.join('        {'+', '.join('{'+', '.join('{'+','.join(f'{v:.6f}f' for v in point)+'}' for point in tube)+'}' for tube in shape)+'}' for shape in arrays)+'\n    }'
@@ -72,7 +75,8 @@ public final class StickerAnchors {
 '''.replace('TABLE',literal)
 path.write_text(source,encoding='utf-8')
 models=Path('src/main/resources/assets/descentmtb/models/item')
-shapes=['enduro_classic','enduro_high_pivot','enduro_low_slung','dj_classic','dj_straight','dj_curved']
+shapes=['enduro_classic','enduro_high_pivot','enduro_low_slung','dj_classic','dj_straight','dj_curved',
+        'santa_cruz_nomad','canyon_torque','cube_stereo_one77','commencal_meta_sx','yt_capra','specialized_stumpjumper']
 names=['outline','tyres','rims','frame','fork','cockpit']
 for shape in shapes:
  data={'parent':'minecraft:builtin/entity'}

@@ -187,7 +187,30 @@ public class EnduroBikeModel extends Model {
                                  int light, int overlay, com.descentmtb.custom.BikeBuild build) {
         var texture = com.descentmtb.client.custom.BikeTextures.base(com.descentmtb.entity.BikeType.ENDURO);
         var finish = com.descentmtb.client.custom.BikeTextures.finish(com.descentmtb.entity.BikeType.ENDURO, build.finish());
+        if(build.shape().ordinal()<6) { customRoot.render(pose,buffers,light,overlay,build,texture,finish);return; }
+        float[] eyes=switch(build.shape()) {
+            case SANTA_CRUZ_NOMAD -> new float[]{-7.2f,-.8f,-7.6f,3.4f};
+            case CANYON_TORQUE -> new float[]{-12.7f,-.2f,-9.5f,3.8f};
+            case CUBE_STEREO_ONE77 -> new float[]{-11.7f,-1.2f,-9.5f,3.8f};
+            case COMMENCAL_META_SX -> new float[]{-9.8f,-.7f,-7.8f,3.6f};
+            case YT_CAPRA -> new float[]{-12.4f,-.2f,-8.8f,3.7f};
+            default -> new float[]{-9.2f,-.5f,-12.6f,3.6f};
+        };
+        var bodyPose=shockBody.storePose();var shaftPose=shockShaft.storePose();
+        float bodyScale=shockBody.zScale,shaftScale=shockShaft.zScale,springScale=shockSpring.zScale;
+        float angle=swingarm.xRot,cy=(float)Math.cos(angle),sy=(float)Math.sin(angle);
+        float ay=eyes[2]-PIV_Y,az=eyes[3]-PIV_Z;
+        float eyeY=PIV_Y+ay*cy-az*sy,eyeZ=PIV_Z+ay*sy+az*cy;
+        float dy=eyeY-eyes[0],dz=eyeZ-eyes[1],len=(float)Math.hypot(dy,dz);
+        shockBody.y=eyes[0];shockBody.z=eyes[1];shockBody.xRot=(float)Math.atan2(-dy,dz);
+        shockShaft.y=ay;shockShaft.z=az;shockShaft.xRot=(float)Math.atan2(dy,-dz)-angle;
+        shockBody.zScale=shockShaft.zScale=len/SHOCK_LEN0;shockSpring.zScale=1;
+        try {
         customRoot.render(pose, buffers, light, overlay, build, texture, finish);
+        } finally {
+            shockBody.loadPose(bodyPose);shockShaft.loadPose(shaftPose);
+            shockBody.zScale=bodyScale;shockShaft.zScale=shaftScale;shockSpring.zScale=springScale;
+        }
     }
 
     public ModelPart root() {
@@ -203,7 +226,7 @@ public class EnduroBikeModel extends Model {
         cube(frame, "head_tube", "frame", 76, 24, 0.0f, -15.5319f, -4.5454f, 1.35f, 1.35f, 1.7f, 63.5f, 0.0f, 0.0f);
         cube(frame, "headset_lo", "black", 36, 56, 0.0f, -14.7712f, -4.9246f, 1.55f, 1.55f, 0.3f, 63.5f, 0.0f, 0.0f);
         cube(frame, "headset_hi", "accent", 41, 56, 0.0f, -16.2926f, -4.1661f, 1.55f, 1.55f, 0.3f, 63.5f, 0.0f, 0.0f);
-        cube(frame, "down_tube", "frame", 0, 0, 0.0f, -10.3199f, -0.8754f, 1.05f, 1.25f, 12.965f, -50.3224f, 0.0f, 0.0f);
+        cube(frame, "down_tube__chl", "frame", 0, 0, 0.0f, -10.3199f, -0.8754f, 1.05f, 1.25f, 12.965f, -50.3224f, 0.0f, 0.0f);
         cube(frame, "top_tube__ch", "frame", 30, 0, 0.0f, -14.2717f, 0.1775f, 0.8f, 0.95f, 10.0603f, -19.0112f, 0.0f, 0.0f);
         cube(frame, "seat_tube", "frame", 97, 0, 0.0f, -9.4895f, 3.9738f, 0.82f, 0.82f, 8.4f, 76.5f, 0.0f, 0.0f);
         cube(frame, "seat_collar", "black", 66, 56, 0.0f, -13.2817f, 4.8842f, 1.0f, 1.0f, 0.4f, 76.5f, 0.0f, 0.0f);
@@ -222,10 +245,10 @@ public class EnduroBikeModel extends Model {
         cube(frame, "pivot_boss__cl", "frame", 56, 46, 0.0f, -8.3f, 4.2f, 2.3f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f);
         cube(frame, "pivot_gusset__cl", "frame", 76, 42, 0.0f, -8.35f, 3.8f, 0.8f, 1.2f, 1.2f, 0.0f, 0.0f, 0.0f);
         cube(frame, "pivot_axle", "silver", 18, 62, 0.0f, -8.3f, 4.2f, 3.5f, 0.34f, 0.34f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "shock_mount_l", "frame", 12, 46, 0.5f, -11.3189f, -0.6f, 0.2f, 2.0621f, 0.6f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "shock_mount_r", "frame", 15, 46, -0.5f, -11.3189f, -0.6f, 0.2f, 2.0621f, 0.6f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "shock_mount_bolt", "silver", 41, 62, 0.0f, -12.0f, -0.6f, 1.3f, 0.28f, 0.28f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "shock_mount_web", "frame", 56, 56, 0.0f, -10.4379f, -0.6f, 1.0f, 0.5f, 0.6f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "shock_mount_l__chl", "frame", 12, 46, 0.5f, -11.3189f, -0.6f, 0.2f, 2.0621f, 0.6f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "shock_mount_r__chl", "frame", 15, 46, -0.5f, -11.3189f, -0.6f, 0.2f, 2.0621f, 0.6f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "shock_mount_bolt__chl", "silver", 41, 62, 0.0f, -12.0f, -0.6f, 1.3f, 0.28f, 0.28f, 0.0f, 0.0f, 0.0f);
+        cube(frame, "shock_mount_web__chl", "frame", 56, 56, 0.0f, -10.4379f, -0.6f, 1.0f, 0.5f, 0.6f, 0.0f, 0.0f, 0.0f);
         PartDefinition shock_body = bone(frame, "shock_body", 0.0f, -12.0f, -0.6f, 0.0f, 0.0f, 0.0f);
         cube(shock_body, "eye", "black", 74, 56, 0.0f, 0.0f, 0.0f, 0.82f, 0.55f, 0.55f, 0.0f, 0.0f, 0.0f);
         cube(shock_body, "body", "shockbody", 44, 30, 0.0f, 0.0f, 1.25f, 0.62f, 0.62f, 2.3f, 0.0f, 0.0f, 0.0f);
@@ -635,6 +658,67 @@ public class EnduroBikeModel extends Model {
         cube(fork_upper, "acc_flight_lens", "lens", 110, 128, 0.0000f, -2.3000f, -2.3200f, 0.6500f, 0.5000f, 0.0400f, 0.0000f, 0.0000f, 0.0000f);
         cube(frame, "acc_rlight_body", "lightbody", 113, 128, 0.0000f, -14.0000f, 5.0000f, 0.5500f, 0.7000f, 0.6500f, 0.0000f, 0.0000f, 0.0000f);
         cube(frame, "acc_rlight_lens", "lens", 117, 128, 0.0000f, -14.0000f, 5.3500f, 0.4000f, 0.5000f, 0.0400f, 0.0000f, 0.0000f, 0.0000f);
+
+
+        // BEGIN FRAME CATALOG
+        cube(frame, "top_front__n", "frame", 0, 160, 0.0000f, -14.6000f, -1.8850f, 0.8200f, 0.8200f, 5.2578f, -29.6368f, 0.0000f, 0.0000f);
+        cube(frame, "top_rear__n", "frame", 14, 160, 0.0000f, -13.3000f, 2.6414f, 0.8200f, 0.8200f, 4.4828f, -0.0000f, 0.0000f, 0.0000f);
+        cube(frame, "down_front__n", "frame", 26, 160, 0.0000f, -11.9550f, -2.0250f, 1.3000f, 1.3910f, 8.3980f, -53.0346f, 0.0000f, 0.0000f);
+        cube(frame, "down_rear__n", "frame", 47, 160, 0.0000f, -7.1000f, 1.7700f, 1.3000f, 1.3910f, 3.9309f, -49.7465f, 0.0000f, 0.0000f);
+        cube(frame, "brand_shock_mount_l1__n", "frame", 59, 160, -0.5500f, -7.2000f, -0.8000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(swingarm, "brand_arm_eye_l1__n", "frame", 63, 160, -0.5500f, 0.7000f, -0.8000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(frame, "brand_shock_mount_1__n", "frame", 67, 160, 0.5500f, -7.2000f, -0.8000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(swingarm, "brand_arm_eye_1__n", "frame", 71, 160, 0.5500f, 0.7000f, -0.8000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(frame, "lower_vpp_link__n", "frame", 75, 160, 0.0000f, -7.1500f, 3.4000f, 1.4000f, 0.4500f, 2.4839f, 49.8991f, 0.0000f, 0.0000f);
+        cube(frame, "shock_tunnel__n", "frame", 84, 160, 0.0000f, -7.4000f, 4.0000f, 1.7000f, 0.5500f, 1.5000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(frame, "top_front__t", "frame", 92, 160, 0.0000f, -15.3000f, -2.0850f, 1.0000f, 1.0000f, 4.3392f, -16.0542f, 0.0000f, 0.0000f);
+        cube(frame, "top_rear__t", "frame", 104, 160, 0.0000f, -14.1500f, 2.4774f, 1.0000f, 1.0000f, 5.0754f, -12.5171f, 0.0000f, 0.0000f);
+        cube(frame, "down_front__t", "frame", 0, 171, 0.0000f, -11.2550f, -1.6750f, 1.4500f, 1.5515f, 9.9416f, -54.6633f, 0.0000f, 0.0000f);
+        cube(frame, "down_rear__t", "frame", 24, 171, 0.0000f, -6.4000f, 2.1200f, 1.4500f, 1.5515f, 2.4384f, -41.0091f, 0.0000f, 0.0000f);
+        cube(frame, "brand_shock_mount_l1__t", "frame", 33, 171, -0.5500f, -12.7000f, -0.2000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(swingarm, "brand_arm_eye_l1__t", "frame", 37, 171, -0.5500f, -1.2000f, -0.4000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(frame, "brand_shock_mount_1__t", "frame", 41, 171, 0.5500f, -12.7000f, -0.2000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(swingarm, "brand_arm_eye_1__t", "frame", 45, 171, 0.5500f, -1.2000f, -0.4000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(frame, "alloy_head_gusset__t", "frame", 49, 171, 0.0000f, -14.8000f, -3.6000f, 1.2500f, 1.7000f, 1.5000f, -25.0000f, 0.0000f, 0.0000f);
+        cube(frame, "top_front__u", "frame", 56, 171, 0.0000f, -14.5000f, -1.8850f, 0.9500f, 0.9500f, 5.3596f, -31.4954f, 0.0000f, 0.0000f);
+        cube(frame, "top_rear__u", "frame", 70, 171, 0.0000f, -12.7500f, 2.5334f, 0.9500f, 0.9500f, 4.3238f, -9.3168f, 0.0000f, 0.0000f);
+        cube(frame, "down_front__u", "frame", 82, 171, 0.0000f, -11.8550f, -2.1750f, 1.5000f, 1.6050f, 8.3851f, -55.4950f, 0.0000f, 0.0000f);
+        cube(frame, "down_rear__u", "frame", 103, 171, 0.0000f, -7.0000f, 1.6200f, 1.5000f, 1.6050f, 3.9882f, -44.5937f, 0.0000f, 0.0000f);
+        cube(frame, "brand_shock_mount_l1__u", "frame", 115, 171, -0.5500f, -11.7000f, -1.2000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(swingarm, "brand_arm_eye_l1__u", "frame", 119, 171, -0.5500f, -1.2000f, -0.4000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(frame, "brand_shock_mount_1__u", "frame", 123, 171, 0.5500f, -11.7000f, -1.2000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(swingarm, "brand_arm_eye_1__u", "frame", 0, 184, 0.5500f, -1.2000f, -0.4000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(frame, "one77_rocker__u", "frame", 4, 184, 0.0000f, -9.9500f, 3.7000f, 1.4000f, 0.6000f, 2.6249f, -139.6355f, 0.0000f, 0.0000f);
+        cube(frame, "top_front__m", "frame", 14, 184, 0.0000f, -15.5500f, -1.9850f, 0.9000f, 0.9000f, 4.4257f, -9.1005f, 0.0000f, 0.0000f);
+        cube(frame, "top_rear__m", "frame", 26, 184, 0.0000f, -14.4000f, 2.5774f, 0.9000f, 0.9000f, 5.0168f, -18.5982f, 0.0000f, 0.0000f);
+        cube(frame, "down_front__m", "frame", 39, 184, 0.0000f, -12.6550f, -2.1750f, 1.1200f, 1.1984f, 7.1245f, -48.1861f, 0.0000f, 0.0000f);
+        cube(frame, "down_rear__m", "frame", 57, 184, 0.0000f, -7.8000f, 1.6200f, 1.1200f, 1.1984f, 5.2369f, -57.1596f, 0.0000f, 0.0000f);
+        cube(frame, "brand_shock_mount_l1__m", "frame", 71, 184, -0.5500f, -9.8000f, -0.7000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(swingarm, "brand_arm_eye_l1__m", "frame", 75, 184, -0.5500f, 0.5000f, -0.6000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(frame, "brand_shock_mount_1__m", "frame", 79, 184, 0.5500f, -9.8000f, -0.7000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(swingarm, "brand_arm_eye_1__m", "frame", 83, 184, 0.5500f, 0.5000f, -0.6000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(frame, "vcs_upper__m", "frame", 87, 184, 0.0000f, -9.7000f, 3.7500f, 1.4000f, 0.5000f, 1.8788f, -154.7989f, 0.0000f, 0.0000f);
+        cube(frame, "vcs_lower__m", "frame", 95, 184, 0.0000f, -6.8000f, 3.4000f, 1.3500f, 0.5000f, 1.3416f, 153.4349f, 0.0000f, 0.0000f);
+        cube(frame, "top_front__g", "frame", 102, 184, 0.0000f, -15.1500f, -2.0850f, 0.9000f, 0.9000f, 4.4316f, -19.7843f, 0.0000f, 0.0000f);
+        cube(frame, "top_rear__g", "frame", 114, 184, 0.0000f, -13.4500f, 2.3454f, 0.9000f, 0.9000f, 5.0610f, -22.0503f, 0.0000f, 0.0000f);
+        cube(frame, "down_front__g", "frame", 0, 194, 0.0000f, -11.7550f, -1.9750f, 1.4200f, 1.5194f, 8.7792f, -54.0830f, 0.0000f, 0.0000f);
+        cube(frame, "down_rear__g", "frame", 22, 194, 0.0000f, -6.9000f, 1.8200f, 1.4200f, 1.5194f, 3.5656f, -46.8183f, 0.0000f, 0.0000f);
+        cube(frame, "brand_shock_mount_l1__g", "frame", 33, 194, -0.5500f, -12.4000f, -0.2000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(swingarm, "brand_arm_eye_l1__g", "frame", 37, 194, -0.5500f, -0.5000f, -0.5000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(frame, "brand_shock_mount_1__g", "frame", 41, 194, 0.5500f, -12.4000f, -0.2000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(swingarm, "brand_arm_eye_1__g", "frame", 45, 194, 0.5500f, -0.5000f, -0.5000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(frame, "asymmetric_brace__g", "frame", 49, 194, -0.8000f, -10.3500f, 2.6454f, 0.5000f, 0.5500f, 5.9350f, -133.5718f, 0.0000f, 0.0000f);
+        cube(frame, "top_front__j", "frame", 63, 194, 0.0000f, -14.7000f, -1.6850f, 0.7200f, 0.7200f, 5.5191f, -25.7758f, 0.0000f, 0.0000f);
+        cube(frame, "top_rear__j", "frame", 77, 194, 0.0000f, -13.5500f, 2.8774f, 0.7200f, 0.7200f, 4.1560f, 1.3788f, 0.0000f, 0.0000f);
+        cube(frame, "down_front__j", "frame", 88, 194, 0.0000f, -12.4050f, -2.7750f, 1.1800f, 1.2626f, 6.8087f, -58.5744f, 0.0000f, 0.0000f);
+        cube(frame, "down_rear__j", "frame", 105, 194, 0.0000f, -7.5500f, 1.0200f, 1.1800f, 1.2626f, 5.6153f, -43.9899f, 0.0000f, 0.0000f);
+        cube(frame, "brand_shock_mount_l1__j", "frame", 120, 194, -0.5500f, -9.2000f, -0.5000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(swingarm, "brand_arm_eye_l1__j", "frame", 124, 194, -0.5500f, -4.3000f, -0.6000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(frame, "brand_shock_mount_1__j", "frame", 0, 206, 0.5500f, -9.2000f, -0.5000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(swingarm, "brand_arm_eye_1__j", "frame", 4, 206, 0.5500f, -4.3000f, -0.6000f, 0.3000f, 0.9000f, 0.9000f, 0.0000f, 0.0000f, 0.0000f);
+        cube(frame, "stumpy_rocker_l__j", "frame", 8, 206, -0.7000f, -11.2500f, 3.7000f, 0.3000f, 0.5500f, 2.9000f, -133.6028f, 0.0000f, 0.0000f);
+        cube(frame, "stumpy_rocker_r__j", "frame", 16, 206, 0.7000f, -11.2500f, 3.7000f, 0.3000f, 0.5500f, 2.9000f, -133.6028f, 0.0000f, 0.0000f);
+        // END FRAME CATALOG
         return LayerDefinition.create(mesh, 128, 256);
     }
 

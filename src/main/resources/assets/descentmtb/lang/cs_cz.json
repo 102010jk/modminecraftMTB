@@ -556,5 +556,11 @@
   "descentmtb.workshop.sticker.across": "Posun napříč povrchem trubky",
   "descentmtb.workshop.sticker.duplicate": "Duplikovat",
   "descentmtb.workshop.sticker.opposite": "Kopie na opačnou stranu",
-  "descentmtb.workshop.sticker.flip": "Zrcadlit obrázek"
+  "descentmtb.workshop.sticker.flip": "Zrcadlit obrázek",
+  "descentmtb.custom.shape.santa_cruz_nomad": "Santa Cruz Nomad",
+  "descentmtb.custom.shape.canyon_torque": "Canyon Torque AL",
+  "descentmtb.custom.shape.cube_stereo_one77": "Cube Stereo ONE77",
+  "descentmtb.custom.shape.commencal_meta_sx": "Commencal META SX V5",
+  "descentmtb.custom.shape.yt_capra": "YT Capra",
+  "descentmtb.custom.shape.specialized_stumpjumper": "Specialized Stumpjumper 15"
 }
