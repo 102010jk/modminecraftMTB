@@ -6,6 +6,7 @@ import com.descentmtb.custom.BikeParts.Bell;
 import com.descentmtb.custom.BikeParts.Brakes;
 import com.descentmtb.custom.BikeParts.Finish;
 import com.descentmtb.custom.BikeParts.Fork;
+import com.descentmtb.custom.BikeParts.HubType;
 import com.descentmtb.custom.BikeParts.FrameShape;
 import com.descentmtb.custom.BikeParts.LightColor;
 import com.descentmtb.custom.BikeParts.Shock;
@@ -37,7 +38,7 @@ public record BikeBuild(
         Anodized rims, Anodized hubs, TyreWall tyres,
         Bars bars, Soft grips, Soft saddle, Anodized pedals, Brakes brakes, Anodized brakeColor,
         Bell bell, boolean frontLight, boolean rearLight, LightColor lightColor,
-        List<Sticker> stickers, String name) {
+        List<Sticker> stickers, String name, HubType hub) {
 
     /** Source compatibility with existing stock builds and old integrations. */
     public BikeBuild(FrameShape shape,int frameColor,int accentColor,Finish finish,Fork fork,int forkLowerColor,Shock shock,
@@ -45,6 +46,19 @@ public record BikeBuild(
                      Anodized brakeColor,Bell bell,boolean frontLight,boolean rearLight,LightColor lightColor,List<Sticker> stickers) {
         this(shape,frameColor,accentColor,finish,fork,forkLowerColor,shock,rims,hubs,tyres,bars,grips,saddle,pedals,brakes,
                 brakeColor,bell,frontLight,rearLight,lightColor,stickers,"");
+    }
+
+    /** Source compatibility: builds made before the freehub choice existed (the DT Swiss ratchet is the default). */
+    public BikeBuild(FrameShape shape,int frameColor,int accentColor,Finish finish,Fork fork,int forkLowerColor,Shock shock,
+                     Anodized rims,Anodized hubs,TyreWall tyres,Bars bars,Soft grips,Soft saddle,Anodized pedals,Brakes brakes,
+                     Anodized brakeColor,Bell bell,boolean frontLight,boolean rearLight,LightColor lightColor,List<Sticker> stickers,String name) {
+        this(shape,frameColor,accentColor,finish,fork,forkLowerColor,shock,rims,hubs,tyres,bars,grips,saddle,pedals,brakes,
+                brakeColor,bell,frontLight,rearLight,lightColor,stickers,name,HubType.DT_SWISS_RATCHET);
+    }
+
+    /** The freehub is never null, even for a build assembled by hand. */
+    public BikeBuild {
+        if (hub == null) hub = HubType.DT_SWISS_RATCHET;
     }
 
     public static final int MAX_STICKERS = 24;
@@ -129,7 +143,7 @@ public record BikeBuild(
             Codec.STRING.optionalFieldOf("name", "").forGetter(BikeBuild::name)
     ).apply(i, (f, p, s, n) -> new BikeBuild(f.shape, f.frameColor, f.accentColor, f.finish, p.fork, p.forkLowerColor, p.shock,
             p.rims, p.hubs, p.tyres, p.bars, p.grips, p.saddle, p.pedals, p.brakes, p.brakeColor,
-            f.bell, f.frontLight, f.rearLight, f.lightColor, s, n)));
+            f.bell, f.frontLight, f.rearLight, f.lightColor, s, n, p.hub)));
 
     public static final StreamCodec<ByteBuf, BikeBuild> STREAM_CODEC = ByteBufCodecs.fromCodec(CODEC);
 
@@ -154,7 +168,8 @@ public record BikeBuild(
 
     /** Components half of the codec. */
     private record Parts(Fork fork, int forkLowerColor, Shock shock, Anodized rims, Anodized hubs, TyreWall tyres,
-                         Bars bars, Soft grips, Soft saddle, Anodized pedals, Brakes brakes, Anodized brakeColor) {
+                         Bars bars, Soft grips, Soft saddle, Anodized pedals, Brakes brakes, Anodized brakeColor,
+                         HubType hub) {
         static final Codec<Parts> CODEC = RecordCodecBuilder.create(i -> i.group(
                 enumCodec(Fork.class, Fork.FOX_38_FACTORY).fieldOf("fork").forGetter(Parts::fork),
                 Codec.INT.optionalFieldOf("fork_lower", 0x16171A).forGetter(Parts::forkLowerColor),
@@ -167,12 +182,13 @@ public record BikeBuild(
                 enumCodec(Soft.class, Soft.BLACK).optionalFieldOf("saddle", Soft.BLACK).forGetter(Parts::saddle),
                 enumCodec(Anodized.class, Anodized.BLACK).optionalFieldOf("pedals", Anodized.BLACK).forGetter(Parts::pedals),
                 enumCodec(Brakes.class, Brakes.SHIMANO_SAINT).optionalFieldOf("brakes", Brakes.SHIMANO_SAINT).forGetter(Parts::brakes),
-                enumCodec(Anodized.class, Anodized.BLACK).optionalFieldOf("brake_color", Anodized.BLACK).forGetter(Parts::brakeColor)
+                enumCodec(Anodized.class, Anodized.BLACK).optionalFieldOf("brake_color", Anodized.BLACK).forGetter(Parts::brakeColor),
+                enumCodec(HubType.class, HubType.DT_SWISS_RATCHET).optionalFieldOf("hub", HubType.DT_SWISS_RATCHET).forGetter(Parts::hub)
         ).apply(i, Parts::new));
 
         static Parts of(BikeBuild b) {
             return new Parts(b.fork, b.forkLowerColor, b.shock, b.rims, b.hubs, b.tyres, b.bars, b.grips, b.saddle,
-                    b.pedals, b.brakes, b.brakeColor);
+                    b.pedals, b.brakes, b.brakeColor, b.hub);
         }
     }
 
@@ -201,7 +217,7 @@ public record BikeBuild(
         }
         return new BikeBuild(s, frameColor & 0xFFFFFF, accentColor & 0xFFFFFF, finish, f, lower, shock,
                 rims, hubs, tyres, bars, grips, saddle, pedals, brakes, brakeColor,
-                bell, frontLight, rearLight, lightColor, List.copyOf(list), cleanText(name,48));
+                bell, frontLight, rearLight, lightColor, List.copyOf(list), cleanText(name,48), hub == null ? HubType.DT_SWISS_RATCHET : hub);
     }
 
     /** A cheap stable hash for caches (item icon, baked tints). */
@@ -220,14 +236,14 @@ public record BikeBuild(
         FrameShape shape; int frameColor, accentColor; Finish finish; Fork fork; int forkLowerColor; Shock shock;
         Anodized rims, hubs; TyreWall tyres; Bars bars; Soft grips, saddle; Anodized pedals; Brakes brakes;
         Anodized brakeColor; Bell bell; boolean frontLight, rearLight; LightColor lightColor; List<Sticker> stickers;
-        String name;
+        String name; HubType hub;
 
         Builder(BikeBuild b) {
             shape = b.shape; frameColor = b.frameColor; accentColor = b.accentColor; finish = b.finish; fork = b.fork;
             forkLowerColor = b.forkLowerColor; shock = b.shock; rims = b.rims; hubs = b.hubs; tyres = b.tyres; bars = b.bars;
             grips = b.grips; saddle = b.saddle; pedals = b.pedals; brakes = b.brakes; brakeColor = b.brakeColor; bell = b.bell;
             frontLight = b.frontLight; rearLight = b.rearLight; lightColor = b.lightColor; stickers = new ArrayList<>(b.stickers);
-            name=b.name;
+            name=b.name; hub=b.hub;
         }
 
         public Builder shape(FrameShape v) { shape = v; return this; }
@@ -240,6 +256,8 @@ public record BikeBuild(
         public Builder shock(Shock v) { shock = v; return this; }
         public Builder rims(Anodized v) { rims = v; return this; }
         public Builder hubs(Anodized v) { hubs = v; return this; }
+        /** The freehub body (what the freewheel sounds like). */
+        public Builder hub(HubType v) { hub = v == null ? HubType.DT_SWISS_RATCHET : v; return this; }
         public Builder tyres(TyreWall v) { tyres = v; return this; }
         public Builder bars(Bars v) { bars = v; return this; }
         public Builder grips(Soft v) { grips = v; return this; }
@@ -256,7 +274,7 @@ public record BikeBuild(
 
         public BikeBuild build() {
             return new BikeBuild(shape, frameColor, accentColor, finish, fork, forkLowerColor, shock, rims, hubs, tyres,
-                    bars, grips, saddle, pedals, brakes, brakeColor, bell, frontLight, rearLight, lightColor, List.copyOf(stickers),name);
+                    bars, grips, saddle, pedals, brakes, brakeColor, bell, frontLight, rearLight, lightColor, List.copyOf(stickers),name,hub);
         }
     }
 

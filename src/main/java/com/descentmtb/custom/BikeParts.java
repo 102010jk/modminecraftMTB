@@ -186,6 +186,44 @@ public final class BikeParts {
         }
     }
 
+    /**
+     * Freehub bodies. The pawls of a hub engage at {@code poe} points per wheel revolution (points of
+     * engagement) and every disengagement is a click: the freewheel sound is a click train at
+     * {@code poe x revolutions per second}. Sounds are recorded-style synthesised samples
+     * ({@code tools/gen_sounds.py}); {@code loopHz} is the click rate baked into the buzz loop of the hub, which the
+     * client pitches up and down around it.
+     */
+    public enum HubType {
+        INDUSTRY_NINE_HYDRA("Industry Nine Hydra", 690, "bike.hub.i9", 2000f),
+        DT_SWISS_RATCHET("DT Swiss Ratchet 54T", 54, "bike.hub.dt", 160f),
+        CHRIS_KING("Chris King ISO", 72, "bike.hub.ck", 215f),
+        HOPE_PRO("Hope Pro 4", 44, "bike.hub.hope", 130f),
+        ONYX_VESPER("Onyx Vesper (sprag clutch)", 0, "", 0f);
+
+        public final String displayName;
+        /** Points of engagement per revolution; 0 = a sprag clutch (engages everywhere, makes no sound). */
+        public final int poe;
+        /** Base id of the sound events: {@code <sound>.click} and {@code <sound>.buzz}; empty for the silent hub. */
+        public final String sound;
+        /** Click rate (per second) of the buzz loop sample at pitch 1. */
+        public final float loopHz;
+
+        HubType(String displayName, int poe, String sound, float loopHz) {
+            this.displayName = displayName;
+            this.poe = poe;
+            this.sound = sound;
+            this.loopHz = loopHz;
+        }
+
+        public boolean silent() {
+            return poe <= 0;
+        }
+
+        public String key() {
+            return "descentmtb.custom.hub." + name().toLowerCase(Locale.ROOT);
+        }
+    }
+
     public enum Bars {
         CARBON(0x26272B), BLACK_ALLOY(0x1E1F22), RAW_ALLOY(0xB9BEC4), GOLD(0xD9A93A), RED(0xC8312B), BLUE(0x2F6FD0);
 

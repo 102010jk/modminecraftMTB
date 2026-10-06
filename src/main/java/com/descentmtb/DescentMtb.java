@@ -29,6 +29,7 @@ public class DescentMtb {
         ModItems.register(modBus);
         ModEntities.register(modBus);
         ModBlocks.register(modBus);
+        com.descentmtb.registry.ModSounds.register(modBus);
         ModNetwork.register(modBus);
         com.descentmtb.custom.BikeLights.registerEvents();
         com.descentmtb.custom.BikeBells.registerEvents();

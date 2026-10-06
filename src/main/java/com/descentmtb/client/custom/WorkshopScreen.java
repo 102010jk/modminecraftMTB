@@ -23,6 +23,7 @@ import com.descentmtb.custom.BikeParts.Coating;
 import com.descentmtb.custom.BikeParts.Finish;
 import com.descentmtb.custom.BikeParts.Fork;
 import com.descentmtb.custom.BikeParts.FrameShape;
+import com.descentmtb.custom.BikeParts.HubType;
 import com.descentmtb.custom.BikeParts.LightColor;
 import com.descentmtb.custom.BikeParts.Shock;
 import com.descentmtb.custom.BikeParts.Soft;
@@ -93,6 +94,7 @@ public final class WorkshopScreen extends Screen {
     private BikeBuild saved;
     private final EditHistory<BikeBuild> history;
     private final BellPreview bells = new BellPreview();
+    private final HubPreview hubPreview = new HubPreview();
     private final Random random = new Random();
 
     // ---- screen state that survives a resize ----
@@ -334,6 +336,7 @@ public final class WorkshopScreen extends Screen {
                 b.shock(pick(List.of(Shock.values())));
             }
             b.rims(pick(List.of(Anodized.values()))).hubs(pick(List.of(Anodized.values()))).tyres(pick(List.of(TyreWall.values())));
+            b.hub(pick(List.of(HubType.values())));
             b.bars(pick(List.of(Bars.values()))).grips(pick(List.of(Soft.values()))).saddle(pick(List.of(Soft.values())));
             b.pedals(pick(List.of(Anodized.values()))).brakes(pick(List.of(Brakes.values())));
             b.brakeColor(pick(List.of(Anodized.values())));
@@ -391,6 +394,7 @@ public final class WorkshopScreen extends Screen {
             WorkshopNet.takeBike(stand);
         }
         bells.clear();
+        hubPreview.clear();
         minecraft.setScreen(null);
     }
 
@@ -402,12 +406,14 @@ public final class WorkshopScreen extends Screen {
     @Override
     public void removed() {
         bells.clear();
+        hubPreview.clear();
         super.removed();
     }
 
     @Override
     public void tick() {
         bells.tick();
+        hubPreview.tick();
         if(stickerRevision!=StickerAssets.revision) { stickerRevision=StickerAssets.revision;rebuild(); }
         if (savedFlash > 0) {
             savedFlash--;
@@ -602,6 +608,15 @@ public final class WorkshopScreen extends Screen {
         list.add(new Swatches(anodizedSwatches(b.rims(), a -> edit(bb -> bb.rims(a))), 16));
         list.add(new Header(t("section.hubs")));
         list.add(new Swatches(anodizedSwatches(b.hubs(), a -> edit(bb -> bb.hubs(a))), 16));
+        list.add(new Header(t("section.hub_type")));
+        List<Option> hubRows = new ArrayList<>();
+        for (HubType h : HubType.values()) {
+            Component sub = h.silent() ? t("hub.silent") : t("hub.poe", h.poe);
+            hubRows.add(new Option(Component.literal(h.displayName), sub, null, 0, -1, b.hub() == h, true, () -> edit(bb -> bb.hub(h))));
+        }
+        list.add(new Options(hubRows));
+        list.add(new Chips(List.of(new Chip(t("hub.test"), false, !b.hub().silent(), -1, () -> hubPreview.play(build().hub())))));
+        list.add(new Note(t("note.hub_sound"), DIM));
         list.add(new Header(t("section.tyres")));
         List<Chip> tyres = new ArrayList<>();
         for (TyreWall w : TyreWall.values()) {

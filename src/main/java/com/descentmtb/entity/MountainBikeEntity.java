@@ -197,8 +197,12 @@ public class MountainBikeEntity extends Entity {
         }
     }
 
+    /** The controls of the last {@link #driveLocal} (rider's client only; read by the sound controller: pedalling = silent freehub). */
+    public Controls lastControls = Controls.NONE;
+
     /** Rider's client: advance the physics one tick with this frame's controls. */
     public void driveLocal(Controls c) {
+        lastControls = c;
         if (!simulating) startSim();
         columns.newTick();
         sim.tick(c, 0.05);
