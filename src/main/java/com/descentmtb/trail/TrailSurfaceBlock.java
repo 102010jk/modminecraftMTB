@@ -30,5 +30,13 @@ public final class TrailSurfaceBlock extends RampBlock {
                 deck ? com.descentmtb.registry.ModBlocks.TRAIL_DECK.get() : com.descentmtb.registry.ModBlocks.TRAIL_DIRT.get()));
     }
 
+    @Override
+    protected boolean skipRendering(BlockState state, BlockState neighborState, net.minecraft.core.Direction face) {
+        if (neighborState.is(this)) {
+            return true;
+        }
+        return super.skipRendering(state, neighborState, face);
+    }
+
     @Override protected VoxelShape getCollisionShape(BlockState s, BlockGetter l, BlockPos p, CollisionContext c) { return getShape(s, l, p, c); }
 }

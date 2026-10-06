@@ -223,4 +223,20 @@ public class RampBlock extends BaseEntityBlock {
         }
         super.onRemove(s, level, pos, newState, moved);
     }
+
+    @Override
+    protected boolean skipRendering(BlockState state, BlockState neighborState, Direction face) {
+        if (neighborState.is(this)) {
+            if (state.getValue(FACING) == neighborState.getValue(FACING)
+                    && state.getValue(START).equals(neighborState.getValue(START))
+                    && state.getValue(END).equals(neighborState.getValue(END))
+                    && state.getValue(PROFILE) == neighborState.getValue(PROFILE)) {
+                Direction facing = state.getValue(FACING);
+                if (face == facing.getClockWise() || face == facing.getCounterClockWise()) {
+                    return true;
+                }
+            }
+        }
+        return super.skipRendering(state, neighborState, face);
+    }
 }

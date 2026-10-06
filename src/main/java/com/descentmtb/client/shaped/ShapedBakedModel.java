@@ -64,8 +64,8 @@ final class ShapedBakedModel implements IDynamicBakedModel {
     @Override
     public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand,
                                     ModelData data, @Nullable RenderType renderType) {
-        if (state == null || (side != null && side != Direction.DOWN)) {
-            return List.of();   // only the ramp's full bottom is cullable, see ShapedQuads.Built
+        if (state == null) {
+            return List.of();
         }
         ShapeKey shape = shapeOf(data);
         if (renderType != null && renderType != layer(shape.material())) {
@@ -81,7 +81,7 @@ final class ShapedBakedModel implements IDynamicBakedModel {
             built = ShapedQuads.build(state, shape, faces(shape.material()), overlayFaces(shape.overlay()));
             quadCache.put(key, built);
         }
-        return side == null ? built.unculled() : built.down();
+        return built.forSide(side);
     }
 
     /** Faces of the overlay material (1 = roots, drawn with oak log; 2 = rocks, drawn with stone), or null for none. */
