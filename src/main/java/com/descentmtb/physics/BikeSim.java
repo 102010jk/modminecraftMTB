@@ -92,6 +92,9 @@ public final class BikeSim {
     private final Terrain.RayHit collisionHit = new Terrain.RayHit();
 
     public boolean bailed;
+    /** Seconds left of the one-handed window after ringing the bell (left hand off the grip); see {@link OneHand}. */
+    public double oneHandTimer;
+    private double bellCooldown;
     /**
      * No rider: the bike just rolls, tumbles and settles (after a bail, or parked).
      * Rider forces, assists and bail detection are off; it lies down on its side at rest.
@@ -165,7 +168,7 @@ public final class BikeSim {
         this.steerAngle = 0;
         this.lean = 0;
         tricks.reset();
-        loopTimer = landAssistTimer = popMeter = airbagTimer = 0;
+        loopTimer = landAssistTimer = popMeter = airbagTimer = oneHandTimer = bellCooldown = 0;
         airPitchTravel = airYawTravel = airBudget = 0;
         maxWhip = maxTable = brake = 0;
         trickMask = 0;
@@ -206,6 +209,8 @@ public final class BikeSim {
         double landingTime = landAssistTimer;
         landAssistTimer = Math.max(0, landAssistTimer - h);
         airbagTimer = Math.max(0, airbagTimer - h);
+        oneHandTimer = Math.max(0, oneHandTimer - h);
+        bellCooldown = Math.max(0, bellCooldown - h);
         double g = p.gravity;
         double vFwd = vel.dot(fH);
         double speed = vel.length();
@@ -422,6 +427,11 @@ public final class BikeSim {
             load=Math.min(load,(p.bikeMass+p.riderMass)*p.gravity*.51);
         }
 
+        // one hand on the bars: a sudden hit from a step or obstacle on the ground (a landing from the air has its own rule)
+        if (oneHandTimer > 0 && !airborne && !riderless && w.hit.surface != Terrain.Surface.AIRBAG
+                && OneHand.bumpBails(cdot, c - travel, p.crashSpeed)) {
+            bail("rang the bell one-handed");
+        }
         w.contact = true;
         w.justLanded = !was;
         w.compression = cc;
@@ -950,6 +960,8 @@ public final class BikeSim {
                 bail("landed with the nose " + (int) Math.toDegrees(pitchErr) + "° off");
             } else if (p.riskReward && yawErr > p.riskYawLimit && !cushioned) {
                 bail("landed sideways (" + (int) Math.toDegrees(yawErr) + "°)");
+            } else if (oneHandTimer > 0 && OneHand.landingBails(airTime, impact, p.bailImpactSpeed) && !cushioned) {
+                bail("rang the bell one-handed");
             } else if (p.riskReward && tricks.unfinished() && !cushioned) {
                 bail("landed mid-" + tricks.trick.name().toLowerCase(java.util.Locale.ROOT));
             } else {
@@ -961,6 +973,17 @@ public final class BikeSim {
         events.add(new Event(Event.Type.LAND, impact,
                 String.format(java.util.Locale.ROOT, "air=%.2fs pitchErr=%.0f° yawErr=%.0f°", airTime,
                         Math.toDegrees(pitchErr), Math.toDegrees(yawErr))));
+    }
+
+    /**
+     * The rider rings the bell: the left hand leaves the grip for {@link OneHand#TIME} seconds. Returns whether
+     * the ring started (not while crashed, riderless or while the previous ring is still on).
+     */
+    public boolean ringBell() {
+        if (bailed || riderless || bellCooldown > 0) return false;
+        oneHandTimer = OneHand.TIME;
+        bellCooldown = OneHand.COOLDOWN;
+        return true;
     }
 
     private void bail(String reason) {

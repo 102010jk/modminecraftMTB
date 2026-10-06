@@ -16,6 +16,11 @@ import java.util.ArrayList;
 
 /** Records material metadata while baking, then binds it once to each baked model. */
 public final class PartTable {
+    /**
+     * 0..1: how much the rubber duck is squeezed (the hand presses it); set by the renderer for the bike it is
+     * about to draw, read while that bike's parts are drawn (render thread only).
+     */
+    public static float duckSqueeze;
     public record Spec(String name, String baseName, String shapeCodes, BikeMat material, float sx, float sy, float sz) {}
     private final Map<PartDefinition,String> paths = new IdentityHashMap<>();
     private final Map<String,Spec> specs = new HashMap<>();
@@ -55,6 +60,13 @@ public final class PartTable {
                            BikeBuild build, ResourceLocation texture, ResourceLocation finish) {
             if (!part.visible || spec != null && !visible(spec,build)) return;
             pose.pushPose();
+            if (spec != null && duckSqueeze > 0 && spec.name.startsWith("acc_duck_")) {
+                // squash the whole duck about its base, in the parent's space (model units are 1/16 m)
+                float s = 1f - 0.22f * duckSqueeze, w = 1f + 0.10f * duckSqueeze;
+                pose.translate(3.0f / 16f, -2.1f / 16f, -1.0f / 16f);
+                pose.scale(w, s, w);
+                pose.translate(-3.0f / 16f, 2.1f / 16f, 1.0f / 16f);
+            }
             part.translateAndRotate(pose);
             if (spec != null && !part.skipDraw) {
                 var vc = buffers.getBuffer(RenderType.entityCutoutNoCull(spec.material.frame() ? finish : texture));

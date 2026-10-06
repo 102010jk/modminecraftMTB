@@ -3,6 +3,7 @@ package com.descentmtb.entity;
 import com.descentmtb.network.BikeStatePayload;
 import com.descentmtb.physics.BikeParams;
 import com.descentmtb.physics.BikeSim;
+import com.descentmtb.physics.OneHand;
 import com.descentmtb.physics.V3;
 import com.descentmtb.trick.Trick;
 
@@ -21,6 +22,9 @@ public final class BikeRenderState {
     public double riderUp, riderFwd;
     public double brake;
     public boolean airborne, bailed;
+    /** The left hand is off the grip ringing the bell, and for how long (s) it has been. */
+    public boolean oneHand;
+    public double oneHandTime;
     public BikeType bikeType = BikeType.ENDURO;
     public Trick trick = Trick.NONE;
     public double trickAmount, trickProgress;
@@ -45,6 +49,8 @@ public final class BikeRenderState {
         brake = o.brake;
         airborne = o.airborne;
         bailed = o.bailed;
+        oneHand = o.oneHand;
+        oneHandTime = o.oneHandTime;
         bikeType = o.bikeType;
         trick = o.trick;
         trickAmount = o.trickAmount;
@@ -70,6 +76,8 @@ public final class BikeRenderState {
         brake = s.brake;
         airborne = s.airborne;
         bailed = s.bailed;
+        oneHand = s.oneHandTimer > 0;
+        oneHandTime = oneHand ? OneHand.TIME - s.oneHandTimer : 0;
         bikeType = s.bikeType;
         trick = s.tricks.trick;
         trickAmount = s.tricks.amount;
@@ -121,6 +129,8 @@ public final class BikeRenderState {
         brake = e.dBrake();
         airborne = air;
         bailed = e.dBailed();
+        oneHand = (e.entityDataFlags() & BikeStatePayload.ONE_HAND) != 0;
+        oneHandTime = oneHand ? (prev != null && prev.oneHand ? prev.oneHandTime + 0.05 : 0) : 0;
 
         // rider centre of mass from the frame pose
         double sy = Math.sin(yaw), cy = Math.cos(yaw), sp = Math.sin(pitch), cp = Math.cos(pitch);

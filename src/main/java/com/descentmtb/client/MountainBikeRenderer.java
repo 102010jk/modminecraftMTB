@@ -3,12 +3,14 @@ package com.descentmtb.client;
 import com.descentmtb.DescentMtb;
 import com.descentmtb.client.model.EnduroBikeModel;
 import com.descentmtb.client.model.HardtailBikeModel;
+import com.descentmtb.client.model.PartTable;
 import com.descentmtb.entity.BikeType;
 import com.descentmtb.trick.Trick;
 import com.descentmtb.trick.TrickAnimation;
 import com.descentmtb.entity.BikeRenderState;
 import com.descentmtb.entity.MountainBikeEntity;
 import com.descentmtb.physics.BikeParams;
+import com.descentmtb.physics.OneHand;
 import com.descentmtb.physics.V3;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
@@ -72,6 +74,9 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
         float spinF = (float) BikeRenderState.lerp(t, a.spinF, b.spinF);
         float spinR = (float) BikeRenderState.lerp(t, a.spinR, b.spinR);
         float crank = (float) BikeRenderState.lerp(t, a.crank, b.crank);
+        PartTable.duckSqueeze = b.oneHand
+                ? (float) OneHand.squeeze(a.oneHand ? BikeRenderState.lerp(t, a.oneHandTime, b.oneHandTime) : b.oneHandTime)
+                : 0f;
         if (bike.bikeType() == BikeType.HARDTAIL) {
             hardtail.setupPose(steer, compF, compR, spinF, spinR, crank);
             hardtail.setupBrake((float) BikeRenderState.lerp(t, a.brake, b.brake));
@@ -83,6 +88,7 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
             model.setupBrake((float) BikeRenderState.lerp(t, a.brake, b.brake));
             model.renderCustomized(pose, buffers, light, OverlayTexture.NO_OVERLAY, bike.build());
         }
+        PartTable.duckSqueeze = 0f;
         pose.popPose();
         super.render(bike, entityYaw, partialTick, pose, buffers, light);
     }

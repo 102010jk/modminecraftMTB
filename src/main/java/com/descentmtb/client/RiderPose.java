@@ -3,6 +3,7 @@ package com.descentmtb.client;
 import com.descentmtb.entity.BikeRenderState;
 import com.descentmtb.entity.MountainBikeEntity;
 import com.descentmtb.entity.BikeType;
+import com.descentmtb.physics.OneHand;
 import com.descentmtb.trick.Trick;
 import com.descentmtb.trick.TrickAnimation;
 import net.minecraft.client.Minecraft;
@@ -117,6 +118,15 @@ public final class RiderPose {
         Vector3f left = LEFT_GRIP.set(gx, gy, gz).add(GripGeometry.gripOffset(type, true, steer, GRIP_OFFSET));
         GripGeometry.intoRiderRollInPlace(right, riderLean, bikeLean);
         GripGeometry.intoRiderRollInPlace(left, riderLean, bikeLean);
+        // ringing the bell: the left hand leaves the grip for the bell on the left of the stem and comes back
+        if (b.oneHand && !bailed) {
+            float t = (float) (a.oneHand ? BikeRenderState.lerp(pt, a.oneHandTime, b.oneHandTime) : b.oneHandTime);
+            float reach = (float) OneHand.reach(t);
+            // the bell sits ~0.19 m left of the stem, a little above and behind the grip line
+            float bx = 3.4f, by = gy - 1.6f, bz = gz + 1.2f;
+            float press = (float) OneHand.squeeze(t) * 0.9f;       // thumb pressing down on it
+            left.set(left.x + (bx - left.x) * reach, left.y + (by + press - left.y) * reach, left.z + (bz - left.z) * reach);
+        }
         armTo(m.rightArm, -5f, shoulderY, sz, right.x, right.y, right.z);
         armTo(m.leftArm, 5f, shoulderY, sz, left.x, left.y, left.z);
 

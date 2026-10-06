@@ -26,7 +26,7 @@ public record BikeStatePayload(int entityId, double x, double y, double z, float
                                int epoch)
         implements CustomPacketPayload {
 
-    public static final byte AIRBORNE = 1, BAILED = 2, TELEPORT = 4, WALL_RIDE = 8;
+    public static final byte AIRBORNE = 1, BAILED = 2, TELEPORT = 4, WALL_RIDE = 8, ONE_HAND = 16;
 
     public static final Type<BikeStatePayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "bike_state"));

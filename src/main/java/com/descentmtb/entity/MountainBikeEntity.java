@@ -263,6 +263,7 @@ public class MountainBikeEntity extends Entity {
         if (pendingTeleport) flags |= BikeStatePayload.TELEPORT;
         pendingTeleport = false;
         if (sim.wallRide) flags |= BikeStatePayload.WALL_RIDE;
+        if (sim.oneHandTimer > 0) flags |= BikeStatePayload.ONE_HAND;
         return new BikeStatePayload(getId(), sim.pos.x, sim.pos.y, sim.pos.z, (float) sim.yaw, (float) sim.pitch,
                 (float) sim.lean, (float) sim.steerAngle, (float) sim.front.compression, (float) sim.rear.compression,
                 (float) sim.riderUp, (float) sim.riderFwd, (float) sim.crankAngle, flags,

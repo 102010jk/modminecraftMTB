@@ -29,7 +29,8 @@ class BikeStateLimitsTest {
 
     @Test
     void masksFlagsToDefinedStateBits() {
-        assertEquals(BikeStatePayload.AIRBORNE | BikeStatePayload.BAILED | BikeStatePayload.WALL_RIDE,
+        assertEquals(BikeStatePayload.AIRBORNE | BikeStatePayload.BAILED | BikeStatePayload.WALL_RIDE
+                | BikeStatePayload.ONE_HAND,
                 BikeStateLimits.maskFlags((byte) 0xFF));
         assertEquals(0, BikeStateLimits.maskFlags(BikeStatePayload.TELEPORT), "TELEPORT is a request, never stored");
         assertEquals(BikeStatePayload.BAILED, BikeStateLimits.maskFlags(BikeStatePayload.BAILED));

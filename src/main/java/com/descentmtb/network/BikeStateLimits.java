@@ -11,7 +11,8 @@ public final class BikeStateLimits {
     public static final float COMPRESSION_MAX = 0.3f;
     public static final float RIDER_MAX = 1f;
     /** Bits of {@link BikeStatePayload}'s flags that are stored; TELEPORT is a request, never state. */
-    public static final byte FLAG_MASK = BikeStatePayload.AIRBORNE | BikeStatePayload.BAILED | BikeStatePayload.WALL_RIDE;
+    public static final byte FLAG_MASK = BikeStatePayload.AIRBORNE | BikeStatePayload.BAILED | BikeStatePayload.WALL_RIDE
+            | BikeStatePayload.ONE_HAND;
     /** The crank angle only grows; it is folded back by a whole number of turns this large (invisible, see below). */
     public static final double CRANK_PERIOD = Math.PI * 2 * 1024;
     /** Largest speed (m/s) trusted when a bailed bike is handed to the server's riderless simulation. */
