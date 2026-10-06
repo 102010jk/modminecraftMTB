@@ -64,7 +64,7 @@ public class HardtailBikeModel extends Model {
     public static final Vector3f GRIP_LEFT = new Vector3f(0.3144f, 0.9997f, -0.2735f);
     public static final Vector3f GRIP_RIGHT = new Vector3f(-0.3144f, 0.9997f, -0.2735f);
     /** Top of the (slammed) saddle where the rider sits. */
-    public static final Vector3f SADDLE_TOP = new Vector3f(0.0f, 0.625f, 0.2925f);
+    public static final Vector3f SADDLE_TOP = new Vector3f(0.0f, 0.6663f, 0.2536f);
     /** Bottom bracket / crank axis. */
     public static final Vector3f PEDAL_AXIS = new Vector3f(0.0f, BB_HEIGHT_M, 0.1406f);
 
@@ -201,14 +201,17 @@ public class HardtailBikeModel extends Model {
         cube(frame, "down_tube", "frame", 0, 0, 0.0f, -8.6768f, -1.4283f, 1.1f, 1.1f, 10.4584f, -45.298f, 0.0f, 0.0f);
         cube(frame, "seat_tube", "frame", 47, 0, 0.0f, -6.98f, 2.985f, 0.85f, 0.85f, 4.31f, 70.0f, 0.0f, 0.0f);
         cube(frame, "seat_collar", "black", 35, 55, 0.0f, -9.0750f, 3.7557f, 1.05f, 1.05f, 0.3725f, 70.0f, 0.0f, 0.0f);
-        cube(frame, "seatpost", "silver", 39, 55, 0.0f, -8.9081f, 3.6950f, 0.52f, 0.52f, 0.915f, 70.0f, 0.0f, 0.0f);
-        cube(frame, "saddle_nose", "saddle", 96, 36, 0.0f, -9.8200f, 3.1800f, 0.78f, 0.36f, 1.1f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "saddle_mid", "saddle", 89, 36, 0.0f, -9.7800f, 4.1600f, 1.28f, 0.44f, 1.1f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "saddle_rear", "saddle", 36, 31, 0.0f, -9.7600f, 5.1900f, 1.8f, 0.44f, 1.2f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "saddle_under", "saddle", 66, 13, 0.0f, -9.5200f, 4.2300f, 1.08f, 0.16f, 2.5f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "saddle_rail_l", "silver", 117, 26, 0.36f, -9.3800f, 4.3800f, 0.1f, 0.12f, 1.8f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "saddle_rail_r", "silver", 0, 31, -0.36f, -9.3800f, 4.3800f, 0.1f, 0.12f, 1.8f, 0.0f, 0.0f, 0.0f);
-        cube(frame, "saddle_clamp", "black", 5, 40, 0.0f, -9.3380f, 3.8515f, 0.9f, 0.3f, 0.85f, 0.0f, 0.0f, 0.0f);
+        // Low DJ post, with a distinct exposed neck and an inserted lower end on the seat-tube axis.
+        cube(frame, "seatpost", "silver", 0, 160, 0.0f, -9.0682f, 3.7452f, 0.52f, 0.52f, 1.6f, 70.0f, 0.0f, 0.0f);
+        // One tilted assembly keeps the clamp, rails and shell attached in every frame variant.
+        PartDefinition saddle = bone(frame, "saddle", 0.0f, -9.82f, 4.0188f, -6.0f, 0.0f, 0.0f);
+        cube(saddle, "saddle_clamp", "black", 16, 160, 0.0f, 0.0f, 0.0f, 0.8f, 0.32f, 0.65f, 0.0f, 0.0f, 0.0f);
+        cube(saddle, "saddle_rail_l", "silver", 32, 160, 0.33f, -0.21f, 0.05f, 0.1f, 0.14f, 1.9f, 0.0f, 0.0f, 0.0f);
+        cube(saddle, "saddle_rail_r", "silver", 48, 160, -0.33f, -0.21f, 0.05f, 0.1f, 0.14f, 1.9f, 0.0f, 0.0f, 0.0f);
+        cube(saddle, "saddle_under", "saddle", 64, 160, 0.0f, -0.35f, 0.0f, 0.95f, 0.14f, 2.45f, 0.0f, 0.0f, 0.0f);
+        cube(saddle, "saddle_nose", "saddle", 80, 160, 0.0f, -0.53f, -1.1f, 0.68f, 0.36f, 1.25f, 0.0f, 0.0f, 0.0f);
+        cube(saddle, "saddle_mid", "saddle", 96, 160, 0.0f, -0.62f, -0.05f, 1.28f, 0.44f, 1.1f, 0.0f, 0.0f, 0.0f);
+        cube(saddle, "saddle_rear", "saddle", 112, 160, 0.0f, -0.56f, 0.98f, 1.8f, 0.35f, 1.18f, 0.0f, 0.0f, 0.0f);
         cube(frame, "bb_shell", "frame", 84, 31, 0.0f, -4.96f, 2.25f, 1.5f, 1.1f, 1.1f, 0.0f, 0.0f, 0.0f);
         cube(frame, "bb_cup_l", "silver", 99, 55, 0.82f, -4.96f, 2.25f, 0.2f, 0.8f, 0.8f, 0.0f, 0.0f, 0.0f);
         cube(frame, "bb_cup_r", "silver", 102, 55, -0.82f, -4.96f, 2.25f, 0.2f, 0.8f, 0.8f, 0.0f, 0.0f, 0.0f);

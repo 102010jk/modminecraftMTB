@@ -71,6 +71,8 @@ public final class AudioClient {
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> tick());
     }
     public static double musicVolume() { return ClientConfig.SPEC.isLoaded() ? ClientConfig.MUSIC_VOLUME.get() : .8; }
+    public static double musicGain() { return ClientConfig.SPEC.isLoaded() ? ClientConfig.MUSIC_GAIN.get() : 3; }
+    public static float personalVolume() { return personalVolume; }
     public static boolean wearing() { return MC.player != null && BoomboxServer.isHeadphones(MC.player.getItemBySlot(EquipmentSlot.HEAD)); }
     public static float worldVolume() { return personal && DesktopCapture.active() && wearing() ? (float)(ClientConfig.SPEC.isLoaded() ? ClientConfig.HEADPHONE_WORLD_VOLUME.get() : .25) : 1; }
     public static BoomboxState stateOf(Emitter e) { return states.get(e); }

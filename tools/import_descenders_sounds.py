@@ -362,6 +362,8 @@ def sounds_json():
             item['subtitle'] = 'descentmtb.subtitle.' + sub
         item['sounds'] = entries
         data[eid] = item
+    # Live PCM replaces this placeholder via DeviceSound.getStream. Do not inherit wind's 45% gain.
+    data['audio.live'] = {'sounds': [{'name': 'descentmtb:ride/wind', 'volume': 1.0, 'stream': True}]}
     return data
 
 

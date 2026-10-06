@@ -45,7 +45,7 @@ public final class ClientConfig {
     public static final ModConfigSpec.BooleanValue SCREAM_SOUND, WIND_SOUND, HUB_SOUND;
     public static final ModConfigSpec.EnumValue<RiderVoice> RIDER_VOICE;
 
-    public static final ModConfigSpec.DoubleValue MUSIC_VOLUME, HEADPHONE_WORLD_VOLUME;
+    public static final ModConfigSpec.DoubleValue MUSIC_VOLUME, MUSIC_GAIN, HEADPHONE_WORLD_VOLUME;
     public static final ModConfigSpec.BooleanValue MUD_EFFECTS, ROOST_PARTICLES, SPEED_LINES;
     public static final ModConfigSpec.DoubleValue ROOST_DENSITY, SPEED_LINE_STRENGTH, SPEED_FOV_STRENGTH;
     static {
@@ -119,6 +119,7 @@ public final class ClientConfig {
         b.pop();
         b.push("audioDevices");
         MUSIC_VOLUME = number(b,"musicVolume","Local boombox and headphone music volume.",.8,0,1);
+        MUSIC_GAIN = number(b,"musicGain","PCM amplification for boombox/headphones before the soft limiter; 1 = original signal, 3 = louder default. Minecraft master volume still applies.",3,0,8);
         HEADPHONE_WORLD_VOLUME = number(b,"headphoneWorldVolume","World sound level while listening through worn headphones.",.25,0,1);
         b.pop();
         b.push("immersion");

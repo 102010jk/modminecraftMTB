@@ -38,7 +38,9 @@ public final class MapTexture {
                 dot(image,point(p[p.length-3]/10.0,b.minX,b.span),point(p[p.length-1]/10.0,b.minZ,b.span),0xffcf5745);
             }
         }
-        ResourceLocation id=Minecraft.getInstance().getTextureManager().register("descentmtb-trail-map",new DynamicTexture(image));CACHE.put(data,id);
+        DynamicTexture texture=new DynamicTexture(image);
+        texture.setFilter(false,false);
+        ResourceLocation id=Minecraft.getInstance().getTextureManager().register("descentmtb-trail-map",texture);CACHE.put(data,id);
         while(CACHE.size()>32){var first=CACHE.entrySet().iterator();var entry=first.next();Minecraft.getInstance().getTextureManager().release(entry.getValue());first.remove();}
         return id;
     }

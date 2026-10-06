@@ -1421,7 +1421,7 @@
     "sounds": [
       {
         "name": "descentmtb:ride/wind",
-        "volume": 0.45,
+        "volume": 1.0,
         "stream": true
       }
     ]

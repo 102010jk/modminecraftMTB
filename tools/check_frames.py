@@ -164,7 +164,7 @@ def analyse(full, code):
             P["shock_spring"]["zs"] = max(0.2, (ln - 2 * K["SPRING_PAD"]) / (K["SHOCK_LEN0"] - 2 * K["SPRING_PAD"]))
     W = world(bones, P)
 
-    structural = {"frame", "swingarm", "shock_body", "shock_shaft", "catalog_upper", "catalog_lower", "catalog_stays"} if full else {"frame"}
+    structural = {"frame", "swingarm", "shock_body", "shock_shaft", "catalog_upper", "catalog_lower", "catalog_stays"} if full else {"frame", "saddle"}
     boxes = [Box(c, W) for c in vis]
     by = {b.name: b for b in boxes}
     base = {}
@@ -357,7 +357,7 @@ def render(full, code, boxes):
     img = Image.new("RGB", (900, 640), (236, 238, 242))
     d = ImageDraw.Draw(img)
     cols = {"frame": (16, 94, 100), "black": (40, 40, 44), "silver": (170, 175, 180), "saddle": (30, 30, 30)}
-    keep = [b for b in boxes if b.bone in (("frame", "swingarm", "shock_body", "shock_shaft", "catalog_upper", "catalog_lower", "catalog_stays") if full else ("frame",))
+    keep = [b for b in boxes if b.bone in (("frame", "swingarm", "shock_body", "shock_shaft", "catalog_upper", "catalog_lower", "catalog_stays") if full else ("frame", "saddle"))
             and not b.base.startswith(("acc_", "chain_"))]
     keep.sort(key=lambda b: b.c[0])
     for b in keep:

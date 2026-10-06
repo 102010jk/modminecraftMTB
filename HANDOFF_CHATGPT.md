@@ -1,8 +1,8 @@
 # Předání pro ChatGPT – Descent MTB (stav 2026-10-06)
 
-## Aktuální stav po milníku 16
+## Aktuální stav po milníku 17
 
-Aktuální JAR: `dist/descentmtb-milestone-16-shaped-terrain.jar`; `dist/descentmtb-latest.jar` je jeho shodná kopie. Milník 16 vrací chybějící plochy plných vrstev trati a porovnává skutečný tvar sousedů při skrývání stěn (`docs/milestone-16-shaped-terrain.md`). Milník 15 opravuje sekundové audio buffery vycpané tichem: krátké bloky, prefill a stereo sluchátka (`docs/milestone-15-live-audio.md`). Milník 14 nahrazuje společnou zadní stavbu značkových rámů propojenými členy a opravuje kompaktní dirtové sedlo (`docs/milestone-14-frame-linkages.md`). Všechny tři změny jsou v aktuálním JARu; runtime nebyl ověřen.
+Aktuální JAR: `dist/descentmtb-milestone-17-audio-seat-map.jar`; `dist/descentmtb-latest.jar` je jeho shodná kopie. Milník 17 zesiluje skutečný PCM signál audia (`audioDevices.musicGain`, default 3, volba zařízení do 200 %), odstraňuje další útlum placeholderu a dvojitý blur mapy/audio GUI, kreslí trail mapu v rámečku jako vanilla mapu a znovu staví nízké hardtail sedlo s uchycením (`docs/milestone-17-audio-seat-map.md`). Milník 16 vrací chybějící plochy plných vrstev trati a porovnává skutečný tvar sousedů při skrývání stěn (`docs/milestone-16-shaped-terrain.md`). Milník 15 opravuje sekundové audio buffery vycpané tichem: krátké bloky, prefill a stereo sluchátka (`docs/milestone-15-live-audio.md`). Milník 14 nahrazuje společnou zadní stavbu značkových rámů propojenými členy a opravuje kompaktní dirtové sedlo (`docs/milestone-14-frame-linkages.md`). Všechny tyto změny jsou v aktuálním JARu; runtime nebyl ověřen.
 
 Opravný milník 13 odstranil duplicitně přibalenou JNA platform knihovnu, která blokovala ModLauncher. Oprava je obsažená i v milníku 14; detaily: `docs/milestone-13-launch-fix.md`. Milníky 10–12 dokončují audio zařízení, GPS mapy/cedule/rámečky a bláto, trhací fólie, roost částice, speed lines a nastavitelné FOV. Ovládání a technická omezení: `docs/milestones-10-12.md`.
 

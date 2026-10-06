@@ -27,7 +27,7 @@ public record BoomboxState(Emitter emitter, boolean active, UUID owner, String o
         String n = ownerName.length() > 32 ? ownerName.substring(0, 32) : ownerName;
         String l = label.length() > 64 ? label.substring(0, 64) : label;
         int r = Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, radius));
-        float v = Float.isFinite(volume) ? Math.max(0, Math.min(1, volume)) : 1;
+        float v = Float.isFinite(volume) ? Math.max(0, Math.min(2, volume)) : 1;
         return new BoomboxState(emitter, active, owner, n, mode, mode == Mode.DISC ? disc : Optional.empty(), r, v, l);
     }
 

@@ -27,12 +27,17 @@ public final class TrailMapScreen extends Screen {
         int x=left+size+12;
         int rows=Math.max(1,(size-20)/13),first=Math.max(0,selected-rows+1);
         for(int i=first;i<Math.min(data.routes().size(),first+rows);i++){var r=data.routes().get(i);g.drawString(font,(i==selected?"> ":"  ")+font.plainSubstrByWidth(r.name().isBlank()?"Trail "+(i+1):r.name(),155),x,top+6+(i-first)*13,i==selected?0xffefba64:0xffd7dedb,false);}
-        if(data.routes().isEmpty()){g.drawCenteredString(font,Component.translatable("descentmtb.map.empty"),left+size/2,top+size/2,0xff443b2d);}
+        if(data.routes().isEmpty()){
+            var lines=font.split(Component.translatable("descentmtb.map.empty"),size-24);
+            int y=top+(size-lines.size()*font.lineHeight)/2;
+            for(var line:lines){g.drawString(font,line,left+(size-font.width(line))/2,y,0xff443b2d,false);y+=font.lineHeight;}
+        }
         else {var route=data.routes().get(Math.min(selected,data.routes().size()-1));var stats=route.track().stats();
             g.drawString(font,String.format(java.util.Locale.ROOT,"%.0f m   ↑ %.0f m   ↓ %.0f m",stats.length(),stats.ascent(),stats.descent()),left,top+size+7,0xffd7dedb,false);
             g.drawString(font,route.dimension().toString(),x,top+size-12,0xff8faba7,false);profile(g,route.track(),left,top+size+23,size,25);
         }
-        super.render(g,mouseX,mouseY,partialTick);
+        // Screen.render would blur the background a second time, including the finished map.
+        for(var widget:renderables)widget.render(g,mouseX,mouseY,partialTick);
     }
     private static void profile(GuiGraphics g,TrailTrack track,int x,int y,int width,int height){
         int[] p=track.pts();int low=Integer.MAX_VALUE,high=Integer.MIN_VALUE;for(int i=1;i<p.length;i+=3){low=Math.min(low,p[i]);high=Math.max(high,p[i]);}
