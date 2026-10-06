@@ -72,9 +72,10 @@ final class DevJumpTests {
             check(JumpBuilder.build(p, tool, start, Direction.EAST, stepUp), "jump: the 4 m step-up is built");
             assertProfile(l, JumpBuilder.layout(start, Direction.EAST, stepUp), "step-up");
             int platform = ox + 25 + stepUp.length() + JumpProfiles.STEP_UP_FACE;
-            for (int by = y; by <= y + 3; by++) {
-                check(l.getBlockEntity(new BlockPos(platform, by, oz + 8)) instanceof TrailSurfaceEntity,
-                        "jump: the platform is a full stack of shaped blocks at y+" + (by - y));
+            check(l.getBlockEntity(new BlockPos(platform, y + 3, oz + 8)) instanceof TrailSurfaceEntity top
+                    && java.util.Arrays.equals(top.corners(), new double[]{1, 1, 1, 1}), "jump: the platform's surface is the shaped block at y+3");
+            for (int by = y; by <= y + 2; by++) {
+                check(!l.getBlockState(new BlockPos(platform, by, oz + 8)).isAir(), "jump: the platform is filled solid below at y+" + (by - y));
             }
             TrailEdit.undo(l, p);
             check(surfaceBlocks(l, ox, oz, y) == 0, "jump: the step-up is undone");
@@ -108,9 +109,20 @@ final class DevJumpTests {
         int columns = 0;
         for (int bx = box[0]; bx <= box[2]; bx++) {
             for (int bz = box[1]; bz <= box[3]; bz++) {
-                ColumnEditor.Column column = ColumnEditor.read(l, bx, bz, layout.y() + 1);
+                // read at the layer that holds the lowest corner: below a surface higher than one block there is
+                // plain dirt fill (like under every SurfacePlans surface), which a read at the start height would find
+                double lowest = Double.MAX_VALUE;
+                for (int i = 0; i < 4; i++) {
+                    lowest = Math.min(lowest, layout.height(bx + i % 2, bz + i / 2));
+                }
+                int surfaceY = (int) Math.floor(lowest + 1e-6);
+                ColumnEditor.Column column = ColumnEditor.read(l, bx, bz, surfaceY);
                 if (column == null) {
                     throw new IllegalStateException(name + ": nothing to stand on at " + bx + "," + bz);
+                }
+                int top = (int) Math.ceil(Math.max(Math.max(column.abs()[0], column.abs()[1]), Math.max(column.abs()[2], column.abs()[3])) - 1e-6) - 1;
+                if (!(l.getBlockEntity(new BlockPos(bx, top, bz)) instanceof TrailSurfaceEntity)) {
+                    throw new IllegalStateException(name + ": the surface of " + bx + "," + bz + " is not a shaped block");
                 }
                 for (int i = 0; i < 4; i++) {
                     double expected = layout.height(bx + i % 2, bz + i / 2);

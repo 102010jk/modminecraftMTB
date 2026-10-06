@@ -146,7 +146,9 @@ final class DevBlockEditorTests {
         assertCorners(l, ex + 2, y, cz, .875, .875, 1.25, 1);
         new CursorSettings(CornerEdits.Pick.WHOLE, CornerEdits.Step.SIXTEENTH).store(tool);
         click(p, ex + 4, y, cz, .05, .05, false);
-        assertCorners(l, ex + 4, y, cz, 1 + SIXTEENTH, 1 + SIXTEENTH, 1 + SIXTEENTH, 1 + SIXTEENTH);
+        // above the block boundary the surface moves to the layer above, on a full block (like the Whole block mode)
+        assertCorners(l, ex + 4, y + 1, cz, SIXTEENTH, SIXTEENTH, SIXTEENTH, SIXTEENTH);
+        assertCorners(l, ex + 4, y, cz, 1, 1, 1, 1);
         check(CursorSettings.read(tool).pick() == CornerEdits.Pick.WHOLE, "cursor: the sub-type is kept in the tool");
     }
 
