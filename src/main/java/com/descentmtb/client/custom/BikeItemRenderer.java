@@ -15,7 +15,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 
-/** Actual assembled bike in the inventory, including all components and decals. */
+/** Actual assembled bike in the inventory, including all components and decals; the motorbikes with their own model and paint. */
 @EventBusSubscriber(modid="descentmtb",bus=EventBusSubscriber.Bus.MOD,value=Dist.CLIENT)
 public final class BikeItemRenderer extends BlockEntityWithoutLevelRenderer {
     private BikeItemRenderer() { super(Minecraft.getInstance().getBlockEntityRenderDispatcher(),Minecraft.getInstance().getEntityModels()); }
@@ -26,13 +26,22 @@ public final class BikeItemRenderer extends BlockEntityWithoutLevelRenderer {
                 if(renderer==null) renderer=new BikeItemRenderer();
                 return renderer;
             }
-        },ModItems.MOUNTAIN_BIKE.get(),ModItems.HARDTAIL_BIKE.get());
+        },ModItems.MOUNTAIN_BIKE.get(),ModItems.HARDTAIL_BIKE.get(),ModItems.DIRT_BIKE.get(),ModItems.PIT_BIKE.get());
     }
     @Override public void renderByItem(ItemStack stack,ItemDisplayContext context,PoseStack pose,MultiBufferSource buffers,int light,int overlay) {
         if(!(stack.getItem() instanceof MountainBikeItem item)) return;
         pose.pushPose();
         pose.translate(.5,.22,.5);
         pose.mulPose(Axis.YP.rotationDegrees(context==ItemDisplayContext.GUI ? -90 : -60));
+        if(item.bikeType().motor()) {
+            // same framing as the bicycles (ground line, side view facing right, ~0.7 block long); the models are
+            // longer / shorter than a bicycle, so a per-type scale. -x,-y = the in-world 180 degree flip (no mirror).
+            float k=item.bikeType()==com.descentmtb.entity.BikeType.PIT_BIKE ? .5f : .36f;
+            pose.scale(-k,-k,k);
+            BikeBuildRenderer.renderMoto(item.bikeType(),MountainBikeItem.motoOf(stack),pose,buffers,light);
+            pose.popPose();
+            return;
+        }
         pose.scale(.43f,-.43f,.43f);
         float oldMud=com.descentmtb.client.model.PartTable.mudLevel;
         com.descentmtb.client.model.PartTable.mudLevel=(!com.descentmtb.client.ClientConfig.SPEC.isLoaded() || com.descentmtb.client.ClientConfig.MUD_EFFECTS.get())
