@@ -44,7 +44,7 @@ public final class BarrierPostRenderer implements BlockEntityRenderer<BarrierPos
      * Everything about one tape that does not change with the light: the sagging centre line, the ribbon offsets,
      * the strip normals and the texture coordinates along the tape.
      */
-    private record Tape(BlockPos to, double[][] centre, double[][] offset, float[][] normal, float[] u) {}
+    private record Tape(BlockPos to, boolean owned, double[][] centre, double[][] offset, float[][] normal, float[] u) {}
 
     /** The tapes of one post and the box around them, valid while the post's links stay the same. */
     private record Shape(List<BlockPos> links, List<Tape> tapes, AABB box) {}
@@ -68,9 +68,9 @@ public final class BarrierPostRenderer implements BlockEntityRenderer<BarrierPos
         AABB box = new AABB(from).expandTowards(0, 1, 0);
         for (BlockPos to : links) {
             box = box.minmax(new AABB(to).expandTowards(0, 1, 0));
-            if (from.asLong() < to.asLong()) {   // every tape is drawn once, from the post with the smaller position
-                tapes.add(buildTape(from, to));
-            }
+            // every tape is drawn once, from the post with the smaller position; the other post keeps a copy for
+            // when that one's chunk is not loaded on this client (the tape must not vanish with it)
+            tapes.add(buildTape(from, to, from.asLong() < to.asLong()));
         }
         return new Shape(links, List.copyOf(tapes), box);
     }
@@ -85,13 +85,15 @@ public final class BarrierPostRenderer implements BlockEntityRenderer<BarrierPos
         BlockPos from = post.getBlockPos();
         VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutoutNoCull(TEXTURE));
         for (Tape tape : shape(post).tapes) {
-            if (level.getBlockState(tape.to).is(ModBlocks.BARRIER_POST.get())) {
-                drawTape(consumer, pose, tape, LevelRenderer.getLightColor(level, from), LevelRenderer.getLightColor(level, tape.to));
+            boolean otherLoaded = level.isLoaded(tape.to);
+            if (tape.owned ? !otherLoaded || level.getBlockState(tape.to).is(ModBlocks.BARRIER_POST.get()) : !otherLoaded) {
+                int lightFrom = LevelRenderer.getLightColor(level, from);
+                drawTape(consumer, pose, tape, lightFrom, otherLoaded ? LevelRenderer.getLightColor(level, tape.to) : lightFrom);
             }
         }
     }
 
-    private static Tape buildTape(BlockPos from, BlockPos to) {
+    private static Tape buildTape(BlockPos from, BlockPos to, boolean owned) {
         double[] a = {.5, TapeCurve.HEIGHT, .5};
         double[] b = {to.getX() - from.getX() + .5, to.getY() - from.getY() + TapeCurve.HEIGHT, to.getZ() - from.getZ() + .5};
         double length = Math.sqrt(Math.pow(b[0] - a[0], 2) + Math.pow(b[1] - a[1], 2) + Math.pow(b[2] - a[2], 2));
@@ -114,7 +116,7 @@ public final class BarrierPostRenderer implements BlockEntityRenderer<BarrierPos
             double[] along = {centre[i + 1][0] - centre[i][0], centre[i + 1][1] - centre[i][1], centre[i + 1][2] - centre[i][2]};
             normal[i] = cross(along, offset[i]);
         }
-        return new Tape(to.immutable(), centre, offset, normal, u);
+        return new Tape(to.immutable(), owned, centre, offset, normal, u);
     }
 
     private static void drawTape(VertexConsumer vc, PoseStack pose, Tape tape, int lightFrom, int lightTo) {

@@ -27,6 +27,14 @@ class TapeCurveTest {
         }
     }
 
+    @Test void longSpanNeverHangsIntoTheGround() {
+        for (double length = 1; length <= 32; length += 1) {
+            double[] a = {0, TapeCurve.HEIGHT, 0}, b = {length, TapeCurve.HEIGHT, 0};
+            double lowest = TapeCurve.point(a, b, .5)[1];
+            assertTrue(lowest >= TapeCurve.MIN_CLEARANCE - 1e-9, length + " blocks: " + lowest);
+        }
+    }
+
     @Test void lightIsBlendedPerComponent() {
         int dark = 0, bright = 15 << 20 | 15 << 4;
         assertEquals(dark, TapeCurve.blendLight(dark, bright, 0));

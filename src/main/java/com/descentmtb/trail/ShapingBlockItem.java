@@ -55,8 +55,9 @@ public final class ShapingBlockItem extends BlockItem {
     @Override
     protected boolean placeBlock(BlockPlaceContext context, BlockState state) {
         boolean placed = super.placeBlock(context, state);
-        if (!placed || context.getLevel().isClientSide
-                || !(context.getLevel().getBlockEntity(context.getClickedPos()) instanceof TrailSurfaceEntity shaped)) {
+        // Also on the placing client: its predicted block shows the finished full shape straight away instead of a
+        // flat sliver until the server's block entity arrives (which then simply confirms it).
+        if (!placed || !(context.getLevel().getBlockEntity(context.getClickedPos()) instanceof TrailSurfaceEntity shaped)) {
             return placed;
         }
         shaped.setShape(FULL_BLOCK.clone(), deck);

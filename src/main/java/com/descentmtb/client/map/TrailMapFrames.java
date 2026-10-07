@@ -14,6 +14,12 @@ import net.neoforged.neoforge.client.event.RenderItemInFrameEvent;
 public final class TrailMapFrames {
     private TrailMapFrames() {}
 
+    /** A map covering several dimensions shows, on the wall, the trails of the dimension it hangs in. */
+    static com.descentmtb.map.BikeparkMap shownHere(com.descentmtb.map.BikeparkMap data,net.minecraft.resources.ResourceLocation dimension) {
+        var here=data.routes().stream().filter(r->r.dimension().equals(dimension)).toList();
+        return here.isEmpty()||here.size()==data.routes().size()?data:new com.descentmtb.map.BikeparkMap(here);
+    }
+
     @SubscribeEvent public static void render(RenderItemInFrameEvent event) {
         if (!(event.getItemStack().getItem() instanceof TrailMapItem)) return;
         var frame=event.getItemFrameEntity();
@@ -25,7 +31,7 @@ public final class TrailMapFrames {
         pose.scale(1/128f,1/128f,1/128f);
         pose.translate(-64,-64,-1);
         int light=frame.getType()==EntityType.GLOW_ITEM_FRAME?15728850:event.getPackedLight();
-        var vertices=event.getMultiBufferSource().getBuffer(RenderType.text(MapTexture.get(TrailMapItem.data(event.getItemStack()))));
+        var vertices=event.getMultiBufferSource().getBuffer(RenderType.text(MapTexture.get(shownHere(TrailMapItem.data(event.getItemStack()),frame.level().dimension().location()))));
         var matrix=pose.last().pose();
         vertices.addVertex(matrix,0,128,-.01f).setColor(-1).setUv(0,1).setLight(light);
         vertices.addVertex(matrix,128,128,-.01f).setColor(-1).setUv(1,1).setLight(light);

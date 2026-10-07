@@ -14,9 +14,15 @@ public final class TapeCurve {
 
     private TapeCurve() {}
 
+    /**
+     * Deepest a tape may hang: its middle stays this far above the base of the posts (blocks), so a long span over
+     * flat ground never dips into the dirt — a pulled tape on a long span is simply tighter.
+     */
+    public static final double MIN_CLEARANCE = 0.3;
+
     /** Distance the middle of a tape of this length hangs below the straight line. */
     public static double sag(double length) {
-        return SAG_PER_LENGTH * length;
+        return Math.min(SAG_PER_LENGTH * length, HEIGHT - MIN_CLEARANCE);
     }
 
     /**
