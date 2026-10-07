@@ -27,6 +27,9 @@ public final class GripGeometry {
     private static final Steering DIRT_BIKE = new Steering(
             com.descentmtb.client.model.DirtBikeModel.STEER_PIVOT_PX, com.descentmtb.client.model.DirtBikeModel.STEER_AXIS_DOWN,
             toPx(com.descentmtb.client.model.DirtBikeModel.GRIP_LEFT));
+    private static final Steering PIT_BIKE = new Steering(
+            com.descentmtb.client.model.PitBikeModel.STEER_PIVOT_PX, com.descentmtb.client.model.PitBikeModel.STEER_AXIS_DOWN,
+            toPx(com.descentmtb.client.model.PitBikeModel.GRIP_LEFT));
 
     /** Metres, Y up (model constants) to model pixels, Y down. */
     private static Vector3f toPx(Vector3f m) {
@@ -43,7 +46,7 @@ public final class GripGeometry {
 
     /** Same as {@link #gripOffset(BikeType, boolean, float)} but writes the result into {@code out} (no allocation). */
     public static Vector3f gripOffset(BikeType type, boolean left, float steer, Vector3f out) {
-        Steering s = switch (type) { case HARDTAIL -> HARDTAIL; case DIRT_BIKE -> DIRT_BIKE; default -> ENDURO; };
+        Steering s = switch (type) { case HARDTAIL -> HARDTAIL; case DIRT_BIKE -> DIRT_BIKE; case PIT_BIKE -> PIT_BIKE; default -> ENDURO; };
         // r = grip - pivot, with the right grip mirrored from the left one
         float rx = (left ? s.gripLeft().x : -s.gripLeft().x) - s.pivot().x;
         float ry = s.gripLeft().y - s.pivot().y;

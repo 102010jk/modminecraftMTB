@@ -124,7 +124,7 @@ public final class BikeStandBlock extends BaseEntityBlock {
                 BikeStands.take(player, pos);
             }
         } else if (level.isClientSide) {
-            WorkshopScreens.open(pos, stand.bikeType(), stand.build());
+            WorkshopScreens.open(pos, stand.bikeType(), stand.build(), stand.moto());
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

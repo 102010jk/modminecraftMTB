@@ -36,8 +36,7 @@ public final class BikeStands {
     /** Moves one bike from the stack onto an empty stand. Returns whether it was mounted. */
     public static boolean mount(Player player, BlockPos pos, ItemStack held) {
         BikeStandBlockEntity stand = usable(player, pos);
-        // the workshop builds bicycles; a motorbike has no frame shapes, stickers or hubs to choose
-        if (stand == null || stand.hasBike() || !(held.getItem() instanceof MountainBikeItem bikeItem) || bikeItem.bikeType().motor()) {
+        if (stand == null || stand.hasBike() || !(held.getItem() instanceof MountainBikeItem)) {
             return false;
         }
         stand.setBike(held.copyWithCount(1));
@@ -62,12 +61,12 @@ public final class BikeStands {
     }
 
     /**
-     * Stores a build (clamped to what this bike type allows) on the bike of the stand. Free for now. Returns whether
-     * it was stored.
+     * Stores a build (clamped to what this bike type allows) on the bicycle of the stand. Free for now. Returns whether
+     * it was stored. A motorbike is edited with {@link #applyMoto} instead.
      */
     public static boolean apply(Player player, BlockPos pos, BikeBuild build) {
         BikeStandBlockEntity stand = usable(player, pos);
-        if (stand == null || !stand.hasBike() || build == null) {
+        if (stand == null || !stand.hasBike() || build == null || stand.bikeType().motor()) {
             return false;
         }
         ItemStack bike = stand.bike().copy();
@@ -76,6 +75,25 @@ public final class BikeStands {
             return true;   // nothing to change
         }
         bike.set(ModComponents.BIKE_BUILD.get(), clean);
+        stand.setBike(bike);
+        player.level().playSound(null, pos, SoundEvents.SMITHING_TABLE_USE, SoundSource.BLOCKS, .5f, 1.1f);
+        return true;
+    }
+
+    /**
+     * Stores paint and tuning on the motorbike of the stand. The build is already clamped by its constructor. Free for
+     * now. Returns whether it was stored (false: no usable stand, no bike, or the bike is a bicycle).
+     */
+    public static boolean applyMoto(Player player, BlockPos pos, MotoBuild moto) {
+        BikeStandBlockEntity stand = usable(player, pos);
+        if (stand == null || !stand.hasBike() || moto == null || !stand.bikeType().motor()) {
+            return false;
+        }
+        if (moto.equals(stand.moto())) {
+            return true;   // nothing to change
+        }
+        ItemStack bike = stand.bike().copy();
+        bike.set(ModComponents.MOTO_BUILD.get(), moto);
         stand.setBike(bike);
         player.level().playSound(null, pos, SoundEvents.SMITHING_TABLE_USE, SoundSource.BLOCKS, .5f, 1.1f);
         return true;

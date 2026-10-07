@@ -26,6 +26,8 @@ public final class BikeAudioFrame {
     /** Dirt bike engine: revs, throttle (0..1), on the rev limiter, a backfire this tick. Zero on a bicycle. */
     public double engineRpm, throttle;
     public boolean limiting, backfire, motor;
+    /** How much higher (small engine) and louder (race exhaust) this engine sounds than the stock dirt bike. */
+    public double enginePitch = 1, engineLoud = 1;
     /** Rear tyre scrubbing: 0 gripping … 1 full slide; {@code skidLocked} = the brake has stopped the wheel turning. */
     public double skid;
     public boolean skidLocked;

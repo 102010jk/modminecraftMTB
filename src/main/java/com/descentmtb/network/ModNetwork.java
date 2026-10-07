@@ -31,6 +31,8 @@ public final class ModNetwork {
         r.playToServer(BikeStartPointPayload.TYPE, BikeStartPointPayload.CODEC, BikeStartPointPayload::handle);
         r.playToClient(BikeResyncPayload.TYPE, BikeResyncPayload.CODEC, (m, ctx) -> BikeResyncPayload.clientHandler.accept(m));
         r.playToServer(WorkshopApplyPayload.TYPE, WorkshopApplyPayload.CODEC, WorkshopApplyPayload::handle);
+        r.playToServer(MotoApplyPayload.TYPE, MotoApplyPayload.CODEC, MotoApplyPayload::handle);
+        r.playToClient(MotoResultPayload.TYPE, MotoResultPayload.CODEC, MotoResultPayload::handle);
         r.playToServer(WorkshopTakePayload.TYPE, WorkshopTakePayload.CODEC, WorkshopTakePayload::handle);
         r.playToServer(BikeBellPayload.TYPE, BikeBellPayload.CODEC, BikeBellPayload::handle);
         r.playToServer(TrackUploadPayload.TYPE, TrackUploadPayload.CODEC, TrackUploadPayload::handle);

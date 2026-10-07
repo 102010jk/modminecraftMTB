@@ -36,11 +36,11 @@ final class MotoSoundController {
         SoundManager manager = Minecraft.getInstance().getSoundManager();
         // an empty bike lying in the dirt has stalled
         double rpm = f.ridden && !f.bailed ? f.engineRpm : 0;
-        double loud = rpm > 0 ? MotoSoundMath.loudness(rpm, f.throttle) * master : 0;
+        double loud = rpm > 0 ? MotoSoundMath.loudness(rpm, f.throttle) * f.engineLoud * master : 0;
         double[] w = MotoSoundMath.weights(rpm);
         for (int i = 0; i < layers.length; i++) {
             double vol = loud * w[i];
-            layers[i] = drive(manager, layers[i], layer(i), vol, MotoSoundMath.pitch(i, Math.max(rpm, 1)), 0.25f);
+            layers[i] = drive(manager, layers[i], layer(i), vol, MotoSoundMath.pitch(i, Math.max(rpm, 1), f.enginePitch), 0.25f);
         }
         limiter = drive(manager, limiter, ModSounds.MOTO_LIMITER.get(), f.limiting && rpm > 0 ? 0.8 * master : 0,
                 1.0, 0.4f);

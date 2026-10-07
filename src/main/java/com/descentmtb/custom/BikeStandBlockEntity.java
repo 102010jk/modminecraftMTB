@@ -46,6 +46,11 @@ public final class BikeStandBlockEntity extends BlockEntity {
         return bike.getItem() instanceof MountainBikeItem ? MountainBikeItem.buildOf(bike) : BikeBuild.ENDURO_DEFAULT;
     }
 
+    /** Paint and tuning of the motorbike on the stand: stock for a bicycle or an empty stand. */
+    public MotoBuild moto() {
+        return bike.getItem() instanceof MountainBikeItem ? MountainBikeItem.motoOf(bike) : MotoBuild.DEFAULT;
+    }
+
     /** Server: replaces the bike (EMPTY to clear) and tells every viewer. */
     public void setBike(ItemStack stack) {
         bike = stack.getItem() instanceof MountainBikeItem ? stack.copyWithCount(1) : ItemStack.EMPTY;

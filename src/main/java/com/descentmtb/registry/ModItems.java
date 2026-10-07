@@ -27,10 +27,15 @@ public final class ModItems {
             ITEMS.registerItem("hardtail_bike",
                     p -> new MountainBikeItem(p.component(ModComponents.BIKE_BUILD.get(), BikeBuild.HARDTAIL_DEFAULT), BikeType.HARDTAIL),
                     new Item.Properties().stacksTo(1));
-    /** The 250 cc motocross bike (not customisable in the workshop). */
+    /** The 250 cc motocross bike (painted and tuned in the workshop, see {@code MotoBuild}). */
     public static final DeferredItem<MountainBikeItem> DIRT_BIKE =
             ITEMS.registerItem("dirt_bike",
                     p -> new MountainBikeItem(p.component(ModComponents.BIKE_BUILD.get(), BikeBuild.HARDTAIL_DEFAULT), BikeType.DIRT_BIKE),
+                    new Item.Properties().stacksTo(1));
+    /** The 125 cc pit bike (painted and tuned in the workshop, see {@code MotoBuild}). */
+    public static final DeferredItem<MountainBikeItem> PIT_BIKE =
+            ITEMS.registerItem("pit_bike",
+                    p -> new MountainBikeItem(p.component(ModComponents.BIKE_BUILD.get(), BikeBuild.HARDTAIL_DEFAULT), BikeType.PIT_BIKE),
                     new Item.Properties().stacksTo(1));
     public static final DeferredItem<com.descentmtb.item.BikePumpItem> BIKE_PUMP =
             ITEMS.registerItem("bike_pump", com.descentmtb.item.BikePumpItem::new, new Item.Properties().stacksTo(1));
@@ -49,6 +54,7 @@ public final class ModItems {
                         output.accept(MOUNTAIN_BIKE.get());
                         output.accept(HARDTAIL_BIKE.get());
                         output.accept(DIRT_BIKE.get());
+                        output.accept(PIT_BIKE.get());
                         output.accept(BIKE_PUMP.get());
                         output.accept(TRAIL_GPS.get());
                         output.accept(TRAIL_MAP.get());
@@ -60,7 +66,7 @@ public final class ModItems {
 
     /** The bike item of a type. */
     public static MountainBikeItem itemFor(BikeType type) {
-        return (switch (type) { case HARDTAIL -> HARDTAIL_BIKE; case DIRT_BIKE -> DIRT_BIKE; default -> MOUNTAIN_BIKE; }).get();
+        return (switch (type) { case HARDTAIL -> HARDTAIL_BIKE; case DIRT_BIKE -> DIRT_BIKE; case PIT_BIKE -> PIT_BIKE; default -> MOUNTAIN_BIKE; }).get();
     }
 
     private ModItems() {}

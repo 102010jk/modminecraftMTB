@@ -164,6 +164,7 @@ public final class ClientConfig {
         p.airSpinDeadzone = AIR_ROTATION_DEADZONE.get();
         p.riskReward = RISK_REWARD.get();
         com.descentmtb.physics.BikeTuning.apply(p, defaults, bike.frontPsi(), bike.rearPsi(), bike.forkPsi(), PRESSURE_EFFECT.get());
+        if (bike.bikeType().motor()) com.descentmtb.custom.MotoTuning.apply(p, defaults, bike.moto());
     }
 
     private ClientConfig() {}

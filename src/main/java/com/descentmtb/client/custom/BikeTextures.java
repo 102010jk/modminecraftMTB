@@ -9,9 +9,9 @@ public final class BikeTextures {
     private static final ResourceLocation[][] TEXTURES = new ResourceLocation[BikeType.values().length][Finish.values().length];
     static {
         for (BikeType type : BikeType.values()) for (Finish finish : Finish.values()) {
-            // the dirt bike is not customisable: it never asks, but keeps a valid entry (its own texture)
-            String name=switch (type) { case ENDURO -> "enduro_bike"; case HARDTAIL -> "hardtail_bike"; case DIRT_BIKE -> "dirt_bike"; };
-            if (type == BikeType.DIRT_BIKE && finish != Finish.GLOSS) { TEXTURES[type.ordinal()][finish.ordinal()]=TEXTURES[type.ordinal()][0]; continue; }
+            // the motorbikes have no frame finishes (they are painted by group, see MotoBuild): a valid entry, their own texture
+            String name=switch (type) { case ENDURO -> "enduro_bike"; case HARDTAIL -> "hardtail_bike"; case DIRT_BIKE -> "dirt_bike"; case PIT_BIKE -> "pit_bike"; };
+            if (type.motor() && finish != Finish.GLOSS) { TEXTURES[type.ordinal()][finish.ordinal()]=TEXTURES[type.ordinal()][0]; continue; }
             String suffix=finish == Finish.GLOSS ? "" : "_" + finish.name().toLowerCase(Locale.ROOT);
             TEXTURES[type.ordinal()][finish.ordinal()]=ResourceLocation.fromNamespaceAndPath("descentmtb","textures/entity/"+name+suffix+".png");
         }

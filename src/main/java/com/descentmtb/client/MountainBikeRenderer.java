@@ -4,6 +4,8 @@ import com.descentmtb.DescentMtb;
 import com.descentmtb.client.model.DirtBikeModel;
 import com.descentmtb.client.model.EnduroBikeModel;
 import com.descentmtb.client.model.HardtailBikeModel;
+import com.descentmtb.client.model.MotoModel;
+import com.descentmtb.client.model.PitBikeModel;
 import com.descentmtb.client.model.PartTable;
 import com.descentmtb.entity.BikeType;
 import com.descentmtb.trick.Trick;
@@ -24,7 +26,7 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 
 /**
- * Draws the enduro bike from the interpolated physics snapshot: frame pose
+ * Draws the bike (bicycle or motorbike) from the interpolated physics snapshot: frame pose
  * (yaw, pitch, lean) around the centre of mass, plus suspension travel,
  * steering, wheel spin and cranks on the model's bones.
  */
@@ -34,7 +36,8 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
 
     private final EnduroBikeModel model;
     private final HardtailBikeModel hardtail;
-    private final DirtBikeModel moto;
+    /** The motorbike models by {@link BikeType#ordinal()}; null for the bicycles. */
+    private final MotoModel[] motos = new MotoModel[BikeType.values().length];
     private static final ResourceLocation HARDTAIL_TEXTURE =
             ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "textures/entity/hardtail_bike.png");
 
@@ -42,7 +45,8 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
         super(ctx);
         this.model = new EnduroBikeModel(ctx.bakeLayer(EnduroBikeModel.LAYER));
         this.hardtail = new HardtailBikeModel(ctx.bakeLayer(HardtailBikeModel.LAYER));
-        this.moto = new DirtBikeModel(ctx.bakeLayer(DirtBikeModel.LAYER));
+        motos[BikeType.DIRT_BIKE.ordinal()] = new DirtBikeModel(ctx.bakeLayer(DirtBikeModel.LAYER));
+        motos[BikeType.PIT_BIKE.ordinal()] = new PitBikeModel(ctx.bakeLayer(PitBikeModel.LAYER));
         this.shadowRadius = 0.6f;
     }
 
@@ -82,10 +86,11 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
         PartTable.duckSqueeze = b.oneHand
                 ? (float) OneHand.squeeze(a.oneHand ? BikeRenderState.lerp(t, a.oneHandTime, b.oneHandTime) : b.oneHandTime)
                 : 0f;
-        if (bike.bikeType() == BikeType.DIRT_BIKE) {
+        MotoModel moto = motos[bike.bikeType().ordinal()];
+        if (moto != null) {
             moto.setupPose(steer, compF, compR, spinF, spinR);
-            moto.renderToBuffer(pose, buffers.getBuffer(moto.renderType(DirtBikeModel.TEXTURE)),
-                    light, OverlayTexture.NO_OVERLAY, -1);
+            moto.renderPainted(pose, buffers.getBuffer(moto.renderType(moto.texture())),
+                    light, OverlayTexture.NO_OVERLAY, bike.moto()::colorOf);
         } else if (bike.bikeType() == BikeType.HARDTAIL) {
             hardtail.setupPose(steer, compF, compR, spinF, spinR, crank);
             hardtail.setupBrake((float) BikeRenderState.lerp(t, a.brake, b.brake));
@@ -119,6 +124,7 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
         return switch (entity.bikeType()) {
             case HARDTAIL -> HARDTAIL_TEXTURE;
             case DIRT_BIKE -> DirtBikeModel.TEXTURE;
+            case PIT_BIKE -> PitBikeModel.TEXTURE;
             default -> TEXTURE;
         };
     }

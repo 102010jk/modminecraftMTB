@@ -1,14 +1,18 @@
 package com.descentmtb.client.custom;
 
 import com.descentmtb.custom.BikeBuild;
+import com.descentmtb.custom.MotoBuild;
 import com.descentmtb.entity.BikeType;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.EntityModelSet;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import com.descentmtb.client.model.DirtBikeModel;
 import com.descentmtb.client.model.EnduroBikeModel;
 import com.descentmtb.client.model.HardtailBikeModel;
+import com.descentmtb.client.model.MotoModel;
+import com.descentmtb.client.model.PitBikeModel;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
@@ -20,15 +24,20 @@ public final class BikeBuildRenderer {
     private static EntityModelSet bakedFrom;
     private static EnduroBikeModel enduro;
     private static HardtailBikeModel hardtail;
+    /** The motorbike models by {@link BikeType#ordinal()}; null for the bicycles. */
+    private static MotoModel[] motos;
 
     /** EntityModelSet keeps its identity when a resource reload replaces its layers. */
-    public static void invalidate() { bakedFrom=null; enduro=null; hardtail=null; }
+    public static void invalidate() { bakedFrom=null; enduro=null; hardtail=null; motos=null; }
 
     private static void models() {
         var set=Minecraft.getInstance().getEntityModels();
         if(set==bakedFrom) return;
         enduro=new EnduroBikeModel(set.bakeLayer(EnduroBikeModel.LAYER));
         hardtail=new HardtailBikeModel(set.bakeLayer(HardtailBikeModel.LAYER));
+        motos=new MotoModel[BikeType.values().length];
+        motos[BikeType.DIRT_BIKE.ordinal()]=new DirtBikeModel(set.bakeLayer(DirtBikeModel.LAYER));
+        motos[BikeType.PIT_BIKE.ordinal()]=new PitBikeModel(set.bakeLayer(PitBikeModel.LAYER));
         bakedFrom=set;
     }
 
@@ -50,6 +59,40 @@ public final class BikeBuildRenderer {
         }
         } finally { BikeDecorations.preview=previous; }
     }
+    /** A motorbike at rest, painted with {@code moto}; same model-space origin and orientation as {@link #render}. */
+    public static void renderMoto(BikeType type,MotoBuild moto,PoseStack pose,MultiBufferSource buffers,int light) {
+        models();
+        MotoModel model=motos[type.ordinal()];
+        if(model==null) return;
+        model.setupPose(0,0,0,0,0);
+        model.renderPainted(pose,buffers.getBuffer(model.renderType(model.texture())),light,OverlayTexture.NO_OVERLAY,moto::colorOf);
+    }
+
+    /**
+     * Like {@link #renderInGui} for a motorbike, centred at (x, y); {@code scale} is the same GUI pixels per metre,
+     * with a per-type fit so the dirt bike and the smaller pit bike fill the preview alike.
+     */
+    public static void renderMotoInGui(GuiGraphics g,BikeType type,MotoBuild moto,float x,float y,float scale,
+                                       float yawDeg,float pitchDeg) {
+        g.flush();
+        var pose=g.pose();
+        pose.pushPose();
+        pose.translate(x,y,100);
+        float fit=type==BikeType.PIT_BIKE ? 1.15f : 0.9f;
+        pose.scale(scale*fit,scale*fit,-scale*fit);
+        pose.translate(0,type==BikeType.PIT_BIKE ? .45 : .6,0);
+        pose.mulPose(Axis.XP.rotationDegrees(pitchDeg));
+        pose.mulPose(Axis.YP.rotationDegrees(-yawDeg));
+        Lighting.setupForEntityInInventory();
+        try {
+            renderMoto(type,moto,pose,g.bufferSource(),0xF000F0);
+            g.flush();
+        } finally {
+            pose.popPose();
+            Lighting.setupFor3DItems();
+        }
+    }
+
     /**
      * Renders the bike model with all parts, colours, accessories and stickers of {@code build}, centred at (x, y) in
      * GUI pixels, {@code scale} GUI pixels per metre, turned by {@code yawDeg} around the vertical axis and tilted by

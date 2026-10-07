@@ -167,7 +167,10 @@ public final class BikeSoundController {
         f.motor = bike.bikeType().motor();
         f.engineRpm = f.throttle = 0;
         f.limiting = f.backfire = false;
+        f.enginePitch = f.engineLoud = 1;
         if (f.motor) {
+            if (bike.bikeType() == com.descentmtb.entity.BikeType.PIT_BIKE) f.enginePitch = MotoSoundMath.SMALL_ENGINE_PITCH;
+            if (bike.moto().exhaust() == com.descentmtb.custom.MotoBuild.Exhaust.RACE) f.engineLoud = MotoSoundMath.RACE_EXHAUST_LOUDNESS;
             if (sim != null && sim.engine != null) {
                 f.engineRpm = sim.engine.rpm;
                 f.throttle = sim.engine.throttle;

@@ -2,6 +2,8 @@ package com.descentmtb.registry;
 
 import com.descentmtb.DescentMtb;
 import com.descentmtb.custom.BikeBuild;
+import com.descentmtb.custom.MotoBuild;
+import com.descentmtb.custom.MotoBuildCodecs;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.neoforged.bus.api.IEventBus;
@@ -18,6 +20,13 @@ public final class ModComponents {
             COMPONENTS.register("bike_build", () -> DataComponentType.<BikeBuild>builder()
                     .persistent(BikeBuild.CODEC)
                     .networkSynchronized(BikeBuild.STREAM_CODEC)
+                    .build());
+
+    /** Paint and tuning of a motorbike (dirt bike, pit bike): carried by the bike item, the entity and the stand. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<MotoBuild>> MOTO_BUILD =
+            COMPONENTS.register("moto_build", () -> DataComponentType.<MotoBuild>builder()
+                    .persistent(MotoBuildCodecs.CODEC)
+                    .networkSynchronized(MotoBuildCodecs.STREAM_CODEC)
                     .build());
 
     /** A finished GPS track recorded with the GPS unit ({@code trail_gps}). */

@@ -26,6 +26,14 @@ public enum BikeType {
     DIRT_BIKE("dirt_bike",
             new float[]{-0.25f, -0.06f},             // footpegs from the bike COM: up, forward (m)
             new float[]{0.56f, 0.70f, 0.40f},        // grips from the pegs: forward, up, half-width (800 mm bars)
+            new Trick[]{Trick.NO_HANDER, Trick.TABLETOP, Trick.NAC_NAC, Trick.CAN_CAN, Trick.SUPERMAN}),
+    /**
+     * 125 cc four-stroke pit bike: ~68 kg, 17"/14" wheels, 160 mm fork and shock, a four-speed box. Small, light and
+     * twitchy, ~70 km/h flat out. Same freestyle-MX trick set. Appended after the dirt bike: the type is saved by ordinal.
+     */
+    PIT_BIKE("pit_bike",
+            new float[]{-0.21f, -0.04f},             // footpegs from the bike COM: up, forward (m)
+            new float[]{0.32f, 0.59f, 0.33f},        // grips from the pegs: forward, up, half-width (660 mm bars)
             new Trick[]{Trick.NO_HANDER, Trick.TABLETOP, Trick.NAC_NAC, Trick.CAN_CAN, Trick.SUPERMAN});
 
     public final String id;
@@ -93,7 +101,7 @@ public enum BikeType {
 
     /** A motorbike: engine instead of pedals, footpegs instead of cranks. */
     public boolean motor() {
-        return this == DIRT_BIKE;
+        return this == DIRT_BIKE || this == PIT_BIKE;
     }
 
     /** Physics preset (fresh copy). */
@@ -137,6 +145,62 @@ public enum BikeType {
             p.manualAssist = 5200;          // holds a power wheelie on the balance point (heavy: scaled with inertia)
             p.manualTargetPitch = 0.6;
             p.tyreGrip = 1.05;              // knobbies bite into dirt
+        }
+        if (this == PIT_BIKE) {
+            p.motor = true;
+            p.bikeMass = 68.0;
+            p.riderMass = 78.0;
+            p.inertiaPitch = 11.0;          // nimbler: a short, light bike turns about its axes easily
+            p.inertiaYaw = 17.0;
+            p.inertiaRoll = 5.0;
+            p.wheelRadius = 0.28;           // 70/100-17 front, 90/100-14 rear
+            p.halfWheelbase = 0.56;         // 1.12 m wheelbase
+            p.axleDrop = -0.20;             // COM ~0.48 m up at full extension
+            p.riderHeight = 0.50;
+            p.riderForward = -0.04;
+            p.barHalfWidth = 0.33;
+            p.forkTravel = 0.16;
+            p.shockTravel = 0.15;
+            p.forkRate = 14500;             // ~30% sag under bike + rider
+            p.shockRate = 16000;
+            p.forkProgression = 1.4;
+            p.shockProgression = 2.0;
+            p.forkCompDamp = 890;
+            p.forkRebDamp = 1250;
+            p.shockCompDamp = 950;
+            p.shockRebDamp = 1450;
+            p.brakeForce = 2000;
+            p.brakeFrontShare = 0.65;
+            p.dragArea = 0.55;
+            p.softSpeedCap = 23.0;          // above the ~20 m/s the gearing allows
+            p.maxSteerAngle = 0.62;
+            p.legPushMax = 1900;
+            p.legPullMax = 1300;
+            p.flipRate = 5.6;
+            p.spinRate = 5.5;
+            p.bailImpactSpeed = 14.0;
+            p.crashSpeed = 4.5;
+            p.wallCrashSpeed = 8.0;
+            p.manualAssist = 2400;          // scaled with the inertia of the dirt bike
+            p.manualTargetPitch = 0.6;
+            p.tyreGrip = 1.0;
+            // 125 cc single: ~10 N m at 7000 rpm, revs to 9800, four gears, ~70-75 km/h flat out
+            p.peakTorque = 10;
+            p.peakTorqueRpm = 7000;
+            p.idleRpm = 1700;
+            p.launchRpm = 3600;
+            p.shiftUpRpm = 9300;
+            p.shiftDownRpm = 3700;
+            p.limitRpm = 9800;
+            p.backfireRpm = 6500;
+            p.primaryRatio = 3.7;
+            p.finalRatio = 3.6;
+            p.gearRatios = new double[]{2.6, 1.8, 1.35, 1.05};
+            p.shiftTime = 0.10;
+            p.engineBrakeTorque = 1.8;
+            p.airThrottlePitch = 120;
+            p.airBrakePitch = 160;
+            p.rearSprocket = 37;
         }
         if (this == HARDTAIL) {
             p.bikeMass = 13.0;

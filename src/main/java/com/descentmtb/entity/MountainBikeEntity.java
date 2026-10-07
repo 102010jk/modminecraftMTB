@@ -12,6 +12,9 @@ import com.descentmtb.registry.ModItems;
 import com.descentmtb.world.McColumns;
 import com.descentmtb.custom.BikeBuild;
 import com.descentmtb.custom.BikeLights;
+import com.descentmtb.custom.MotoBuild;
+import com.descentmtb.custom.MotoBuildCodecs;
+import com.descentmtb.custom.MotoTuning;
 import com.descentmtb.item.MountainBikeItem;
 import com.descentmtb.registry.ModComponents;
 import net.minecraft.core.component.DataComponents;
@@ -119,9 +122,31 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
 
     private boolean isEnduro() { return bikeType() == BikeType.ENDURO; }
 
+    /** Paint and tuning of a motorbike (see {@link MotoBuild}), synced as NBT. Empty tag = stock. Unused on bicycles. */
+    private static final EntityDataAccessor<CompoundTag> D_MOTO = def(EntityDataSerializers.COMPOUND_TAG);
+    private MotoBuild moto;
+
+    /** The motorbike's paint and tuning (never null): stock until one was set. */
+    public MotoBuild moto() {
+        if (moto == null) {
+            CompoundTag tag = entityData.get(D_MOTO);
+            moto = tag.isEmpty() ? MotoBuild.DEFAULT : MotoBuildCodecs.CODEC.parse(NbtOps.INSTANCE, tag).result().orElse(MotoBuild.DEFAULT);
+        }
+        return moto;
+    }
+
+    /** Stores a motorbike build and syncs it to every viewer; a parked bike's server simulation restarts with the new tuning. */
+    public void setMoto(MotoBuild m) {
+        moto = m;
+        entityData.set(D_MOTO, m.isStock() ? new CompoundTag() : (CompoundTag) MotoBuildCodecs.CODEC.encodeStart(NbtOps.INSTANCE, m).getOrThrow());
+        serverSim = null;
+        restTicks = 0;
+    }
+
     /** Takes the build and the tyre / fork pressures an item carries (placing a bike). */
     public void applyFromItem(ItemStack stack) {
         setBuild(MountainBikeItem.buildOf(stack));
+        setMoto(bikeType().motor() ? MountainBikeItem.motoOf(stack) : MotoBuild.DEFAULT);
         CompoundTag tune = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
         entityData.set(D_BOOMBOX,tune.getBoolean("Boombox"));
         setMud(tune.getFloat("Mud"));
@@ -132,6 +157,7 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
     public ItemStack toItemStack() {
         ItemStack stack = new ItemStack(ModItems.itemFor(bikeType()));
         stack.set(ModComponents.BIKE_BUILD.get(), build());
+        if (bikeType().motor()) stack.set(ModComponents.MOTO_BUILD.get(), moto());
         CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
             tag.putBoolean("Boombox",hasBoombox());
             tag.putFloat("Mud",mud());
@@ -150,6 +176,7 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
         super.onSyncedDataUpdated(key);
         if (key == D_TYPE) { bikeParams = null; build = null; }
         if (key == D_BUILD) build = null;
+        if (key == D_MOTO) moto = null;
     }
 
     @SuppressWarnings("unchecked")
@@ -406,6 +433,7 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
         if (serverSim == null) {
             if (serverColumns == null) serverColumns = new McColumns(level());
             com.descentmtb.physics.BikeTuning.apply(params(),bikeType().params(),frontPsi(),rearPsi(),forkPsi(),1);
+            if (bikeType().motor()) MotoTuning.apply(params(), bikeType().params(), moto());
             serverSim = new BikeSim(params(), serverColumns.terrain());
             serverSim.riderless = true;
             serverSim.place(getX(), getY(), getZ(), Math.toRadians(getYRot()));
@@ -660,6 +688,7 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
         b.define(D_FRONT_PSI, DEFAULT_FRONT_PSI); b.define(D_REAR_PSI, DEFAULT_REAR_PSI); b.define(D_FORK_PSI, DEFAULT_FORK_PSI);
         b.define(D_BRAKE, 0f);
         b.define(D_BUILD, new CompoundTag());
+        b.define(D_MOTO, new CompoundTag());
         b.define(D_BOOMBOX,false);
         b.define(D_MUD,0f);
     }
@@ -673,6 +702,9 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
         if (tag.contains("Build", Tag.TAG_COMPOUND)) {   // older bikes have none: they keep the stock look
             BikeBuild.CODEC.parse(NbtOps.INSTANCE, tag.getCompound("Build")).result().ifPresent(this::setBuild);
         }
+        if (tag.contains("Moto", Tag.TAG_COMPOUND)) {
+            MotoBuildCodecs.CODEC.parse(NbtOps.INSTANCE, tag.getCompound("Moto")).result().ifPresent(this::setMoto);
+        }
     }
 
     @Override
@@ -683,6 +715,7 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
         tag.putBoolean("Boombox",hasBoombox());
             tag.putFloat("FrontPsi", frontPsi()); tag.putFloat("RearPsi", rearPsi()); tag.putFloat("ForkPsi", forkPsi());
         tag.put("Build", BikeBuild.CODEC.encodeStart(NbtOps.INSTANCE, build()).getOrThrow());
+        if (bikeType().motor()) tag.put("Moto", MotoBuildCodecs.CODEC.encodeStart(NbtOps.INSTANCE, moto()).getOrThrow());
     }
 
     @Override

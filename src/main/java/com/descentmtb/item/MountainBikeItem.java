@@ -1,6 +1,7 @@
 package com.descentmtb.item;
 
 import com.descentmtb.custom.BikeBuild;
+import com.descentmtb.custom.MotoBuild;
 import com.descentmtb.entity.MountainBikeEntity;
 import com.descentmtb.entity.BikeType;
 import com.descentmtb.registry.ModComponents;
@@ -41,6 +42,12 @@ public class MountainBikeItem extends Item {
         boolean enduro = type == BikeType.ENDURO;
         BikeBuild build = stack.get(ModComponents.BIKE_BUILD.get());
         return build == null ? BikeBuild.defaultFor(enduro) : build.sanitized(enduro);
+    }
+
+    /** The paint and tuning a motorbike item carries; the stock bike when the stack has none (new items, commands). */
+    public static MotoBuild motoOf(ItemStack stack) {
+        MotoBuild moto = stack.get(ModComponents.MOTO_BUILD.get());
+        return moto == null ? MotoBuild.DEFAULT : moto;
     }
 
     @Override

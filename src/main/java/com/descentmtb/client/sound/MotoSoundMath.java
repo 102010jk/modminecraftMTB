@@ -34,6 +34,14 @@ public final class MotoSoundMath {
         return Math.max(MIN_PITCH, Math.min(MAX_PITCH, rpm / LAYER_RPM[layer]));
     }
 
+    /** A small 125 cc engine sounds this much higher than the 250 at the same revs; the race pipe is this much louder. */
+    public static final double SMALL_ENGINE_PITCH = 1.12, RACE_EXHAUST_LOUDNESS = 1.3;
+
+    /** {@link #pitch(int, double)} for an engine voiced {@code scale} times higher (still inside Minecraft's range). */
+    public static double pitch(int layer, double rpm, double scale) {
+        return Math.max(MIN_PITCH, Math.min(MAX_PITCH, rpm / LAYER_RPM[layer] * scale));
+    }
+
     /** Overall engine loudness: a lazy idle, a hard pull under load. */
     public static double loudness(double rpm, double throttle) {
         double revs = Math.max(0, Math.min(1, (rpm - LAYER_RPM[0]) / (LAYER_RPM[3] - LAYER_RPM[0])));

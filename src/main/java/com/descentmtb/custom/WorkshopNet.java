@@ -1,5 +1,6 @@
 package com.descentmtb.custom;
 
+import com.descentmtb.network.MotoApplyPayload;
 import com.descentmtb.network.WorkshopApplyPayload;
 import com.descentmtb.network.WorkshopTakePayload;
 import net.minecraft.core.BlockPos;
@@ -14,6 +15,11 @@ public final class WorkshopNet {
     /** Save {@code build} to the bike standing on the stand at {@code stand}. */
     public static void apply(BlockPos stand, BikeBuild build) {
         PacketDistributor.sendToServer(new WorkshopApplyPayload(stand, build));
+    }
+
+    /** Save {@code moto} (paint and tuning) to the motorbike standing on the stand at {@code stand}. */
+    public static void applyMoto(BlockPos stand, MotoBuild moto) {
+        PacketDistributor.sendToServer(new MotoApplyPayload(stand, moto));
     }
 
     /** Take the bike off the stand into the player's inventory. */

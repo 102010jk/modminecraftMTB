@@ -3,7 +3,6 @@ package com.descentmtb.client.model;
 import com.descentmtb.DescentMtb;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.model.Model;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
@@ -11,10 +10,11 @@ import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import org.joml.Vector3f;
+
+import java.util.function.ToIntFunction;
 
 /**
  * 250 cc motocross bike: steel double-cradle frame, finned single-cylinder engine with the header wrapping round the
@@ -42,7 +42,7 @@ import org.joml.Vector3f;
  * UV packing, hand-shaded painting, preview renders in {@code tools/preview/dirt_bike}); edit the script, not the
  * table.
  */
-public class DirtBikeModel extends Model {
+public class DirtBikeModel extends MotoModel {
     public static final ModelLayerLocation LAYER = new ModelLayerLocation(
             ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "dirt_bike"), "main");
     public static final ResourceLocation TEXTURE =
@@ -66,7 +66,6 @@ public class DirtBikeModel extends Model {
     private final ModelPart root, steer, forkLower, frontWheel, swingarm, rearWheel;
 
     public DirtBikeModel(ModelPart root) {
-        super(RenderType::entityCutoutNoCull);
         this.root = root;
         ModelPart frame = root.getChild("frame");
         this.steer = frame.getChild("steer_axis").getChild("steer");
@@ -85,6 +84,7 @@ public class DirtBikeModel extends Model {
      * @param frontSpin    front wheel spin, positive = rolling forward
      * @param rearSpin     rear wheel spin, same sign
      */
+    @Override
     public void setupPose(float steerRad, float forkTravelM, float rearTravelM, float frontSpin, float rearSpin) {
         steer.yRot = steerRad;
         forkLower.y = -Mth.clamp(forkTravelM, 0f, FORK_TRAVEL_M) * UNITS_PER_M;
@@ -107,6 +107,17 @@ public class DirtBikeModel extends Model {
         pose.scale(k, k, k);
         root.render(pose, vc, light, overlay, color);
         pose.popPose();
+    }
+
+    @Override
+    public ResourceLocation texture() {
+        return TEXTURE;
+    }
+
+    /** Interim: the single-texture model has no paint groups yet, so every group keeps its stock colour. */
+    @Override
+    public void renderPainted(PoseStack pose, VertexConsumer vc, int light, int overlay, ToIntFunction<String> color) {
+        renderToBuffer(pose, vc, light, overlay, -1);
     }
 
     public ModelPart root() {

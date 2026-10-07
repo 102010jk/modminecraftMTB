@@ -15,6 +15,8 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 
 @EventBusSubscriber(modid="descentmtb",bus=EventBusSubscriber.Bus.MOD,value=Dist.CLIENT)
 public final class StandRenderer implements BlockEntityRenderer<BikeStandBlockEntity> {
+    /** Motorbike on the stand: height of its ground line above the block bottom and its shift along the facing axis (blocks). TUNE with the final model. */
+    private static final double MOTO_LIFT=12.0/16,MOTO_SHIFT=0;
     public StandRenderer(BlockEntityRendererProvider.Context context) {}
     @SubscribeEvent public static void register(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlocks.BIKE_STAND_BE.get(),StandRenderer::new);
@@ -29,6 +31,14 @@ public final class StandRenderer implements BlockEntityRenderer<BikeStandBlockEn
         pose.pushPose();
         pose.translate(.5,0,.5);
         pose.mulPose(Axis.YP.rotationDegrees(180-facing.toYRot()));
+        if(stand.bikeType().motor()) {
+            // a motorbike rests on the stand's arm by its belly, wheels clear of the floor
+            pose.translate(0,MOTO_LIFT,MOTO_SHIFT);
+            pose.scale(-1,-1,1);
+            BikeBuildRenderer.renderMoto(stand.bikeType(),stand.moto(),pose,buffers,light);
+            pose.popPose();
+            return;
+        }
         pose.translate(0,16.5/16,5.0/16);
         pose.scale(-1,-1,1);
         boolean dj=stand.bikeType()==com.descentmtb.entity.BikeType.HARDTAIL;

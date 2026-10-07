@@ -33,6 +33,8 @@ public final class BikeParams {
     /** Primary drive, gearbox and final drive (13/51) reductions of a 250 F. */
     public double primaryRatio = 3.3, finalRatio = 3.92;
     public double[] gearRatios = {2.14, 1.73, 1.44, 1.21, 1.05};
+    /** Teeth of the stock rear sprocket: the workshop's sprocket choice scales {@link #finalRatio} against it. */
+    public int rearSprocket = 51;
     /** Seconds without drive during an upshift; engine braking torque at the limiter (N m). */
     public double shiftTime = 0.12, engineBrakeTorque = 4;
     /** Pitch torque (N m) the spinning rear wheel and the rider give in the air: gas lifts the nose, brake drops it. */
