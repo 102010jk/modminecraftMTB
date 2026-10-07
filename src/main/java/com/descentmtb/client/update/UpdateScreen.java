@@ -25,7 +25,7 @@ public final class UpdateScreen extends Screen {
 
     @Override
     protected void init() {
-        ModUpdater.check();
+        ModUpdater.checkIfStale();
         int cx = width / 2, y = height / 2 + 30;
         action = addRenderableWidget(Button.builder(Component.empty(), b -> {
             if (ModUpdater.state() == ModUpdater.State.AVAILABLE) ModUpdater.download();
@@ -73,7 +73,7 @@ public final class UpdateScreen extends Screen {
         Screen screen = event.getScreen();
         if (!(screen instanceof TitleScreen) && !(screen instanceof PauseScreen)) return;
         if (screen instanceof PauseScreen p && !p.showsPauseMenu()) return;
-        if (screen instanceof TitleScreen) ModUpdater.check();
+        if (screen instanceof TitleScreen) ModUpdater.checkIfStale();
         boolean ready = ModUpdater.state() == ModUpdater.State.AVAILABLE;
         event.addListener(Button.builder(Component.translatable(ready ? "descentmtb.update.button_new" : "descentmtb.update.button"),
                 b -> screen.getMinecraft().setScreen(new UpdateScreen(screen))).bounds(4, 4, 98, 20).build());

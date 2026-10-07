@@ -2,6 +2,16 @@
 
 Hotové buildy módu pro **Minecraft 1.21.1 + NeoForge 21.1.x** (Java 21). JAR stačí vložit do složky `mods`.
 
+## 1.0.0-alpha-m21 (milník 21)
+
+Soubor: `descentmtb-1.0.0-alpha-m21.jar`
+SHA-256: `2ca62a7e54b526e1b7db56d4da32390315969758b919628c5c3e0c757d51fe37`
+
+- **Aktualizace ze hry:** tlačítko „MTB aktualizace“ v hlavním menu a v pauze – zkontroluje GitHub Releases, stáhne novou verzi a po zavření hry ji sama nainstaluje.
+- **Rámy:** oprava orientace příčky zadních vzpěr u hardtailu (geometrický checker 0 chyb).
+
+Ověřeno jen sestavením; ve hře zatím neověřeno.
+
 ## 1.0.0-alpha-m20 (milník 20)
 
 Soubor: `descentmtb-1.0.0-alpha-m20.jar`

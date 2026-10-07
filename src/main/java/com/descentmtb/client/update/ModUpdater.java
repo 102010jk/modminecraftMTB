@@ -36,6 +36,9 @@ public final class ModUpdater {
     private static final String RAW = "https://raw.githubusercontent.com/102010jk/modminecraftMTB/master/dist/";
     public static final String MANIFEST_URL = RAW + "latest.json";
     public static final String JAR_URL = RAW + "descentmtb-latest.jar";
+    /** GitHub Releases (published from tags by .github/workflows/release.yml); preferred over the dist manifest. */
+    public static final String RELEASES_URL = "https://api.github.com/repos/102010jk/modminecraftMTB/releases?per_page=10";
+    private static volatile String downloadUrl = JAR_URL;
 
     public enum State { IDLE, CHECKING, UP_TO_DATE, AVAILABLE, DOWNLOADING, READY, DEV, ERROR }
 
@@ -63,8 +66,16 @@ public final class ModUpdater {
         }
     }
 
-    /** Checks GitHub once (again when called after a finished check). */
+    private static long lastCheck;
+
+    /** Checks at most every 15 minutes (the GitHub API allows 60 anonymous calls an hour). */
+    public static void checkIfStale() {
+        if (System.currentTimeMillis() - lastCheck > 15 * 60_000L) check();
+    }
+
+    /** Checks GitHub now (again when called after a finished check). */
     public static synchronized void check() {
+        lastCheck = System.currentTimeMillis();
         if (state == State.CHECKING || state == State.DOWNLOADING || state == State.READY) return;
         Path jar = currentJar();
         if (jar == null) {
@@ -74,6 +85,8 @@ public final class ModUpdater {
         state = State.CHECKING;
         CompletableFuture.runAsync(() -> {
             try {
+                if (checkReleases(jar)) return;
+                downloadUrl = JAR_URL;
                 HttpResponse<String> r = client().send(HttpRequest.newBuilder(URI.create(MANIFEST_URL + "?t=" + System.currentTimeMillis()))
                         .timeout(Duration.ofSeconds(15)).GET().build(), HttpResponse.BodyHandlers.ofString());
                 if (r.statusCode() != 200) throw new IllegalStateException("HTTP " + r.statusCode());
@@ -89,6 +102,38 @@ public final class ModUpdater {
         });
     }
 
+    /**
+     * Newest non-draft GitHub release with a .jar asset. Same jar = same SHA-256 (asset "digest"), or the same size
+     * when GitHub gave no digest. Returns false when there is no usable release (then the dist manifest is used).
+     */
+    private static boolean checkReleases(Path jar) throws Exception {
+        HttpResponse<String> r = client().send(HttpRequest.newBuilder(URI.create(RELEASES_URL))
+                .header("Accept", "application/vnd.github+json").timeout(Duration.ofSeconds(15)).GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+        if (r.statusCode() != 200) return false;
+        for (var e : JsonParser.parseString(r.body()).getAsJsonArray()) {
+            JsonObject rel = e.getAsJsonObject();
+            if (rel.has("draft") && rel.get("draft").getAsBoolean()) continue;
+            for (var a : rel.getAsJsonArray("assets")) {
+                JsonObject asset = a.getAsJsonObject();
+                if (!asset.get("name").getAsString().endsWith(".jar")) continue;
+                remoteVersion = rel.get("tag_name").getAsString();
+                String body = rel.has("body") && !rel.get("body").isJsonNull() ? rel.get("body").getAsString() : "";
+                remoteNotes = body.lines().map(String::trim).filter(l -> l.startsWith("- ")).findFirst().orElse("")
+                        .replace("**", "");
+                if (remoteNotes.length() > 90) remoteNotes = remoteNotes.substring(0, 87) + "...";
+                remoteSize = asset.get("size").getAsLong();
+                downloadUrl = asset.get("browser_download_url").getAsString();
+                String digest = asset.has("digest") && !asset.get("digest").isJsonNull() ? asset.get("digest").getAsString() : "";
+                remoteSha = digest.startsWith("sha256:") ? digest.substring(7).toLowerCase(Locale.ROOT) : "";
+                boolean same = remoteSha.isEmpty() ? Files.size(jar) == remoteSize : remoteSha.equals(sha256(jar));
+                state = same ? State.UP_TO_DATE : State.AVAILABLE;
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Downloads the new jar next to the current one and schedules the swap for when the game exits. */
     public static synchronized void download() {
         if (state != State.AVAILABLE) return;
@@ -100,7 +145,7 @@ public final class ModUpdater {
             Path tmp = jar.resolveSibling(jar.getFileName() + ".part");
             Path pending = jar.resolveSibling(jar.getFileName() + ".update");
             try {
-                HttpResponse<InputStream> r = client().send(HttpRequest.newBuilder(URI.create(JAR_URL + "?t=" + System.currentTimeMillis()))
+                HttpResponse<InputStream> r = client().send(HttpRequest.newBuilder(URI.create(downloadUrl.equals(JAR_URL) ? JAR_URL + "?t=" + System.currentTimeMillis() : downloadUrl))
                         .timeout(Duration.ofMinutes(5)).GET().build(), HttpResponse.BodyHandlers.ofInputStream());
                 if (r.statusCode() != 200) throw new IllegalStateException("HTTP " + r.statusCode());
                 long total = r.headers().firstValueAsLong("content-length").orElse(remoteSize);
@@ -116,7 +161,7 @@ public final class ModUpdater {
                     }
                 }
                 String sha = HexFormat.of().formatHex(md.digest());
-                if (!sha.equals(remoteSha)) throw new IllegalStateException("checksum mismatch");
+                if (!remoteSha.isEmpty() && !sha.equals(remoteSha)) throw new IllegalStateException("checksum mismatch");
                 Files.move(tmp, pending, StandardCopyOption.REPLACE_EXISTING);
                 scheduleSwap(jar, pending);
                 state = State.READY;
