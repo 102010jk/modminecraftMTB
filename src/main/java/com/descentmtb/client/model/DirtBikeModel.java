@@ -3,17 +3,13 @@ package com.descentmtb.client.model;
 import com.descentmtb.DescentMtb;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.model.Model;
+import java.util.function.ToIntFunction;
 import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.client.model.geom.PartPose;
-import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 import org.joml.Vector3f;
 
 /**
@@ -22,9 +18,8 @@ import org.joml.Vector3f;
  * white fenders and side number plates, 300 mm upside-down fork with gold stanchions, progressive monoshock and
  * swingarm, laced 21"/19" wheels on knobby tyres, wide bars with a bar pad, toothed steel footpegs.
  *
- * <p>Built at 32 model units per metre (twice the bicycles' texel density) and drawn at half scale. Entity-model
- * convention as the bicycles: model +Y points DOWN, forward is -Z, +X is the rider's LEFT, origin on the ground
- * below the centre of mass at full extension.
+ * <p>Built at 32 model units per metre (twice the bicycles' texel density) and drawn at half scale; see
+ * {@link MotoModel} for the conventions and the per-group paint.
  *
  * <pre>
  * root
@@ -42,14 +37,12 @@ import org.joml.Vector3f;
  * UV packing, hand-shaded painting, preview renders in {@code tools/preview/dirt_bike}); edit the script, not the
  * table.
  */
-public class DirtBikeModel extends Model {
+public class DirtBikeModel extends MotoModel {
     public static final ModelLayerLocation LAYER = new ModelLayerLocation(
             ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "dirt_bike"), "main");
     public static final ResourceLocation TEXTURE =
             ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "textures/entity/dirt_bike.png");
 
-    /** Model units per metre (the bicycles use 16). */
-    public static final float UNITS_PER_M = 32f;
     public static final float FORK_TRAVEL_M = 0.30f, REAR_TRAVEL_M = 0.31f;
 
     /** Rider anchors in metres, Y up, -Z forward, +X = rider's left, origin on the ground between the axles. */
@@ -60,60 +53,111 @@ public class DirtBikeModel extends Model {
     public static final Vector3f STEER_PIVOT_PX = new Vector3f(0f, -16f, -6.56f);
     public static final Vector3f STEER_AXIS_DOWN = new Vector3f(0f, (float) Math.cos(Math.toRadians(27)), (float) -Math.sin(Math.toRadians(27)));
 
-    /** Rear axle relative to the swingarm pivot at rest (model units, Y down). */
-    private static final float ARM_Y = (0.42f - 0.355f) * UNITS_PER_M, ARM_Z = (0.74f - 0.14f) * UNITS_PER_M;
-
-    private final ModelPart root, steer, forkLower, frontWheel, swingarm, rearWheel;
-
     public DirtBikeModel(ModelPart root) {
-        super(RenderType::entityCutoutNoCull);
-        this.root = root;
-        ModelPart frame = root.getChild("frame");
-        this.steer = frame.getChild("steer_axis").getChild("steer");
-        this.forkLower = steer.getChild("fork_lower");
-        this.frontWheel = forkLower.getChild("front_wheel");
-        this.swingarm = frame.getChild("swingarm");
-        this.rearWheel = swingarm.getChild("rear_wheel");
-    }
-
-    /**
-     * Poses the moving parts. Lengths in metres, angles in radians.
-     *
-     * @param steerRad     steering about the raked axis, positive = to the rider's right
-     * @param forkTravelM  fork compression 0..0.30 (the gold inner tubes slide up into the outer tubes)
-     * @param rearTravelM  rear wheel travel 0..0.31 (the swingarm swings up about its pivot)
-     * @param frontSpin    front wheel spin, positive = rolling forward
-     * @param rearSpin     rear wheel spin, same sign
-     */
-    public void setupPose(float steerRad, float forkTravelM, float rearTravelM, float frontSpin, float rearSpin) {
-        steer.yRot = steerRad;
-        forkLower.y = -Mth.clamp(forkTravelM, 0f, FORK_TRAVEL_M) * UNITS_PER_M;
-        frontWheel.xRot = frontSpin;
-        swingarm.xRot = swingAngle(Mth.clamp(rearTravelM, 0f, REAR_TRAVEL_M) * UNITS_PER_M);
-        rearWheel.xRot = rearSpin;
-    }
-
-    /** Swingarm angle that lifts the rear axle by {@code up} model units (exact, the axle moves on a circle). */
-    static float swingAngle(float up) {
-        double r = Math.hypot(ARM_Y, ARM_Z), phi = Math.atan2(ARM_Z, ARM_Y);
-        double c = Math.max(-1, Math.min(1, (ARM_Y - up) / r));
-        return (float) (Math.acos(c) - phi);
+        // rear axle relative to the swingarm pivot at rest: 0.065 m down, 0.60 m back
+        super(root, GROUP_CUBES, FORK_TRAVEL_M, REAR_TRAVEL_M, 0.42f - 0.355f, 0.74f - 0.14f);
     }
 
     @Override
-    public void renderToBuffer(PoseStack pose, VertexConsumer vc, int light, int overlay, int color) {
-        pose.pushPose();
-        float k = 16f / UNITS_PER_M;
-        pose.scale(k, k, k);
-        root.render(pose, vc, light, overlay, color);
-        pose.popPose();
+    public ResourceLocation texture() {
+        return TEXTURE;
     }
 
-    public ModelPart root() {
-        return root;
+    /** Fork compression 0..0.30 m, rear wheel travel 0..0.31 m; see {@link MotoModel#setupPose}. */
+    @Override
+    public void setupPose(float steerRad, float forkTravelM, float rearTravelM, float frontSpin, float rearSpin) {
+        applyPose(steerRad, forkTravelM, rearTravelM, frontSpin, rearSpin);
     }
 
-    // ------------------------------------------------------------------ geometry table (generated)
+    @Override
+    public void renderPainted(PoseStack pose, VertexConsumer vc, int light, int overlay, ToIntFunction<String> color) {
+        drawPainted(pose, vc, light, overlay, -1, color);
+    }
+
+    // ------------------------------------------------------------------ group table and geometry (generated)
+    // <GROUPS>
+    private static final String[][] GROUP_CUBES = {
+        // plastic
+        {"frame/tank", "frame/shroud_l", "frame/shroud_scoop_l", "frame/airbox_cover_l", "frame/shroud_r",
+         "frame/shroud_scoop_r", "frame/airbox_cover_r"},
+        // fender
+        {"frame/side_plate_l", "frame/side_plate_r", "frame/rear_fender", "frame/rear_fender_tip",
+         "frame/steer_axis/steer/fork_upper/front_fender",
+         "frame/steer_axis/steer/fork_upper/front_fender_tip",
+         "frame/steer_axis/steer/fork_upper/front_plate"},
+        // frame
+        {"frame/spar_l", "frame/spar_drop_l", "frame/cradle_l", "frame/cradle_rear_l", "frame/subframe_l",
+         "frame/subframe_strut_l", "frame/pivot_plate_l", "frame/spar_r", "frame/spar_drop_r",
+         "frame/cradle_r", "frame/cradle_rear_r", "frame/subframe_r", "frame/subframe_strut_r",
+         "frame/pivot_plate_r", "frame/down_tube", "frame/down_split_l", "frame/down_split_r",
+         "frame/head_tube", "frame/head_gusset", "frame/peg_mount_l", "frame/peg_mount_r", "frame/skid_plate",
+         "frame/swingarm/linkage"},
+        // seat
+        {"frame/seat", "frame/seat_front"},
+        // rim
+        {"frame/steer_axis/steer/fork_lower/front_wheel/f_rim0",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim1",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim2",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim3",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim4",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim5",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim6",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim7",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim8",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim9",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim10",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim11",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim12",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim13",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim14",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim15",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim16",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim17",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim18",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim19",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim20",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim21",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim22",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim23",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim24",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim25",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim26",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim27",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim28",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim29",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim30",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_rim31", "frame/swingarm/rear_wheel/r_rim0",
+         "frame/swingarm/rear_wheel/r_rim1", "frame/swingarm/rear_wheel/r_rim2",
+         "frame/swingarm/rear_wheel/r_rim3", "frame/swingarm/rear_wheel/r_rim4",
+         "frame/swingarm/rear_wheel/r_rim5", "frame/swingarm/rear_wheel/r_rim6",
+         "frame/swingarm/rear_wheel/r_rim7", "frame/swingarm/rear_wheel/r_rim8",
+         "frame/swingarm/rear_wheel/r_rim9", "frame/swingarm/rear_wheel/r_rim10",
+         "frame/swingarm/rear_wheel/r_rim11", "frame/swingarm/rear_wheel/r_rim12",
+         "frame/swingarm/rear_wheel/r_rim13", "frame/swingarm/rear_wheel/r_rim14",
+         "frame/swingarm/rear_wheel/r_rim15", "frame/swingarm/rear_wheel/r_rim16",
+         "frame/swingarm/rear_wheel/r_rim17", "frame/swingarm/rear_wheel/r_rim18",
+         "frame/swingarm/rear_wheel/r_rim19", "frame/swingarm/rear_wheel/r_rim20",
+         "frame/swingarm/rear_wheel/r_rim21", "frame/swingarm/rear_wheel/r_rim22",
+         "frame/swingarm/rear_wheel/r_rim23", "frame/swingarm/rear_wheel/r_rim24",
+         "frame/swingarm/rear_wheel/r_rim25", "frame/swingarm/rear_wheel/r_rim26",
+         "frame/swingarm/rear_wheel/r_rim27", "frame/swingarm/rear_wheel/r_rim28",
+         "frame/swingarm/rear_wheel/r_rim29", "frame/swingarm/rear_wheel/r_rim30",
+         "frame/swingarm/rear_wheel/r_rim31"},
+        // spring
+        {"frame/shock_spring"},
+        // anodized
+        {"frame/ignition_cover", "frame/head_cap", "frame/countershaft", "frame/shock_reservoir",
+         "frame/steer_axis/steer/fork_upper/top_clamp", "frame/steer_axis/steer/fork_upper/lower_clamp",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_hub",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_hub_l",
+         "frame/steer_axis/steer/fork_lower/front_wheel/f_hub_r", "frame/swingarm/rear_wheel/r_hub",
+         "frame/swingarm/rear_wheel/r_hub_l", "frame/swingarm/rear_wheel/r_hub_r",
+         "frame/swingarm/rear_wheel/r_sprocket0", "frame/swingarm/rear_wheel/r_sprocket1",
+         "frame/swingarm/rear_wheel/r_sprocket2", "frame/swingarm/rear_wheel/r_sprocket3",
+         "frame/swingarm/rear_wheel/r_sprocket4", "frame/swingarm/rear_wheel/r_sprocket5"},
+    };
+    // </GROUPS>
+
     public static LayerDefinition createLayer() {
         MeshDefinition mesh = new MeshDefinition();
         PartDefinition root = mesh.getRoot();
@@ -122,483 +166,471 @@ public class DirtBikeModel extends Model {
         cube(frame, "spar_l", 44, 27, 3.2640f, -25.4400f, -4.1600f, 1.7600f, 2.2400f, 17.7839f, -33.9042f, 4.2272f, 0.0000f);
         cube(frame, "spar_drop_l", 39, 88, 3.8080f, -16.0000f, 3.6800f, 1.7600f, 2.0800f, 9.0113f, -83.8845f, -0.0000f, 0.0000f);
         cube(frame, "cradle_l", 62, 88, 2.6520f, -8.3200f, -2.5600f, 1.3440f, 1.3440f, 9.8623f, -22.9147f, 9.4789f, 0.0000f);
-        cube(frame, "cradle_rear_l", 200, 124, 3.6040f, -8.9600f, 3.0400f, 1.1200f, 1.1200f, 5.6034f, 66.0254f, 10.3229f, 0.0000f);
+        cube(frame, "cradle_rear_l", 56, 135, 3.6040f, -8.9600f, 3.0400f, 1.1200f, 1.1200f, 5.6034f, 66.0254f, 10.3229f, 0.0000f);
         cube(frame, "subframe_l", 85, 27, 3.4680f, -24.9600f, 11.8400f, 0.9600f, 0.9600f, 19.2537f, 15.4218f, -0.4198f, 0.0000f);
         cube(frame, "subframe_strut_l", 78, 50, 3.6040f, -21.4400f, 11.0400f, 0.8000f, 0.8000f, 17.0492f, 39.6542f, -1.7812f, 0.0000f);
-        cube(frame, "pivot_plate_l", 241, 102, 3.9440f, -13.4400f, 4.1600f, 0.9600f, 4.4800f, 3.2000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "pivot_plate_l", 92, 115, 3.9440f, -13.4400f, 4.1600f, 0.9600f, 4.4800f, 3.2000f, 0.0000f, -0.0000f, 0.0000f);
         cube(frame, "spar_r", 127, 27, -3.2640f, -25.4400f, -4.1600f, 1.7600f, 2.2400f, 17.7839f, -33.9042f, -4.2272f, 0.0000f);
         cube(frame, "spar_drop_r", 86, 88, -3.8080f, -16.0000f, 3.6800f, 1.7600f, 2.0800f, 9.0113f, -83.8845f, -0.0000f, 0.0000f);
         cube(frame, "cradle_r", 109, 88, -2.6520f, -8.3200f, -2.5600f, 1.3440f, 1.3440f, 9.8623f, -22.9147f, -9.4789f, 0.0000f);
-        cube(frame, "cradle_rear_r", 215, 124, -3.6040f, -8.9600f, 3.0400f, 1.1200f, 1.1200f, 5.6034f, 66.0254f, -10.3229f, 0.0000f);
+        cube(frame, "cradle_rear_r", 71, 135, -3.6040f, -8.9600f, 3.0400f, 1.1200f, 1.1200f, 5.6034f, 66.0254f, -10.3229f, 0.0000f);
         cube(frame, "subframe_r", 168, 27, -3.4680f, -24.9600f, 11.8400f, 0.9600f, 0.9600f, 19.2537f, 15.4218f, 0.4198f, 0.0000f);
         cube(frame, "subframe_strut_r", 115, 50, -3.6040f, -21.4400f, 11.0400f, 0.8000f, 0.8000f, 17.0492f, 39.6542f, 1.7812f, 0.0000f);
-        cube(frame, "pivot_plate_r", 0, 115, -3.9440f, -13.4400f, 4.1600f, 0.9600f, 4.4800f, 3.2000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "pivot_plate_r", 102, 115, -3.9440f, -13.4400f, 4.1600f, 0.9600f, 4.4800f, 3.2000f, 0.0000f, -0.0000f, 0.0000f);
         cube(frame, "down_tube", 0, 27, 0.0000f, -20.3200f, -10.8800f, 1.6000f, 1.6000f, 19.7391f, -73.0339f, -0.0000f, 0.0000f);
-        cube(frame, "down_split_l", 0, 174, 0.9600f, -10.5600f, -7.5200f, 1.1200f, 1.1200f, 2.8800f, -41.8103f, 63.4349f, 0.0000f);
-        cube(frame, "down_split_r", 9, 174, -0.9600f, -10.5600f, -7.5200f, 1.1200f, 1.1200f, 2.8800f, -41.8103f, -63.4349f, 0.0000f);
-        cube(frame, "head_tube", 10, 115, 0.0000f, -32.0000f, -13.1200f, 2.2400f, 5.1200f, 2.2400f, -27.0000f, -0.0000f, 0.0000f);
-        cube(frame, "head_gusset", 28, 141, 0.0000f, -29.4400f, -11.5200f, 1.9200f, 2.5600f, 3.2000f, -20.0000f, -0.0000f, 0.0000f);
-        cube(frame, "pivot_bolt", 144, 198, 0.0000f, -13.4400f, 4.4800f, 8.3200f, 0.9600f, 0.9600f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "down_split_l", 140, 177, 0.9600f, -10.5600f, -7.5200f, 1.1200f, 1.1200f, 2.8800f, -41.8103f, 63.4349f, 0.0000f);
+        cube(frame, "down_split_r", 149, 177, -0.9600f, -10.5600f, -7.5200f, 1.1200f, 1.1200f, 2.8800f, -41.8103f, -63.4349f, 0.0000f);
+        cube(frame, "head_tube", 112, 115, 0.0000f, -32.0000f, -13.1200f, 2.2400f, 5.1200f, 2.2400f, -27.0000f, -0.0000f, 0.0000f);
+        cube(frame, "head_gusset", 140, 144, 0.0000f, -29.4400f, -11.5200f, 1.9200f, 2.5600f, 3.2000f, -20.0000f, -0.0000f, 0.0000f);
+        cube(frame, "pivot_bolt", 40, 206, 0.0000f, -13.4400f, 4.4800f, 8.3200f, 0.9600f, 0.9600f, 0.0000f, -0.0000f, 0.0000f);
         cube(frame, "crankcase", 210, 27, 0.0000f, -12.8000f, -1.2800f, 7.3600f, 8.6400f, 12.1600f, 0.0000f, -0.0000f, 0.0000f);
         cube(frame, "case_cover_l", 162, 71, 3.8400f, -12.8000f, -0.6400f, 0.9600f, 6.0800f, 8.3200f, 0.0000f, -0.0000f, 0.0000f);
         cube(frame, "case_cover_r", 133, 88, -3.8400f, -12.4800f, -2.5600f, 0.9600f, 5.4400f, 5.7600f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "clutch_cover", 20, 115, -4.3200f, -12.1600f, -1.2800f, 0.6400f, 3.8400f, 3.8400f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "ignition_cover", 40, 141, 4.3840f, -13.1200f, -3.2000f, 0.3840f, 2.8800f, 2.8800f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "sump", 55, 102, 0.0000f, -8.6400f, -1.9200f, 5.1200f, 1.6000f, 8.3200f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "fin0", 48, 141, 0.0000f, -16.6400f, -3.8400f, 6.4000f, 0.3840f, 5.4400f, -18.0000f, -0.0000f, 0.0000f);
-        cube(frame, "fin1", 73, 141, 0.0000f, -17.7052f, -4.1861f, 6.1440f, 0.3840f, 5.2480f, -18.0000f, -0.0000f, 0.0000f);
-        cube(frame, "fin2", 97, 141, 0.0000f, -18.7704f, -4.5322f, 5.8880f, 0.3840f, 5.0560f, -18.0000f, -0.0000f, 0.0000f);
-        cube(frame, "fin3", 120, 141, 0.0000f, -19.8355f, -4.8783f, 5.6320f, 0.3840f, 4.8640f, -18.0000f, -0.0000f, 0.0000f);
-        cube(frame, "fin4", 142, 141, 0.0000f, -20.9007f, -5.2244f, 5.3760f, 0.3840f, 4.6720f, -18.0000f, -0.0000f, 0.0000f);
-        cube(frame, "fin5", 53, 149, 0.0000f, -21.9659f, -5.5705f, 5.1200f, 0.3840f, 4.4800f, -18.0000f, -0.0000f, 0.0000f);
-        cube(frame, "cylinder", 83, 102, 0.0000f, -19.5200f, -4.8000f, 3.8400f, 6.4000f, 3.5200f, -18.0000f, -0.0000f, 0.0000f);
-        cube(frame, "head", 230, 124, 0.0000f, -23.6800f, -6.0800f, 5.1200f, 1.9200f, 4.4800f, -18.0000f, -0.0000f, 0.0000f);
-        cube(frame, "head_cap", 18, 174, 0.0000f, -24.8000f, -6.4000f, 3.2000f, 0.6400f, 2.8800f, -18.0000f, -0.0000f, 0.0000f);
-        cube(frame, "spark_cap", 66, 189, 1.9200f, -23.0400f, -5.1200f, 0.9600f, 1.2800f, 0.9600f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "carb", 164, 141, 0.0000f, -19.2000f, 1.6000f, 2.5600f, 2.2400f, 3.2000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "clutch_cover", 122, 115, -4.3200f, -12.1600f, -1.2800f, 0.6400f, 3.8400f, 3.8400f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "ignition_cover", 152, 144, 4.3840f, -13.1200f, -3.2000f, 0.3840f, 2.8800f, 2.8800f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "sump", 97, 102, 0.0000f, -8.6400f, -1.9200f, 5.1200f, 1.6000f, 8.3200f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "fin0", 160, 144, 0.0000f, -16.6400f, -3.8400f, 6.4000f, 0.3840f, 5.4400f, -18.0000f, -0.0000f, 0.0000f);
+        cube(frame, "fin1", 185, 144, 0.0000f, -17.7052f, -4.1861f, 6.1440f, 0.3840f, 5.2480f, -18.0000f, -0.0000f, 0.0000f);
+        cube(frame, "fin2", 209, 144, 0.0000f, -18.7704f, -4.5322f, 5.8880f, 0.3840f, 5.0560f, -18.0000f, -0.0000f, 0.0000f);
+        cube(frame, "fin3", 232, 144, 0.0000f, -19.8355f, -4.8783f, 5.6320f, 0.3840f, 4.8640f, -18.0000f, -0.0000f, 0.0000f);
+        cube(frame, "fin4", 0, 152, 0.0000f, -20.9007f, -5.2244f, 5.3760f, 0.3840f, 4.6720f, -18.0000f, -0.0000f, 0.0000f);
+        cube(frame, "fin5", 161, 152, 0.0000f, -21.9659f, -5.5705f, 5.1200f, 0.3840f, 4.4800f, -18.0000f, -0.0000f, 0.0000f);
+        cube(frame, "cylinder", 125, 102, 0.0000f, -19.5200f, -4.8000f, 3.8400f, 6.4000f, 3.5200f, -18.0000f, -0.0000f, 0.0000f);
+        cube(frame, "head", 86, 135, 0.0000f, -23.6800f, -6.0800f, 5.1200f, 1.9200f, 4.4800f, -18.0000f, -0.0000f, 0.0000f);
+        cube(frame, "head_cap", 158, 177, 0.0000f, -24.8000f, -6.4000f, 3.2000f, 0.6400f, 2.8800f, -18.0000f, -0.0000f, 0.0000f);
+        cube(frame, "spark_cap", 209, 193, 1.9200f, -23.0400f, -5.1200f, 0.9600f, 1.2800f, 0.9600f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "carb", 22, 152, 0.0000f, -19.2000f, 1.6000f, 2.5600f, 2.2400f, 3.2000f, 0.0000f, -0.0000f, 0.0000f);
         cube(frame, "airbox", 148, 88, 0.0000f, -22.4000f, 8.6400f, 5.7600f, 4.4800f, 7.0400f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "countershaft", 177, 141, 4.3200f, -12.1600f, 1.6000f, 0.6400f, 2.8800f, 2.8800f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "kick_lever", 0, 133, -4.8000f, -11.5200f, 3.2000f, 0.4800f, 0.9600f, 5.1200f, 35.0000f, -0.0000f, 0.0000f);
-        cube(frame, "shift_lever", 74, 149, 5.1200f, -10.5600f, 0.6400f, 0.4800f, 0.6400f, 3.8400f, -8.0000f, -0.0000f, 0.0000f);
-        cube(frame, "brake_pedal", 186, 141, -5.1200f, -10.2400f, 0.0000f, 0.4800f, 0.6400f, 4.4800f, -8.0000f, -0.0000f, 0.0000f);
+        cube(frame, "countershaft", 35, 152, 4.3200f, -12.1600f, 1.6000f, 0.6400f, 2.8800f, 2.8800f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "kick_lever", 107, 135, -4.8000f, -11.5200f, 3.2000f, 0.4800f, 0.9600f, 5.1200f, 35.0000f, -0.0000f, 0.0000f);
+        cube(frame, "shift_lever", 182, 152, 5.1200f, -10.5600f, 0.6400f, 0.4800f, 0.6400f, 3.8400f, -8.0000f, -0.0000f, 0.0000f);
+        cube(frame, "brake_pedal", 44, 152, -5.1200f, -10.2400f, 0.0000f, 0.4800f, 0.6400f, 4.4800f, -8.0000f, -0.0000f, 0.0000f);
         cube(frame, "radiator_l", 175, 88, 4.1600f, -21.1200f, -9.6000f, 1.2800f, 7.6800f, 3.8400f, 0.0000f, -0.0000f, 0.0000f);
         cube(frame, "radiator_r", 187, 88, -4.1600f, -21.1200f, -9.6000f, 1.2800f, 7.6800f, 3.8400f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "coolant_hose", 164, 198, 0.0000f, -17.9200f, -7.6800f, 6.4000f, 0.9600f, 0.9600f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "header0", 197, 141, -0.6400f, -20.8000f, -8.3200f, 1.2800f, 1.2800f, 4.2933f, 131.8103f, -26.5651f, 180.0000f);
-        cube(frame, "header1", 30, 115, -2.5600f, -16.3200f, -9.6000f, 1.2800f, 1.2800f, 6.3033f, -66.0375f, -90.0000f, 0.0000f);
-        cube(frame, "header2", 47, 115, -4.3200f, -12.4800f, -6.7200f, 1.2800f, 1.2800f, 6.1470f, -18.2008f, -9.4623f, 0.0000f);
-        cube(frame, "header3", 205, 102, -4.8000f, -12.1600f, -0.3200f, 1.2800f, 1.2800f, 7.1554f, 10.3048f, -0.0000f, 0.0000f);
-        cube(frame, "header4", 99, 102, -4.8000f, -15.6800f, 6.4000f, 1.2800f, 1.2800f, 8.6103f, 41.9872f, -0.0000f, 0.0000f);
+        cube(frame, "coolant_hose", 60, 206, 0.0000f, -17.9200f, -7.6800f, 6.4000f, 0.9600f, 0.9600f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "header0", 55, 152, -0.6400f, -20.8000f, -8.3200f, 1.2800f, 1.2800f, 4.2933f, 131.8103f, -26.5651f, 180.0000f);
+        cube(frame, "header1", 132, 115, -2.5600f, -16.3200f, -9.6000f, 1.2800f, 1.2800f, 6.3033f, -66.0375f, -90.0000f, 0.0000f);
+        cube(frame, "header2", 149, 115, -4.3200f, -12.4800f, -6.7200f, 1.2800f, 1.2800f, 6.1470f, -18.2008f, -9.4623f, 0.0000f);
+        cube(frame, "header3", 56, 115, -4.8000f, -12.1600f, -0.3200f, 1.2800f, 1.2800f, 7.1554f, 10.3048f, -0.0000f, 0.0000f);
+        cube(frame, "header4", 141, 102, -4.8000f, -15.6800f, 6.4000f, 1.2800f, 1.2800f, 8.6103f, 41.9872f, -0.0000f, 0.0000f);
         cube(frame, "muffler", 152, 50, -4.9600f, -21.1200f, 16.3200f, 3.0400f, 3.2000f, 14.3858f, 20.8491f, -1.3639f, 0.0000f);
-        cube(frame, "muffler_cap", 84, 149, -5.1520f, -23.9200f, 23.8400f, 2.7200f, 2.8800f, 1.6717f, 16.6866f, -2.2906f, 0.0000f);
-        cube(frame, "muffler_tip", 71, 189, -5.2000f, -24.2720f, 25.1200f, 1.1200f, 1.1200f, 0.9863f, 13.1270f, -1.9092f, 0.0000f);
-        cube(frame, "muffler_band", 94, 149, -4.9600f, -21.1200f, 16.0000f, 3.2000f, 3.5200f, 0.6400f, 22.0000f, -0.0000f, 0.0000f);
+        cube(frame, "muffler_cap", 192, 152, -5.1520f, -23.9200f, 23.8400f, 2.7200f, 2.8800f, 1.6717f, 16.6866f, -2.2906f, 0.0000f);
+        cube(frame, "muffler_tip", 214, 193, -5.2000f, -24.2720f, 25.1200f, 1.1200f, 1.1200f, 0.9863f, 13.1270f, -1.9092f, 0.0000f);
+        cube(frame, "muffler_band", 202, 152, -4.9600f, -21.1200f, 16.0000f, 3.2000f, 3.5200f, 0.6400f, 22.0000f, -0.0000f, 0.0000f);
         cube(frame, "tank", 0, 71, 0.0000f, -27.8400f, -7.0400f, 8.9600f, 5.4400f, 10.2400f, 6.0000f, -0.0000f, 0.0000f);
-        cube(frame, "tank_cap", 77, 189, 0.0000f, -30.7200f, -7.6800f, 1.9200f, 0.6400f, 1.9200f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "tank_stripe", 162, 102, 0.0000f, -30.6724f, -7.3377f, 0.9600f, 0.1920f, 9.6000f, 6.0000f, -0.0000f, 0.0000f);
+        cube(frame, "tank_cap", 220, 193, 0.0000f, -30.7200f, -7.6800f, 1.9200f, 0.6400f, 1.9200f, 0.0000f, -0.0000f, 0.0000f);
         cube(frame, "shroud_l", 40, 71, 4.9600f, -24.3200f, -9.6000f, 0.9600f, 8.3200f, 7.6800f, 12.0000f, -0.0000f, -6.0000f);
-        cube(frame, "shroud_scoop_l", 210, 141, 5.2800f, -27.5200f, -13.4400f, 0.8000f, 3.2000f, 2.2400f, 30.0000f, -0.0000f, -6.0000f);
+        cube(frame, "shroud_stripe_l_w", 7, 102, 4.9600f, -24.3200f, -9.6000f, 1.3440f, 1.4400f, 8.6400f, 47.0000f, -0.0000f, -6.0000f);
+        cube(frame, "shroud_stripe_l_k", 185, 102, 5.0364f, -23.5929f, -8.8160f, 1.3440f, 0.7040f, 8.6400f, 47.0000f, -0.0000f, -6.0000f);
+        cube(frame, "shroud_scoop_l", 68, 152, 5.2800f, -27.5200f, -13.4400f, 0.8000f, 3.2000f, 2.2400f, 30.0000f, -0.0000f, -6.0000f);
         cube(frame, "side_plate_l", 206, 50, 5.2800f, -24.6400f, 16.0000f, 0.8000f, 7.0400f, 9.6000f, -8.0000f, -0.0000f, 0.0000f);
         cube(frame, "airbox_cover_l", 59, 71, 4.8000f, -24.3200f, 5.4400f, 0.8000f, 6.4000f, 9.6000f, -4.0000f, -0.0000f, 0.0000f);
-        cube(frame, "peg_l", 86, 189, 5.4400f, -11.3600f, 1.9200f, 3.2000f, 0.8000f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "peg_tooth_l0", 180, 198, 4.3200f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "peg_tooth_l1", 185, 198, 5.0240f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "peg_tooth_l2", 190, 198, 5.7280f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "peg_tooth_l3", 195, 198, 6.4320f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "peg_mount_l", 32, 174, 3.2000f, -11.5200f, 1.9200f, 1.6000f, 1.6000f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "peg_l", 229, 193, 5.4400f, -11.3600f, 1.9200f, 3.2000f, 0.8000f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "peg_tooth_l0", 76, 206, 4.3200f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "peg_tooth_l1", 81, 206, 5.0240f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "peg_tooth_l2", 86, 206, 5.7280f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "peg_tooth_l3", 91, 206, 6.4320f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "peg_mount_l", 172, 177, 3.2000f, -11.5200f, 1.9200f, 1.6000f, 1.6000f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
         cube(frame, "shroud_r", 81, 71, -4.9600f, -24.3200f, -9.6000f, 0.9600f, 8.3200f, 7.6800f, 12.0000f, -0.0000f, 6.0000f);
-        cube(frame, "shroud_scoop_r", 218, 141, -5.2800f, -27.5200f, -13.4400f, 0.8000f, 3.2000f, 2.2400f, 30.0000f, -0.0000f, 6.0000f);
+        cube(frame, "shroud_stripe_r_w", 28, 102, -4.9600f, -24.3200f, -9.6000f, 1.3440f, 1.4400f, 8.6400f, 47.0000f, -0.0000f, 6.0000f);
+        cube(frame, "shroud_stripe_r_k", 206, 102, -5.0364f, -23.5929f, -8.8160f, 1.3440f, 0.7040f, 8.6400f, 47.0000f, -0.0000f, 6.0000f);
+        cube(frame, "shroud_scoop_r", 76, 152, -5.2800f, -27.5200f, -13.4400f, 0.8000f, 3.2000f, 2.2400f, 30.0000f, -0.0000f, 6.0000f);
         cube(frame, "side_plate_r", 228, 50, -5.2800f, -24.6400f, 16.0000f, 0.8000f, 7.0400f, 9.6000f, -8.0000f, -0.0000f, 0.0000f);
         cube(frame, "airbox_cover_r", 100, 71, -4.8000f, -24.3200f, 5.4400f, 0.8000f, 6.4000f, 9.6000f, -4.0000f, -0.0000f, 0.0000f);
-        cube(frame, "peg_r", 97, 189, -5.4400f, -11.3600f, 1.9200f, 3.2000f, 0.8000f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "peg_tooth_r0", 200, 198, -4.3200f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "peg_tooth_r1", 205, 198, -5.0240f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "peg_tooth_r2", 210, 198, -5.7280f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "peg_tooth_r3", 215, 198, -6.4320f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
-        cube(frame, "peg_mount_r", 40, 174, -3.2000f, -11.5200f, 1.9200f, 1.6000f, 1.6000f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "peg_r", 240, 193, -5.4400f, -11.3600f, 1.9200f, 3.2000f, 0.8000f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "peg_tooth_r0", 96, 206, -4.3200f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "peg_tooth_r1", 101, 206, -5.0240f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "peg_tooth_r2", 106, 206, -5.7280f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "peg_tooth_r3", 111, 206, -6.4320f, -11.9360f, 1.9200f, 0.2560f, 0.3840f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(frame, "peg_mount_r", 180, 177, -3.2000f, -11.5200f, 1.9200f, 1.6000f, 1.6000f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
         cube(frame, "seat", 0, 0, 0.0000f, -29.9200f, 5.7600f, 8.3200f, 2.2400f, 23.6800f, -2.5000f, -0.0000f, 0.0000f);
-        cube(frame, "seat_front", 103, 149, 0.0000f, -29.4400f, -6.4000f, 7.0400f, 1.9200f, 2.5600f, 12.0000f, -0.0000f, 0.0000f);
+        cube(frame, "seat_front", 211, 152, 0.0000f, -29.4400f, -6.4000f, 7.0400f, 1.9200f, 2.5600f, 12.0000f, -0.0000f, 0.0000f);
         cube(frame, "seat_base", 65, 0, 0.0000f, -28.3200f, 6.4000f, 7.6800f, 0.9600f, 21.1200f, -2.5000f, -0.0000f, 0.0000f);
         cube(frame, "rear_fender", 182, 71, 0.0000f, -28.9600f, 25.6000f, 6.7200f, 0.9600f, 13.4400f, 9.0000f, -0.0000f, 0.0000f);
-        cube(frame, "rear_fender_tip", 48, 174, 0.0000f, -30.4000f, 32.9600f, 5.4400f, 0.6400f, 3.2000f, 18.0000f, -0.0000f, 0.0000f);
-        cube(frame, "shock_body", 120, 102, 0.0000f, -21.1200f, 7.6800f, 1.9200f, 7.6800f, 1.9200f, 25.0000f, -0.0000f, 0.0000f);
-        cube(frame, "shock_spring", 63, 115, 0.0000f, -18.5600f, 8.6400f, 2.7200f, 4.4800f, 2.7200f, 25.0000f, -0.0000f, 0.0000f);
-        cube(frame, "shock_reservoir", 124, 149, -1.6000f, -22.7200f, 7.0400f, 1.1200f, 3.2000f, 1.1200f, 25.0000f, -0.0000f, 0.0000f);
+        cube(frame, "rear_fender_tip", 188, 177, 0.0000f, -30.4000f, 32.9600f, 5.4400f, 0.6400f, 3.2000f, 18.0000f, -0.0000f, 0.0000f);
+        cube(frame, "shock_body", 227, 102, 0.0000f, -21.1200f, 7.6800f, 1.9200f, 7.6800f, 1.9200f, 25.0000f, -0.0000f, 0.0000f);
+        cube(frame, "shock_spring", 165, 115, 0.0000f, -18.5600f, 8.6400f, 2.7200f, 4.4800f, 2.7200f, 25.0000f, -0.0000f, 0.0000f);
+        cube(frame, "shock_reservoir", 232, 152, -1.6000f, -22.7200f, 7.0400f, 1.1200f, 3.2000f, 1.1200f, 25.0000f, -0.0000f, 0.0000f);
         cube(frame, "skid_plate", 0, 88, 0.0000f, -5.9200f, -2.5600f, 6.4000f, 0.4800f, 12.1600f, 0.0000f, -0.0000f, 0.0000f);
         PartDefinition steer_axis = bone(frame, "steer_axis", 0.0000f, -32.0000f, -13.1200f, -27.0000f, -0.0000f, 0.0000f);
         PartDefinition steer = bone(steer_axis, "steer", 0.0000f, 0.0000f, 0.0000f, -0.0000f, -0.0000f, 0.0000f);
         PartDefinition fork_upper = bone(steer, "fork_upper", 0.0000f, 0.0000f, 0.0000f, -0.0000f, -0.0000f, 0.0000f);
         cube(fork_upper, "outer_tube_l", 188, 50, 3.0400f, 6.4000f, -0.0000f, 1.8560f, 16.0000f, 1.8560f, -0.0000f, -0.0000f, 0.0000f);
-        cube(fork_upper, "fork_cap_l", 108, 189, 3.0400f, -2.5600f, 0.0000f, 1.4400f, 0.9600f, 1.4400f, -0.0000f, -0.0000f, 0.0000f);
+        cube(fork_upper, "fork_cap_l", 0, 198, 3.0400f, -2.5600f, 0.0000f, 1.4400f, 0.9600f, 1.4400f, -0.0000f, -0.0000f, 0.0000f);
         cube(fork_upper, "outer_tube_r", 197, 50, -3.0400f, 6.4000f, -0.0000f, 1.8560f, 16.0000f, 1.8560f, -0.0000f, -0.0000f, 0.0000f);
-        cube(fork_upper, "fork_cap_r", 115, 189, -3.0400f, -2.5600f, 0.0000f, 1.4400f, 0.9600f, 1.4400f, -0.0000f, -0.0000f, 0.0000f);
-        cube(fork_upper, "top_clamp", 67, 174, 0.0000f, -1.2800f, -0.0000f, 8.6400f, 0.9600f, 2.8800f, -0.0000f, -0.0000f, 0.0000f);
-        cube(fork_upper, "lower_clamp", 130, 149, 0.0000f, 4.1600f, 0.0000f, 8.6400f, 1.2800f, 3.2000f, -0.0000f, -0.0000f, 0.0000f);
-        cube(fork_upper, "steerer", 75, 115, 0.0000f, 1.6000f, 0.0000f, 1.2800f, 5.7600f, 1.2800f, -0.0000f, -0.0000f, 0.0000f);
+        cube(fork_upper, "fork_cap_r", 7, 198, -3.0400f, -2.5600f, 0.0000f, 1.4400f, 0.9600f, 1.4400f, -0.0000f, -0.0000f, 0.0000f);
+        cube(fork_upper, "top_clamp", 207, 177, 0.0000f, -1.2800f, -0.0000f, 8.6400f, 0.9600f, 2.8800f, -0.0000f, -0.0000f, 0.0000f);
+        cube(fork_upper, "lower_clamp", 0, 159, 0.0000f, 4.1600f, 0.0000f, 8.6400f, 1.2800f, 3.2000f, -0.0000f, -0.0000f, 0.0000f);
+        cube(fork_upper, "steerer", 177, 115, 0.0000f, 1.6000f, 0.0000f, 1.2800f, 5.7600f, 1.2800f, -0.0000f, -0.0000f, 0.0000f);
         cube(fork_upper, "front_fender", 122, 71, 0.0000f, 5.4400f, -2.2400f, 4.4800f, 0.9600f, 14.7200f, 31.0000f, -0.0000f, 0.0000f);
-        cube(fork_upper, "front_fender_tip", 155, 149, 0.0000f, 8.5071f, -10.3741f, 3.8400f, 0.9600f, 3.2000f, 49.0000f, -0.0000f, 0.0000f);
-        cube(fork_upper, "front_plate", 82, 115, 0.0000f, -0.6400f, -3.2000f, 7.6800f, 7.0400f, 0.6400f, 8.0000f, -0.0000f, 0.0000f);
-        cube(fork_upper, "headlight_mask", 92, 174, 0.0000f, 1.9200f, -2.7200f, 5.1200f, 2.5600f, 0.9600f, -0.0000f, -0.0000f, 0.0000f);
-        cube(fork_upper, "bar_mount", 106, 174, 0.0000f, -3.0954f, -0.4358f, 2.5600f, 1.6000f, 1.6000f, 27.0000f, -0.0000f, 0.0000f);
-        cube(fork_upper, "bar_pad", 116, 174, 0.0000f, -4.3784f, -1.0896f, 6.4000f, 1.6000f, 1.6000f, 27.0000f, -0.0000f, 0.0000f);
+        cube(fork_upper, "front_fender_tip", 25, 159, 0.0000f, 8.5071f, -10.3741f, 3.8400f, 0.9600f, 3.2000f, 49.0000f, -0.0000f, 0.0000f);
+        cube(fork_upper, "front_plate", 184, 115, 0.0000f, -0.6400f, -3.2000f, 7.6800f, 7.0400f, 0.6400f, 8.0000f, -0.0000f, 0.0000f);
+        cube(fork_upper, "headlight_mask", 232, 177, 0.0000f, 1.9200f, -2.7200f, 5.1200f, 2.5600f, 0.9600f, -0.0000f, -0.0000f, 0.0000f);
+        cube(fork_upper, "bar_mount", 246, 177, 0.0000f, -3.0954f, -0.4358f, 2.5600f, 1.6000f, 1.6000f, 27.0000f, -0.0000f, 0.0000f);
+        cube(fork_upper, "bar_pad", 0, 183, 0.0000f, -4.3784f, -1.0896f, 6.4000f, 1.6000f, 1.6000f, 27.0000f, -0.0000f, 0.0000f);
         cube(fork_upper, "bar_l", 199, 88, 5.2800f, -2.9320f, -0.2369f, 0.8320f, 0.8320f, 10.5842f, 90.0647f, 62.9485f, 86.1813f);
         cube(fork_upper, "bar_r", 223, 88, -5.2800f, -2.9320f, -0.2369f, 0.8320f, 0.8320f, 10.5842f, 90.0647f, -62.9485f, -86.1813f);
-        cube(fork_upper, "crossbar", 223, 102, 0.0000f, -3.5722f, -0.7427f, 0.6400f, 0.6400f, 7.6800f, 90.0000f, 63.0000f, 90.0000f);
-        cube(fork_upper, "grip_l", 226, 141, 12.6400f, -3.2898f, -0.2396f, 1.1520f, 1.1520f, 4.1600f, 90.0000f, 63.0000f, 90.0000f);
-        cube(fork_upper, "grip_r", 238, 141, -12.6400f, -3.2898f, -0.2396f, 1.1520f, 1.1520f, 4.1600f, 90.0000f, -63.0000f, -90.0000f);
-        cube(fork_upper, "clutch_perch", 122, 189, 9.6000f, -3.2898f, -0.2396f, 1.1200f, 1.2800f, 1.2800f, 27.0000f, -0.0000f, 0.0000f);
-        cube(fork_upper, "clutch_lever", 220, 198, 12.1600f, -2.2755f, -1.8777f, 4.8000f, 0.3840f, 0.6400f, 27.7050f, -12.4480f, -6.4580f);
-        cube(fork_upper, "brake_res", 128, 189, -9.2800f, -4.2877f, -0.7481f, 1.2800f, 1.1200f, 1.1200f, 27.0000f, -0.0000f, 0.0000f);
-        cube(fork_upper, "brake_lever", 232, 198, -12.1600f, -2.2755f, -1.8777f, 4.8000f, 0.3840f, 0.6400f, 27.7050f, 12.4480f, 6.4580f);
-        cube(fork_upper, "throttle", 134, 189, -10.4000f, -3.2898f, -0.2396f, 0.8000f, 1.4400f, 1.4400f, 27.0000f, -0.0000f, 0.0000f);
+        cube(fork_upper, "crossbar", 74, 115, 0.0000f, -3.5722f, -0.7427f, 0.6400f, 0.6400f, 7.6800f, 90.0000f, 63.0000f, 90.0000f);
+        cube(fork_upper, "grip_l", 84, 152, 12.6400f, -3.2898f, -0.2396f, 1.1520f, 1.1520f, 4.1600f, 90.0000f, 63.0000f, 90.0000f);
+        cube(fork_upper, "grip_r", 96, 152, -12.6400f, -3.2898f, -0.2396f, 1.1520f, 1.1520f, 4.1600f, 90.0000f, -63.0000f, -90.0000f);
+        cube(fork_upper, "clutch_perch", 14, 198, 9.6000f, -3.2898f, -0.2396f, 1.1200f, 1.2800f, 1.2800f, 27.0000f, -0.0000f, 0.0000f);
+        cube(fork_upper, "clutch_lever", 116, 206, 12.1600f, -2.2755f, -1.8777f, 4.8000f, 0.3840f, 0.6400f, 27.7050f, -12.4480f, -6.4580f);
+        cube(fork_upper, "brake_res", 20, 198, -9.2800f, -4.2877f, -0.7481f, 1.2800f, 1.1200f, 1.1200f, 27.0000f, -0.0000f, 0.0000f);
+        cube(fork_upper, "brake_lever", 128, 206, -12.1600f, -2.2755f, -1.8777f, 4.8000f, 0.3840f, 0.6400f, 27.7050f, 12.4480f, 6.4580f);
+        cube(fork_upper, "throttle", 26, 198, -10.4000f, -3.2898f, -0.2396f, 0.8000f, 1.4400f, 1.4400f, 27.0000f, -0.0000f, 0.0000f);
         PartDefinition fork_lower = bone(steer, "fork_lower", 0.0000f, 0.0000f, 0.0000f, -0.0000f, -0.0000f, 0.0000f);
         cube(fork_lower, "inner_tube_l", 247, 88, 3.0400f, 16.9600f, -0.0000f, 1.4080f, 9.6000f, 1.4080f, -0.0000f, -0.0000f, 0.0000f);
-        cube(fork_lower, "seal_l", 140, 189, 3.0400f, 14.5600f, -0.0000f, 1.9200f, 0.9600f, 1.9200f, -0.0000f, -0.0000f, 0.0000f);
-        cube(fork_lower, "axle_lug_l", 13, 133, 3.0400f, 22.4000f, -0.3200f, 1.6000f, 3.8400f, 2.2400f, -0.0000f, -0.0000f, 0.0000f);
-        cube(fork_lower, "fork_guard_l", 100, 115, 3.0400f, 17.9200f, -1.1200f, 1.6000f, 7.0400f, 0.6400f, -0.0000f, -0.0000f, 0.0000f);
+        cube(fork_lower, "seal_l", 32, 198, 3.0400f, 14.5600f, -0.0000f, 1.9200f, 0.9600f, 1.9200f, -0.0000f, -0.0000f, 0.0000f);
+        cube(fork_lower, "axle_lug_l", 120, 135, 3.0400f, 22.4000f, -0.3200f, 1.6000f, 3.8400f, 2.2400f, -0.0000f, -0.0000f, 0.0000f);
+        cube(fork_lower, "fork_guard_l", 202, 115, 3.0400f, 17.9200f, -1.1200f, 1.6000f, 7.0400f, 0.6400f, -0.0000f, -0.0000f, 0.0000f);
         cube(fork_lower, "inner_tube_r", 0, 102, -3.0400f, 16.9600f, -0.0000f, 1.4080f, 9.6000f, 1.4080f, -0.0000f, -0.0000f, 0.0000f);
-        cube(fork_lower, "seal_r", 149, 189, -3.0400f, 14.5600f, -0.0000f, 1.9200f, 0.9600f, 1.9200f, -0.0000f, -0.0000f, 0.0000f);
-        cube(fork_lower, "axle_lug_r", 22, 133, -3.0400f, 22.4000f, -0.3200f, 1.6000f, 3.8400f, 2.2400f, -0.0000f, -0.0000f, 0.0000f);
-        cube(fork_lower, "fork_guard_r", 106, 115, -3.0400f, 17.9200f, -1.1200f, 1.6000f, 7.0400f, 0.6400f, -0.0000f, -0.0000f, 0.0000f);
-        cube(fork_lower, "front_caliper", 0, 149, 3.8400f, 21.1200f, 1.9200f, 1.2800f, 2.8800f, 2.2400f, -0.0000f, -0.0000f, 0.0000f);
+        cube(fork_lower, "seal_r", 41, 198, -3.0400f, 14.5600f, -0.0000f, 1.9200f, 0.9600f, 1.9200f, -0.0000f, -0.0000f, 0.0000f);
+        cube(fork_lower, "axle_lug_r", 129, 135, -3.0400f, 22.4000f, -0.3200f, 1.6000f, 3.8400f, 2.2400f, -0.0000f, -0.0000f, 0.0000f);
+        cube(fork_lower, "fork_guard_r", 208, 115, -3.0400f, 17.9200f, -1.1200f, 1.6000f, 7.0400f, 0.6400f, -0.0000f, -0.0000f, 0.0000f);
+        cube(fork_lower, "front_caliper", 108, 152, 3.8400f, 21.1200f, 1.9200f, 1.2800f, 2.8800f, 2.2400f, -0.0000f, -0.0000f, 0.0000f);
         PartDefinition front_wheel = bone(fork_lower, "front_wheel", 0.0000f, 23.1845f, -0.0387f, -0.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire0", 171, 149, 0.0000f, -8.8388f, -4.5036f, 2.7200f, 2.2400f, 2.3421f, 27.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall0", 133, 174, 0.0000f, -8.2400f, -4.1985f, 2.2304f, 1.6000f, 1.9115f, 27.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim0", 158, 189, 0.0000f, -7.4987f, -3.8208f, 1.1424f, 0.8320f, 1.8118f, 27.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire1", 183, 149, 0.0000f, -9.5476f, -2.6927f, 2.7200f, 2.2400f, 2.3421f, 38.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall1", 143, 174, 0.0000f, -8.9008f, -2.5103f, 2.2304f, 1.6000f, 1.9115f, 38.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim1", 165, 189, 0.0000f, -8.1000f, -2.2844f, 1.1424f, 0.8320f, 1.8118f, 38.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire2", 195, 149, 0.0000f, -9.8894f, -0.7783f, 2.7200f, 2.2400f, 2.3421f, 49.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall2", 153, 174, 0.0000f, -9.2195f, -0.7256f, 2.2304f, 1.6000f, 1.9115f, 49.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim2", 172, 189, 0.0000f, -8.3901f, -0.6603f, 1.1424f, 0.8320f, 1.8118f, 49.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire3", 207, 149, 0.0000f, -9.8512f, 1.1660f, 2.7200f, 2.2400f, 2.3421f, 60.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall3", 163, 174, 0.0000f, -9.1839f, 1.0870f, 2.2304f, 1.6000f, 1.9115f, 60.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim3", 179, 189, 0.0000f, -8.3577f, 0.9892f, 1.1424f, 0.8320f, 1.8118f, 60.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire4", 219, 149, 0.0000f, -9.4345f, 3.0654f, 2.7200f, 2.2400f, 2.3421f, 72.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall4", 173, 174, 0.0000f, -8.7954f, 2.8578f, 2.2304f, 1.6000f, 1.9115f, 72.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim4", 186, 189, 0.0000f, -8.0041f, 2.6007f, 1.1424f, 0.8320f, 1.8118f, 72.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire5", 231, 149, 0.0000f, -8.6552f, 4.8471f, 2.7200f, 2.2400f, 2.3421f, 83.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall5", 183, 174, 0.0000f, -8.0688f, 4.5188f, 2.2304f, 1.6000f, 1.9115f, 83.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim5", 193, 189, 0.0000f, -7.3429f, 4.1122f, 1.1424f, 0.8320f, 1.8118f, 83.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire6", 243, 149, 0.0000f, -7.5432f, 6.4425f, 2.7200f, 2.2400f, 2.3421f, 94.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall6", 193, 174, 0.0000f, -7.0322f, 6.0061f, 2.2304f, 1.6000f, 1.9115f, 94.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim6", 200, 189, 0.0000f, -6.3996f, 5.4658f, 1.1424f, 0.8320f, 1.8118f, 94.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire7", 0, 156, 0.0000f, -6.1414f, 7.7903f, 2.7200f, 2.2400f, 2.3421f, 105.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall7", 203, 174, 0.0000f, -5.7254f, 7.2626f, 2.2304f, 1.6000f, 1.9115f, 105.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim7", 207, 189, 0.0000f, -5.2103f, 6.6092f, 1.1424f, 0.8320f, 1.8118f, 105.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire8", 12, 156, 0.0000f, -4.5036f, 8.8388f, 2.7200f, 2.2400f, 2.3421f, 117.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall8", 213, 174, 0.0000f, -4.1985f, 8.2400f, 2.2304f, 1.6000f, 1.9115f, 117.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim8", 214, 189, 0.0000f, -3.8208f, 7.4987f, 1.1424f, 0.8320f, 1.8118f, 117.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire9", 24, 156, 0.0000f, -2.6927f, 9.5476f, 2.7200f, 2.2400f, 2.3421f, 128.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall9", 223, 174, 0.0000f, -2.5103f, 8.9008f, 2.2304f, 1.6000f, 1.9115f, 128.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim9", 221, 189, 0.0000f, -2.2844f, 8.1000f, 1.1424f, 0.8320f, 1.8118f, 128.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire10", 36, 156, 0.0000f, -0.7783f, 9.8894f, 2.7200f, 2.2400f, 2.3421f, 139.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall10", 233, 174, 0.0000f, -0.7256f, 9.2195f, 2.2304f, 1.6000f, 1.9115f, 139.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim10", 228, 189, 0.0000f, -0.6603f, 8.3901f, 1.1424f, 0.8320f, 1.8118f, 139.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire11", 48, 156, 0.0000f, 1.1660f, 9.8512f, 2.7200f, 2.2400f, 2.3421f, 150.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall11", 243, 174, 0.0000f, 1.0870f, 9.1839f, 2.2304f, 1.6000f, 1.9115f, 150.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim11", 235, 189, 0.0000f, 0.9892f, 8.3577f, 1.1424f, 0.8320f, 1.8118f, 150.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire12", 60, 156, 0.0000f, 3.0654f, 9.4345f, 2.7200f, 2.2400f, 2.3421f, 162.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall12", 0, 179, 0.0000f, 2.8578f, 8.7954f, 2.2304f, 1.6000f, 1.9115f, 162.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim12", 242, 189, 0.0000f, 2.6007f, 8.0041f, 1.1424f, 0.8320f, 1.8118f, 162.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire13", 72, 156, 0.0000f, 4.8471f, 8.6552f, 2.7200f, 2.2400f, 2.3421f, 173.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall13", 10, 179, 0.0000f, 4.5188f, 8.0688f, 2.2304f, 1.6000f, 1.9115f, 173.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim13", 249, 189, 0.0000f, 4.1122f, 7.3429f, 1.1424f, 0.8320f, 1.8118f, 173.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire14", 84, 156, 0.0000f, 6.4425f, 7.5432f, 2.7200f, 2.2400f, 2.3421f, -175.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall14", 20, 179, 0.0000f, 6.0061f, 7.0322f, 2.2304f, 1.6000f, 1.9115f, -175.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim14", 0, 194, 0.0000f, 5.4658f, 6.3996f, 1.1424f, 0.8320f, 1.8118f, -175.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire15", 96, 156, 0.0000f, 7.7903f, 6.1414f, 2.7200f, 2.2400f, 2.3421f, -164.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall15", 30, 179, 0.0000f, 7.2626f, 5.7254f, 2.2304f, 1.6000f, 1.9115f, -164.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim15", 7, 194, 0.0000f, 6.6092f, 5.2103f, 1.1424f, 0.8320f, 1.8118f, -164.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire16", 108, 156, 0.0000f, 8.8388f, 4.5036f, 2.7200f, 2.2400f, 2.3421f, -153.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall16", 40, 179, 0.0000f, 8.2400f, 4.1985f, 2.2304f, 1.6000f, 1.9115f, -153.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim16", 14, 194, 0.0000f, 7.4987f, 3.8208f, 1.1424f, 0.8320f, 1.8118f, -153.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire17", 120, 156, 0.0000f, 9.5476f, 2.6927f, 2.7200f, 2.2400f, 2.3421f, -141.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall17", 50, 179, 0.0000f, 8.9008f, 2.5103f, 2.2304f, 1.6000f, 1.9115f, -141.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim17", 21, 194, 0.0000f, 8.1000f, 2.2844f, 1.1424f, 0.8320f, 1.8118f, -141.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire18", 132, 156, 0.0000f, 9.8894f, 0.7783f, 2.7200f, 2.2400f, 2.3421f, -130.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall18", 60, 179, 0.0000f, 9.2195f, 0.7256f, 2.2304f, 1.6000f, 1.9115f, -130.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim18", 28, 194, 0.0000f, 8.3901f, 0.6603f, 1.1424f, 0.8320f, 1.8118f, -130.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire19", 144, 156, 0.0000f, 9.8512f, -1.1660f, 2.7200f, 2.2400f, 2.3421f, -119.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall19", 70, 179, 0.0000f, 9.1839f, -1.0870f, 2.2304f, 1.6000f, 1.9115f, -119.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim19", 35, 194, 0.0000f, 8.3577f, -0.9892f, 1.1424f, 0.8320f, 1.8118f, -119.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire20", 156, 156, 0.0000f, 9.4345f, -3.0654f, 2.7200f, 2.2400f, 2.3421f, -108.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall20", 80, 179, 0.0000f, 8.7954f, -2.8578f, 2.2304f, 1.6000f, 1.9115f, -108.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim20", 42, 194, 0.0000f, 8.0041f, -2.6007f, 1.1424f, 0.8320f, 1.8118f, -108.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire21", 168, 156, 0.0000f, 8.6552f, -4.8471f, 2.7200f, 2.2400f, 2.3421f, -96.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall21", 90, 179, 0.0000f, 8.0688f, -4.5188f, 2.2304f, 1.6000f, 1.9115f, -96.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim21", 49, 194, 0.0000f, 7.3429f, -4.1122f, 1.1424f, 0.8320f, 1.8118f, -96.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire22", 180, 156, 0.0000f, 7.5432f, -6.4425f, 2.7200f, 2.2400f, 2.3421f, -85.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall22", 100, 179, 0.0000f, 7.0322f, -6.0061f, 2.2304f, 1.6000f, 1.9115f, -85.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim22", 56, 194, 0.0000f, 6.3996f, -5.4658f, 1.1424f, 0.8320f, 1.8118f, -85.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire23", 192, 156, 0.0000f, 6.1414f, -7.7903f, 2.7200f, 2.2400f, 2.3421f, -74.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall23", 110, 179, 0.0000f, 5.7254f, -7.2626f, 2.2304f, 1.6000f, 1.9115f, -74.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim23", 63, 194, 0.0000f, 5.2103f, -6.6092f, 1.1424f, 0.8320f, 1.8118f, -74.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire24", 204, 156, 0.0000f, 4.5036f, -8.8388f, 2.7200f, 2.2400f, 2.3421f, -63.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall24", 120, 179, 0.0000f, 4.1985f, -8.2400f, 2.2304f, 1.6000f, 1.9115f, -63.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim24", 70, 194, 0.0000f, 3.8208f, -7.4987f, 1.1424f, 0.8320f, 1.8118f, -63.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire25", 216, 156, 0.0000f, 2.6927f, -9.5476f, 2.7200f, 2.2400f, 2.3421f, -51.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall25", 130, 179, 0.0000f, 2.5103f, -8.9008f, 2.2304f, 1.6000f, 1.9115f, -51.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim25", 77, 194, 0.0000f, 2.2844f, -8.1000f, 1.1424f, 0.8320f, 1.8118f, -51.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire26", 228, 156, 0.0000f, 0.7783f, -9.8894f, 2.7200f, 2.2400f, 2.3421f, -40.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall26", 140, 179, 0.0000f, 0.7256f, -9.2195f, 2.2304f, 1.6000f, 1.9115f, -40.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim26", 84, 194, 0.0000f, 0.6603f, -8.3901f, 1.1424f, 0.8320f, 1.8118f, -40.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire27", 240, 156, 0.0000f, -1.1660f, -9.8512f, 2.7200f, 2.2400f, 2.3421f, -29.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall27", 150, 179, 0.0000f, -1.0870f, -9.1839f, 2.2304f, 1.6000f, 1.9115f, -29.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim27", 91, 194, 0.0000f, -0.9892f, -8.3577f, 1.1424f, 0.8320f, 1.8118f, -29.2500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire28", 0, 162, 0.0000f, -3.0654f, -9.4345f, 2.7200f, 2.2400f, 2.3421f, -18.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall28", 160, 179, 0.0000f, -2.8578f, -8.7954f, 2.2304f, 1.6000f, 1.9115f, -18.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim28", 98, 194, 0.0000f, -2.6007f, -8.0041f, 1.1424f, 0.8320f, 1.8118f, -18.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire29", 12, 162, 0.0000f, -4.8471f, -8.6552f, 2.7200f, 2.2400f, 2.3421f, -6.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall29", 170, 179, 0.0000f, -4.5188f, -8.0688f, 2.2304f, 1.6000f, 1.9115f, -6.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim29", 105, 194, 0.0000f, -4.1122f, -7.3429f, 1.1424f, 0.8320f, 1.8118f, -6.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire30", 24, 162, 0.0000f, -6.4425f, -7.5432f, 2.7200f, 2.2400f, 2.3421f, 4.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall30", 180, 179, 0.0000f, -6.0061f, -7.0322f, 2.2304f, 1.6000f, 1.9115f, 4.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim30", 112, 194, 0.0000f, -5.4658f, -6.3996f, 1.1424f, 0.8320f, 1.8118f, 4.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_tire31", 36, 162, 0.0000f, -7.7903f, -6.1414f, 2.7200f, 2.2400f, 2.3421f, 15.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_wall31", 190, 179, 0.0000f, -7.2626f, -5.7254f, 2.2304f, 1.6000f, 1.9115f, 15.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_rim31", 119, 194, 0.0000f, -6.6092f, -5.2103f, 1.1424f, 0.8320f, 1.8118f, 15.7500f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob0_0", 244, 198, 0.0000f, -10.5576f, -3.7386f, 1.0880f, 0.6400f, 1.0240f, 34.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob1_0", 250, 198, -0.8160f, -11.1655f, -0.8787f, 0.8160f, 0.6400f, 1.0240f, 49.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob1_1", 0, 202, 0.8160f, -11.1655f, -0.8787f, 0.8160f, 0.6400f, 1.0240f, 49.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob2_0", 5, 202, 0.0000f, -11.0125f, 2.0410f, 1.0880f, 0.6400f, 1.0240f, 64.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob3_0", 11, 202, -0.8160f, -10.1090f, 4.8217f, 0.8160f, 0.6400f, 1.0240f, 79.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob3_1", 16, 202, 0.8160f, -10.1090f, 4.8217f, 0.8160f, 0.6400f, 1.0240f, 79.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob4_0", 21, 202, 0.0000f, -8.5165f, 7.2738f, 1.0880f, 0.6400f, 1.0240f, 94.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob5_0", 27, 202, -0.8160f, -6.3437f, 9.2302f, 0.8160f, 0.6400f, 1.0240f, 109.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob5_1", 32, 202, 0.8160f, -6.3437f, 9.2302f, 0.8160f, 0.6400f, 1.0240f, 109.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob6_0", 37, 202, 0.0000f, -3.7386f, 10.5576f, 1.0880f, 0.6400f, 1.0240f, 124.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob7_0", 43, 202, -0.8160f, -0.8787f, 11.1655f, 0.8160f, 0.6400f, 1.0240f, 139.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob7_1", 48, 202, 0.8160f, -0.8787f, 11.1655f, 0.8160f, 0.6400f, 1.0240f, 139.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob8_0", 53, 202, 0.0000f, 2.0410f, 11.0125f, 1.0880f, 0.6400f, 1.0240f, 154.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob9_0", 59, 202, -0.8160f, 4.8217f, 10.1090f, 0.8160f, 0.6400f, 1.0240f, 169.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob9_1", 64, 202, 0.8160f, 4.8217f, 10.1090f, 0.8160f, 0.6400f, 1.0240f, 169.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob10_0", 69, 202, 0.0000f, 7.2738f, 8.5165f, 1.0880f, 0.6400f, 1.0240f, -175.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob11_0", 75, 202, -0.8160f, 9.2302f, 6.3437f, 0.8160f, 0.6400f, 1.0240f, -160.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob11_1", 80, 202, 0.8160f, 9.2302f, 6.3437f, 0.8160f, 0.6400f, 1.0240f, -160.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob12_0", 85, 202, 0.0000f, 10.5576f, 3.7386f, 1.0880f, 0.6400f, 1.0240f, -145.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob13_0", 91, 202, -0.8160f, 11.1655f, 0.8787f, 0.8160f, 0.6400f, 1.0240f, -130.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob13_1", 96, 202, 0.8160f, 11.1655f, 0.8787f, 0.8160f, 0.6400f, 1.0240f, -130.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob14_0", 101, 202, 0.0000f, 11.0125f, -2.0410f, 1.0880f, 0.6400f, 1.0240f, -115.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob15_0", 107, 202, -0.8160f, 10.1090f, -4.8217f, 0.8160f, 0.6400f, 1.0240f, -100.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob15_1", 112, 202, 0.8160f, 10.1090f, -4.8217f, 0.8160f, 0.6400f, 1.0240f, -100.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob16_0", 117, 202, 0.0000f, 8.5165f, -7.2738f, 1.0880f, 0.6400f, 1.0240f, -85.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob17_0", 123, 202, -0.8160f, 6.3437f, -9.2302f, 0.8160f, 0.6400f, 1.0240f, -70.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob17_1", 128, 202, 0.8160f, 6.3437f, -9.2302f, 0.8160f, 0.6400f, 1.0240f, -70.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob18_0", 133, 202, 0.0000f, 3.7386f, -10.5576f, 1.0880f, 0.6400f, 1.0240f, -55.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob19_0", 139, 202, -0.8160f, 0.8787f, -11.1655f, 0.8160f, 0.6400f, 1.0240f, -40.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob19_1", 144, 202, 0.8160f, 0.8787f, -11.1655f, 0.8160f, 0.6400f, 1.0240f, -40.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob20_0", 149, 202, 0.0000f, -2.0410f, -11.0125f, 1.0880f, 0.6400f, 1.0240f, -25.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob21_0", 155, 202, -0.8160f, -4.8217f, -10.1090f, 0.8160f, 0.6400f, 1.0240f, -10.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob21_1", 160, 202, 0.8160f, -4.8217f, -10.1090f, 0.8160f, 0.6400f, 1.0240f, -10.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob22_0", 165, 202, 0.0000f, -7.2738f, -8.5165f, 1.0880f, 0.6400f, 1.0240f, 4.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob23_0", 171, 202, -0.8160f, -9.2302f, -6.3437f, 0.8160f, 0.6400f, 1.0240f, 19.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_knob23_1", 176, 202, 0.8160f, -9.2302f, -6.3437f, 0.8160f, 0.6400f, 1.0240f, 19.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_spoke0", 112, 115, -0.5440f, -3.3886f, -3.2783f, 0.2240f, 0.2240f, 6.7807f, -143.2218f, 14.8759f, 172.2215f);
-        cube(front_wheel, "f_spoke1", 128, 115, 0.5440f, -4.6424f, 0.8229f, 0.2240f, 0.2240f, 6.7807f, 72.6558f, -8.9411f, -4.5980f);
-        cube(front_wheel, "f_spoke2", 144, 115, -0.5440f, -4.7030f, -0.3332f, 0.2240f, 0.2240f, 6.7807f, 102.0388f, 21.6875f, 11.6912f);
-        cube(front_wheel, "f_spoke3", 160, 115, 0.5440f, -3.0274f, 3.6145f, 0.2240f, 0.2240f, 6.7807f, 32.8731f, -6.3078f, -3.2288f);
-        cube(front_wheel, "f_spoke4", 176, 115, -0.5440f, -3.8169f, 2.7678f, 0.2240f, 0.2240f, 6.7807f, 61.2243f, 7.5749f, 3.8852f);
-        cube(front_wheel, "f_spoke5", 192, 115, 0.5440f, 0.0043f, 4.7148f, 0.2240f, 0.2240f, 6.7807f, -6.7097f, -7.5749f, -3.8852f);
-        cube(front_wheel, "f_spoke6", 208, 115, -0.5440f, -1.1448f, 4.5737f, 0.2240f, 0.2240f, 6.7807f, 21.4828f, 6.3078f, 3.2288f);
-        cube(front_wheel, "f_spoke7", 224, 115, 0.5440f, 3.0339f, 3.6090f, 0.2240f, 0.2240f, 6.7807f, -43.5448f, -21.6875f, -11.6912f);
-        cube(front_wheel, "f_spoke8", 240, 115, -0.5440f, 2.0630f, 4.2395f, 0.2240f, 0.2240f, 6.7807f, -17.9364f, 8.9411f, 4.5980f);
-        cube(front_wheel, "f_spoke9", 0, 124, 0.5440f, 4.6439f, 0.8145f, 0.2240f, 0.2240f, 6.7807f, 87.1878f, -14.8759f, -172.2215f);
-        cube(front_wheel, "f_spoke10", 16, 124, -0.5440f, 4.3055f, 1.9216f, 0.2240f, 0.2240f, 6.7807f, -37.0830f, 49.7906f, 37.0666f);
-        cube(front_wheel, "f_spoke11", 32, 124, 0.5440f, 4.0810f, -2.3611f, 0.2240f, 0.2240f, 6.7807f, 127.2531f, -6.9589f, -176.4344f);
-        cube(front_wheel, "f_spoke12", 48, 124, -0.5440f, 4.5333f, -1.2955f, 0.2240f, 0.2240f, 6.7807f, 98.8248f, 10.6328f, 174.5109f);
-        cube(front_wheel, "f_spoke13", 64, 124, 0.5440f, 1.6085f, -4.4319f, 0.2240f, 0.2240f, 6.7807f, 166.9639f, -6.4738f, -176.6855f);
-        cube(front_wheel, "f_spoke14", 80, 124, -0.5440f, 2.6400f, -3.9064f, 0.2240f, 0.2240f, 6.7807f, 138.6611f, 6.4738f, 176.6855f);
-        cube(front_wheel, "f_spoke15", 96, 124, 0.5440f, -1.6166f, -4.4290f, 0.2240f, 0.2240f, 6.7807f, -153.8471f, -10.6328f, -174.5109f);
-        cube(front_wheel, "f_spoke16", 112, 124, -0.5440f, -0.4886f, -4.6894f, 0.2240f, 0.2240f, 6.7807f, 178.3132f, 6.9589f, 176.4344f);
-        cube(front_wheel, "f_spoke17", 128, 124, 0.5440f, -4.0853f, -2.3537f, 0.2240f, 0.2240f, 6.7807f, 126.4558f, -49.7906f, -37.0666f);
-        cube(front_wheel, "f_hub", 9, 149, 0.0000f, 0.0000f, 0.0000f, 4.1600f, 2.5600f, 2.5600f, 27.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_hub_l", 144, 124, 1.2800f, 0.0000f, 0.0000f, 0.8000f, 3.5200f, 3.5200f, 27.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_hub_r", 154, 124, -1.2800f, 0.0000f, 0.0000f, 0.8000f, 3.5200f, 3.5200f, 27.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_disc0", 7, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, 27.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_disc1", 13, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, 49.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_disc2", 19, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, 72.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_disc3", 25, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, 94.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_disc4", 31, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, 117.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_disc5", 37, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, 139.5000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_disc6", 43, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, 162.0000f, -0.0000f, 0.0000f);
-        cube(front_wheel, "f_disc7", 49, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, -175.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire0", 41, 159, 0.0000f, -8.8388f, -4.5036f, 2.7200f, 2.2400f, 2.3421f, 27.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall0", 17, 183, 0.0000f, -8.2400f, -4.1985f, 2.2304f, 1.6000f, 1.9115f, 27.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim0", 50, 198, 0.0000f, -7.4987f, -3.8208f, 1.1424f, 0.8320f, 1.8118f, 27.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire1", 53, 159, 0.0000f, -9.5476f, -2.6927f, 2.7200f, 2.2400f, 2.3421f, 38.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall1", 27, 183, 0.0000f, -8.9008f, -2.5103f, 2.2304f, 1.6000f, 1.9115f, 38.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim1", 57, 198, 0.0000f, -8.1000f, -2.2844f, 1.1424f, 0.8320f, 1.8118f, 38.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire2", 65, 159, 0.0000f, -9.8894f, -0.7783f, 2.7200f, 2.2400f, 2.3421f, 49.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall2", 37, 183, 0.0000f, -9.2195f, -0.7256f, 2.2304f, 1.6000f, 1.9115f, 49.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim2", 64, 198, 0.0000f, -8.3901f, -0.6603f, 1.1424f, 0.8320f, 1.8118f, 49.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire3", 77, 159, 0.0000f, -9.8512f, 1.1660f, 2.7200f, 2.2400f, 2.3421f, 60.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall3", 47, 183, 0.0000f, -9.1839f, 1.0870f, 2.2304f, 1.6000f, 1.9115f, 60.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim3", 71, 198, 0.0000f, -8.3577f, 0.9892f, 1.1424f, 0.8320f, 1.8118f, 60.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire4", 89, 159, 0.0000f, -9.4345f, 3.0654f, 2.7200f, 2.2400f, 2.3421f, 72.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall4", 57, 183, 0.0000f, -8.7954f, 2.8578f, 2.2304f, 1.6000f, 1.9115f, 72.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim4", 78, 198, 0.0000f, -8.0041f, 2.6007f, 1.1424f, 0.8320f, 1.8118f, 72.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire5", 101, 159, 0.0000f, -8.6552f, 4.8471f, 2.7200f, 2.2400f, 2.3421f, 83.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall5", 67, 183, 0.0000f, -8.0688f, 4.5188f, 2.2304f, 1.6000f, 1.9115f, 83.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim5", 85, 198, 0.0000f, -7.3429f, 4.1122f, 1.1424f, 0.8320f, 1.8118f, 83.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire6", 113, 159, 0.0000f, -7.5432f, 6.4425f, 2.7200f, 2.2400f, 2.3421f, 94.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall6", 77, 183, 0.0000f, -7.0322f, 6.0061f, 2.2304f, 1.6000f, 1.9115f, 94.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim6", 92, 198, 0.0000f, -6.3996f, 5.4658f, 1.1424f, 0.8320f, 1.8118f, 94.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire7", 125, 159, 0.0000f, -6.1414f, 7.7903f, 2.7200f, 2.2400f, 2.3421f, 105.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall7", 87, 183, 0.0000f, -5.7254f, 7.2626f, 2.2304f, 1.6000f, 1.9115f, 105.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim7", 99, 198, 0.0000f, -5.2103f, 6.6092f, 1.1424f, 0.8320f, 1.8118f, 105.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire8", 137, 159, 0.0000f, -4.5036f, 8.8388f, 2.7200f, 2.2400f, 2.3421f, 117.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall8", 97, 183, 0.0000f, -4.1985f, 8.2400f, 2.2304f, 1.6000f, 1.9115f, 117.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim8", 106, 198, 0.0000f, -3.8208f, 7.4987f, 1.1424f, 0.8320f, 1.8118f, 117.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire9", 149, 159, 0.0000f, -2.6927f, 9.5476f, 2.7200f, 2.2400f, 2.3421f, 128.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall9", 107, 183, 0.0000f, -2.5103f, 8.9008f, 2.2304f, 1.6000f, 1.9115f, 128.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim9", 113, 198, 0.0000f, -2.2844f, 8.1000f, 1.1424f, 0.8320f, 1.8118f, 128.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire10", 161, 159, 0.0000f, -0.7783f, 9.8894f, 2.7200f, 2.2400f, 2.3421f, 139.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall10", 117, 183, 0.0000f, -0.7256f, 9.2195f, 2.2304f, 1.6000f, 1.9115f, 139.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim10", 120, 198, 0.0000f, -0.6603f, 8.3901f, 1.1424f, 0.8320f, 1.8118f, 139.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire11", 173, 159, 0.0000f, 1.1660f, 9.8512f, 2.7200f, 2.2400f, 2.3421f, 150.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall11", 127, 183, 0.0000f, 1.0870f, 9.1839f, 2.2304f, 1.6000f, 1.9115f, 150.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim11", 127, 198, 0.0000f, 0.9892f, 8.3577f, 1.1424f, 0.8320f, 1.8118f, 150.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire12", 185, 159, 0.0000f, 3.0654f, 9.4345f, 2.7200f, 2.2400f, 2.3421f, 162.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall12", 137, 183, 0.0000f, 2.8578f, 8.7954f, 2.2304f, 1.6000f, 1.9115f, 162.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim12", 134, 198, 0.0000f, 2.6007f, 8.0041f, 1.1424f, 0.8320f, 1.8118f, 162.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire13", 197, 159, 0.0000f, 4.8471f, 8.6552f, 2.7200f, 2.2400f, 2.3421f, 173.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall13", 147, 183, 0.0000f, 4.5188f, 8.0688f, 2.2304f, 1.6000f, 1.9115f, 173.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim13", 141, 198, 0.0000f, 4.1122f, 7.3429f, 1.1424f, 0.8320f, 1.8118f, 173.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire14", 209, 159, 0.0000f, 6.4425f, 7.5432f, 2.7200f, 2.2400f, 2.3421f, -175.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall14", 157, 183, 0.0000f, 6.0061f, 7.0322f, 2.2304f, 1.6000f, 1.9115f, -175.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim14", 148, 198, 0.0000f, 5.4658f, 6.3996f, 1.1424f, 0.8320f, 1.8118f, -175.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire15", 221, 159, 0.0000f, 7.7903f, 6.1414f, 2.7200f, 2.2400f, 2.3421f, -164.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall15", 167, 183, 0.0000f, 7.2626f, 5.7254f, 2.2304f, 1.6000f, 1.9115f, -164.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim15", 155, 198, 0.0000f, 6.6092f, 5.2103f, 1.1424f, 0.8320f, 1.8118f, -164.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire16", 233, 159, 0.0000f, 8.8388f, 4.5036f, 2.7200f, 2.2400f, 2.3421f, -153.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall16", 177, 183, 0.0000f, 8.2400f, 4.1985f, 2.2304f, 1.6000f, 1.9115f, -153.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim16", 162, 198, 0.0000f, 7.4987f, 3.8208f, 1.1424f, 0.8320f, 1.8118f, -153.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire17", 0, 165, 0.0000f, 9.5476f, 2.6927f, 2.7200f, 2.2400f, 2.3421f, -141.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall17", 187, 183, 0.0000f, 8.9008f, 2.5103f, 2.2304f, 1.6000f, 1.9115f, -141.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim17", 169, 198, 0.0000f, 8.1000f, 2.2844f, 1.1424f, 0.8320f, 1.8118f, -141.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire18", 12, 165, 0.0000f, 9.8894f, 0.7783f, 2.7200f, 2.2400f, 2.3421f, -130.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall18", 197, 183, 0.0000f, 9.2195f, 0.7256f, 2.2304f, 1.6000f, 1.9115f, -130.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim18", 176, 198, 0.0000f, 8.3901f, 0.6603f, 1.1424f, 0.8320f, 1.8118f, -130.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire19", 24, 165, 0.0000f, 9.8512f, -1.1660f, 2.7200f, 2.2400f, 2.3421f, -119.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall19", 207, 183, 0.0000f, 9.1839f, -1.0870f, 2.2304f, 1.6000f, 1.9115f, -119.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim19", 183, 198, 0.0000f, 8.3577f, -0.9892f, 1.1424f, 0.8320f, 1.8118f, -119.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire20", 36, 165, 0.0000f, 9.4345f, -3.0654f, 2.7200f, 2.2400f, 2.3421f, -108.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall20", 217, 183, 0.0000f, 8.7954f, -2.8578f, 2.2304f, 1.6000f, 1.9115f, -108.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim20", 190, 198, 0.0000f, 8.0041f, -2.6007f, 1.1424f, 0.8320f, 1.8118f, -108.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire21", 48, 165, 0.0000f, 8.6552f, -4.8471f, 2.7200f, 2.2400f, 2.3421f, -96.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall21", 227, 183, 0.0000f, 8.0688f, -4.5188f, 2.2304f, 1.6000f, 1.9115f, -96.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim21", 197, 198, 0.0000f, 7.3429f, -4.1122f, 1.1424f, 0.8320f, 1.8118f, -96.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire22", 60, 165, 0.0000f, 7.5432f, -6.4425f, 2.7200f, 2.2400f, 2.3421f, -85.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall22", 237, 183, 0.0000f, 7.0322f, -6.0061f, 2.2304f, 1.6000f, 1.9115f, -85.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim22", 204, 198, 0.0000f, 6.3996f, -5.4658f, 1.1424f, 0.8320f, 1.8118f, -85.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire23", 72, 165, 0.0000f, 6.1414f, -7.7903f, 2.7200f, 2.2400f, 2.3421f, -74.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall23", 0, 188, 0.0000f, 5.7254f, -7.2626f, 2.2304f, 1.6000f, 1.9115f, -74.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim23", 211, 198, 0.0000f, 5.2103f, -6.6092f, 1.1424f, 0.8320f, 1.8118f, -74.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire24", 84, 165, 0.0000f, 4.5036f, -8.8388f, 2.7200f, 2.2400f, 2.3421f, -63.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall24", 10, 188, 0.0000f, 4.1985f, -8.2400f, 2.2304f, 1.6000f, 1.9115f, -63.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim24", 218, 198, 0.0000f, 3.8208f, -7.4987f, 1.1424f, 0.8320f, 1.8118f, -63.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire25", 96, 165, 0.0000f, 2.6927f, -9.5476f, 2.7200f, 2.2400f, 2.3421f, -51.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall25", 20, 188, 0.0000f, 2.5103f, -8.9008f, 2.2304f, 1.6000f, 1.9115f, -51.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim25", 225, 198, 0.0000f, 2.2844f, -8.1000f, 1.1424f, 0.8320f, 1.8118f, -51.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire26", 108, 165, 0.0000f, 0.7783f, -9.8894f, 2.7200f, 2.2400f, 2.3421f, -40.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall26", 30, 188, 0.0000f, 0.7256f, -9.2195f, 2.2304f, 1.6000f, 1.9115f, -40.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim26", 232, 198, 0.0000f, 0.6603f, -8.3901f, 1.1424f, 0.8320f, 1.8118f, -40.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire27", 120, 165, 0.0000f, -1.1660f, -9.8512f, 2.7200f, 2.2400f, 2.3421f, -29.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall27", 40, 188, 0.0000f, -1.0870f, -9.1839f, 2.2304f, 1.6000f, 1.9115f, -29.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim27", 239, 198, 0.0000f, -0.9892f, -8.3577f, 1.1424f, 0.8320f, 1.8118f, -29.2500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire28", 132, 165, 0.0000f, -3.0654f, -9.4345f, 2.7200f, 2.2400f, 2.3421f, -18.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall28", 50, 188, 0.0000f, -2.8578f, -8.7954f, 2.2304f, 1.6000f, 1.9115f, -18.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim28", 246, 198, 0.0000f, -2.6007f, -8.0041f, 1.1424f, 0.8320f, 1.8118f, -18.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire29", 144, 165, 0.0000f, -4.8471f, -8.6552f, 2.7200f, 2.2400f, 2.3421f, -6.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall29", 60, 188, 0.0000f, -4.5188f, -8.0688f, 2.2304f, 1.6000f, 1.9115f, -6.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim29", 0, 202, 0.0000f, -4.1122f, -7.3429f, 1.1424f, 0.8320f, 1.8118f, -6.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire30", 156, 165, 0.0000f, -6.4425f, -7.5432f, 2.7200f, 2.2400f, 2.3421f, 4.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall30", 70, 188, 0.0000f, -6.0061f, -7.0322f, 2.2304f, 1.6000f, 1.9115f, 4.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim30", 7, 202, 0.0000f, -5.4658f, -6.3996f, 1.1424f, 0.8320f, 1.8118f, 4.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_tire31", 168, 165, 0.0000f, -7.7903f, -6.1414f, 2.7200f, 2.2400f, 2.3421f, 15.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_wall31", 80, 188, 0.0000f, -7.2626f, -5.7254f, 2.2304f, 1.6000f, 1.9115f, 15.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_rim31", 14, 202, 0.0000f, -6.6092f, -5.2103f, 1.1424f, 0.8320f, 1.8118f, 15.7500f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob0_0", 140, 206, 0.0000f, -10.5576f, -3.7386f, 1.0880f, 0.6400f, 1.0240f, 34.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob1_0", 146, 206, -0.8160f, -11.1655f, -0.8787f, 0.8160f, 0.6400f, 1.0240f, 49.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob1_1", 151, 206, 0.8160f, -11.1655f, -0.8787f, 0.8160f, 0.6400f, 1.0240f, 49.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob2_0", 156, 206, 0.0000f, -11.0125f, 2.0410f, 1.0880f, 0.6400f, 1.0240f, 64.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob3_0", 162, 206, -0.8160f, -10.1090f, 4.8217f, 0.8160f, 0.6400f, 1.0240f, 79.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob3_1", 167, 206, 0.8160f, -10.1090f, 4.8217f, 0.8160f, 0.6400f, 1.0240f, 79.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob4_0", 172, 206, 0.0000f, -8.5165f, 7.2738f, 1.0880f, 0.6400f, 1.0240f, 94.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob5_0", 178, 206, -0.8160f, -6.3437f, 9.2302f, 0.8160f, 0.6400f, 1.0240f, 109.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob5_1", 183, 206, 0.8160f, -6.3437f, 9.2302f, 0.8160f, 0.6400f, 1.0240f, 109.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob6_0", 188, 206, 0.0000f, -3.7386f, 10.5576f, 1.0880f, 0.6400f, 1.0240f, 124.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob7_0", 194, 206, -0.8160f, -0.8787f, 11.1655f, 0.8160f, 0.6400f, 1.0240f, 139.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob7_1", 199, 206, 0.8160f, -0.8787f, 11.1655f, 0.8160f, 0.6400f, 1.0240f, 139.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob8_0", 204, 206, 0.0000f, 2.0410f, 11.0125f, 1.0880f, 0.6400f, 1.0240f, 154.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob9_0", 210, 206, -0.8160f, 4.8217f, 10.1090f, 0.8160f, 0.6400f, 1.0240f, 169.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob9_1", 215, 206, 0.8160f, 4.8217f, 10.1090f, 0.8160f, 0.6400f, 1.0240f, 169.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob10_0", 220, 206, 0.0000f, 7.2738f, 8.5165f, 1.0880f, 0.6400f, 1.0240f, -175.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob11_0", 226, 206, -0.8160f, 9.2302f, 6.3437f, 0.8160f, 0.6400f, 1.0240f, -160.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob11_1", 231, 206, 0.8160f, 9.2302f, 6.3437f, 0.8160f, 0.6400f, 1.0240f, -160.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob12_0", 236, 206, 0.0000f, 10.5576f, 3.7386f, 1.0880f, 0.6400f, 1.0240f, -145.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob13_0", 242, 206, -0.8160f, 11.1655f, 0.8787f, 0.8160f, 0.6400f, 1.0240f, -130.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob13_1", 247, 206, 0.8160f, 11.1655f, 0.8787f, 0.8160f, 0.6400f, 1.0240f, -130.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob14_0", 0, 210, 0.0000f, 11.0125f, -2.0410f, 1.0880f, 0.6400f, 1.0240f, -115.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob15_0", 6, 210, -0.8160f, 10.1090f, -4.8217f, 0.8160f, 0.6400f, 1.0240f, -100.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob15_1", 11, 210, 0.8160f, 10.1090f, -4.8217f, 0.8160f, 0.6400f, 1.0240f, -100.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob16_0", 16, 210, 0.0000f, 8.5165f, -7.2738f, 1.0880f, 0.6400f, 1.0240f, -85.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob17_0", 22, 210, -0.8160f, 6.3437f, -9.2302f, 0.8160f, 0.6400f, 1.0240f, -70.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob17_1", 27, 210, 0.8160f, 6.3437f, -9.2302f, 0.8160f, 0.6400f, 1.0240f, -70.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob18_0", 32, 210, 0.0000f, 3.7386f, -10.5576f, 1.0880f, 0.6400f, 1.0240f, -55.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob19_0", 38, 210, -0.8160f, 0.8787f, -11.1655f, 0.8160f, 0.6400f, 1.0240f, -40.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob19_1", 43, 210, 0.8160f, 0.8787f, -11.1655f, 0.8160f, 0.6400f, 1.0240f, -40.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob20_0", 48, 210, 0.0000f, -2.0410f, -11.0125f, 1.0880f, 0.6400f, 1.0240f, -25.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob21_0", 54, 210, -0.8160f, -4.8217f, -10.1090f, 0.8160f, 0.6400f, 1.0240f, -10.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob21_1", 59, 210, 0.8160f, -4.8217f, -10.1090f, 0.8160f, 0.6400f, 1.0240f, -10.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob22_0", 64, 210, 0.0000f, -7.2738f, -8.5165f, 1.0880f, 0.6400f, 1.0240f, 4.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob23_0", 70, 210, -0.8160f, -9.2302f, -6.3437f, 0.8160f, 0.6400f, 1.0240f, 19.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_knob23_1", 75, 210, 0.8160f, -9.2302f, -6.3437f, 0.8160f, 0.6400f, 1.0240f, 19.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_spoke0", 214, 115, -0.5440f, -3.3886f, -3.2783f, 0.2240f, 0.2240f, 6.7807f, -143.2218f, 14.8759f, 172.2215f);
+        cube(front_wheel, "f_spoke1", 230, 115, 0.5440f, -4.6424f, 0.8229f, 0.2240f, 0.2240f, 6.7807f, 72.6558f, -8.9411f, -4.5980f);
+        cube(front_wheel, "f_spoke2", 0, 126, -0.5440f, -4.7030f, -0.3332f, 0.2240f, 0.2240f, 6.7807f, 102.0388f, 21.6875f, 11.6912f);
+        cube(front_wheel, "f_spoke3", 16, 126, 0.5440f, -3.0274f, 3.6145f, 0.2240f, 0.2240f, 6.7807f, 32.8731f, -6.3078f, -3.2288f);
+        cube(front_wheel, "f_spoke4", 32, 126, -0.5440f, -3.8169f, 2.7678f, 0.2240f, 0.2240f, 6.7807f, 61.2243f, 7.5749f, 3.8852f);
+        cube(front_wheel, "f_spoke5", 48, 126, 0.5440f, 0.0043f, 4.7148f, 0.2240f, 0.2240f, 6.7807f, -6.7097f, -7.5749f, -3.8852f);
+        cube(front_wheel, "f_spoke6", 64, 126, -0.5440f, -1.1448f, 4.5737f, 0.2240f, 0.2240f, 6.7807f, 21.4828f, 6.3078f, 3.2288f);
+        cube(front_wheel, "f_spoke7", 80, 126, 0.5440f, 3.0339f, 3.6090f, 0.2240f, 0.2240f, 6.7807f, -43.5448f, -21.6875f, -11.6912f);
+        cube(front_wheel, "f_spoke8", 96, 126, -0.5440f, 2.0630f, 4.2395f, 0.2240f, 0.2240f, 6.7807f, -17.9364f, 8.9411f, 4.5980f);
+        cube(front_wheel, "f_spoke9", 112, 126, 0.5440f, 4.6439f, 0.8145f, 0.2240f, 0.2240f, 6.7807f, 87.1878f, -14.8759f, -172.2215f);
+        cube(front_wheel, "f_spoke10", 128, 126, -0.5440f, 4.3055f, 1.9216f, 0.2240f, 0.2240f, 6.7807f, -37.0830f, 49.7906f, 37.0666f);
+        cube(front_wheel, "f_spoke11", 144, 126, 0.5440f, 4.0810f, -2.3611f, 0.2240f, 0.2240f, 6.7807f, 127.2531f, -6.9589f, -176.4344f);
+        cube(front_wheel, "f_spoke12", 160, 126, -0.5440f, 4.5333f, -1.2955f, 0.2240f, 0.2240f, 6.7807f, 98.8248f, 10.6328f, 174.5109f);
+        cube(front_wheel, "f_spoke13", 176, 126, 0.5440f, 1.6085f, -4.4319f, 0.2240f, 0.2240f, 6.7807f, 166.9639f, -6.4738f, -176.6855f);
+        cube(front_wheel, "f_spoke14", 192, 126, -0.5440f, 2.6400f, -3.9064f, 0.2240f, 0.2240f, 6.7807f, 138.6611f, 6.4738f, 176.6855f);
+        cube(front_wheel, "f_spoke15", 208, 126, 0.5440f, -1.6166f, -4.4290f, 0.2240f, 0.2240f, 6.7807f, -153.8471f, -10.6328f, -174.5109f);
+        cube(front_wheel, "f_spoke16", 224, 126, -0.5440f, -0.4886f, -4.6894f, 0.2240f, 0.2240f, 6.7807f, 178.3132f, 6.9589f, 176.4344f);
+        cube(front_wheel, "f_spoke17", 240, 126, 0.5440f, -4.0853f, -2.3537f, 0.2240f, 0.2240f, 6.7807f, 126.4558f, -49.7906f, -37.0666f);
+        cube(front_wheel, "f_hub", 117, 152, 0.0000f, 0.0000f, 0.0000f, 4.1600f, 2.5600f, 2.5600f, 27.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_hub_l", 0, 135, 1.2800f, 0.0000f, 0.0000f, 0.8000f, 3.5200f, 3.5200f, 27.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_hub_r", 10, 135, -1.2800f, 0.0000f, 0.0000f, 0.8000f, 3.5200f, 3.5200f, 27.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_disc0", 49, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, 27.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_disc1", 55, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, 49.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_disc2", 61, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, 72.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_disc3", 67, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, 94.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_disc4", 73, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, 117.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_disc5", 79, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, 139.5000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_disc6", 85, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, 162.0000f, -0.0000f, 0.0000f);
+        cube(front_wheel, "f_disc7", 91, 102, 2.2400f, 0.0000f, 0.0000f, 0.1920f, 8.4672f, 1.8217f, -175.5000f, -0.0000f, 0.0000f);
         PartDefinition swingarm = bone(frame, "swingarm", 0.0000f, -13.4400f, 4.4800f, 0.0000f, -0.0000f, 0.0000f);
         cube(swingarm, "arm_l", 0, 50, 3.3600f, 0.8800f, 9.6000f, 1.6000f, 2.0800f, 17.3694f, -5.8156f, -0.0000f, 0.0000f);
-        cube(swingarm, "chain_adjuster_l", 200, 179, 3.3600f, 2.0800f, 19.8400f, 0.9600f, 1.2800f, 1.9200f, 0.0000f, -0.0000f, 0.0000f);
+        cube(swingarm, "chain_adjuster_l", 90, 188, 3.3600f, 2.0800f, 19.8400f, 0.9600f, 1.2800f, 1.9200f, 0.0000f, -0.0000f, 0.0000f);
         cube(swingarm, "arm_r", 39, 50, -3.3600f, 0.8800f, 9.6000f, 1.6000f, 2.0800f, 17.3694f, -5.8156f, -0.0000f, 0.0000f);
-        cube(swingarm, "chain_adjuster_r", 207, 179, -3.3600f, 2.0800f, 19.8400f, 0.9600f, 1.2800f, 1.9200f, 0.0000f, -0.0000f, 0.0000f);
-        cube(swingarm, "arm_brace", 126, 194, 0.0000f, 0.6400f, 5.1200f, 6.4000f, 1.2800f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
-        cube(swingarm, "linkage", 24, 149, 0.0000f, 2.8800f, 3.2000f, 1.9200f, 1.6000f, 3.8400f, 15.0000f, -0.0000f, 0.0000f);
-        cube(swingarm, "chain_slider", 164, 124, 3.5200f, -0.1600f, 3.2000f, 0.6400f, 0.8000f, 6.4000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(swingarm, "chain_adjuster_r", 97, 188, -3.3600f, 2.0800f, 19.8400f, 0.9600f, 1.2800f, 1.9200f, 0.0000f, -0.0000f, 0.0000f);
+        cube(swingarm, "arm_brace", 21, 202, 0.0000f, 0.6400f, 5.1200f, 6.4000f, 1.2800f, 1.6000f, 0.0000f, -0.0000f, 0.0000f);
+        cube(swingarm, "linkage", 132, 152, 0.0000f, 2.8800f, 3.2000f, 1.9200f, 1.6000f, 3.8400f, 15.0000f, -0.0000f, 0.0000f);
+        cube(swingarm, "chain_slider", 20, 135, 3.5200f, -0.1600f, 3.2000f, 0.6400f, 0.8000f, 6.4000f, 0.0000f, -0.0000f, 0.0000f);
         cube(swingarm, "chain_top", 124, 0, 4.3200f, -0.9600f, 8.1600f, 0.3840f, 0.5120f, 22.1379f, 4.1446f, -0.0000f, 0.0000f);
         cube(swingarm, "chain_bot", 171, 0, 4.3200f, 4.3200f, 8.1600f, 0.3840f, 0.5120f, 22.3107f, -8.2463f, -0.0000f, 0.0000f);
-        cube(swingarm, "rear_caliper", 48, 162, -3.8400f, -1.1200f, 16.6400f, 1.1200f, 2.2400f, 2.2400f, 0.0000f, -0.0000f, 0.0000f);
+        cube(swingarm, "rear_caliper", 180, 165, -3.8400f, -1.1200f, 16.6400f, 1.1200f, 2.2400f, 2.2400f, 0.0000f, -0.0000f, 0.0000f);
         PartDefinition rear_wheel = bone(swingarm, "rear_wheel", 0.0000f, 2.0800f, 19.2000f, 0.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire0", 56, 162, 0.0000f, -9.9200f, 0.0000f, 3.6800f, 2.2400f, 2.3421f, 0.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall0", 214, 179, 0.0000f, -8.4480f, 0.0000f, 3.0176f, 1.6000f, 1.7450f, 0.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim0", 143, 194, 0.0000f, -7.6160f, 0.0000f, 1.5456f, 0.8320f, 1.6422f, 0.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire1", 70, 162, 0.0000f, -9.7294f, 1.9353f, 3.6800f, 2.2400f, 2.3421f, 11.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall1", 225, 179, 0.0000f, -8.2857f, 1.6481f, 3.0176f, 1.6000f, 1.7450f, 11.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim1", 151, 194, 0.0000f, -7.4697f, 1.4858f, 1.5456f, 0.8320f, 1.6422f, 11.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire2", 84, 162, 0.0000f, -9.1649f, 3.7962f, 3.6800f, 2.2400f, 2.3421f, 22.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall2", 236, 179, 0.0000f, -7.8049f, 3.2329f, 3.0176f, 1.6000f, 1.7450f, 22.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim2", 159, 194, 0.0000f, -7.0363f, 2.9145f, 1.5456f, 0.8320f, 1.6422f, 22.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire3", 98, 162, 0.0000f, -8.2482f, 5.5113f, 3.6800f, 2.2400f, 2.3421f, 33.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall3", 0, 184, 0.0000f, -7.0243f, 4.6935f, 3.0176f, 1.6000f, 1.7450f, 33.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim3", 167, 194, 0.0000f, -6.3325f, 4.2312f, 1.5456f, 0.8320f, 1.6422f, 33.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire4", 112, 162, 0.0000f, -7.0145f, 7.0145f, 3.6800f, 2.2400f, 2.3421f, 45.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall4", 11, 184, 0.0000f, -5.9736f, 5.9736f, 3.0176f, 1.6000f, 1.7450f, 45.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim4", 175, 194, 0.0000f, -5.3853f, 5.3853f, 1.5456f, 0.8320f, 1.6422f, 45.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire5", 126, 162, 0.0000f, -5.5113f, 8.2482f, 3.6800f, 2.2400f, 2.3421f, 56.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall5", 22, 184, 0.0000f, -4.6935f, 7.0243f, 3.0176f, 1.6000f, 1.7450f, 56.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim5", 183, 194, 0.0000f, -4.2312f, 6.3325f, 1.5456f, 0.8320f, 1.6422f, 56.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire6", 140, 162, 0.0000f, -3.7962f, 9.1649f, 3.6800f, 2.2400f, 2.3421f, 67.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall6", 33, 184, 0.0000f, -3.2329f, 7.8049f, 3.0176f, 1.6000f, 1.7450f, 67.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim6", 191, 194, 0.0000f, -2.9145f, 7.0363f, 1.5456f, 0.8320f, 1.6422f, 67.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire7", 154, 162, 0.0000f, -1.9353f, 9.7294f, 3.6800f, 2.2400f, 2.3421f, 78.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall7", 44, 184, 0.0000f, -1.6481f, 8.2857f, 3.0176f, 1.6000f, 1.7450f, 78.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim7", 199, 194, 0.0000f, -1.4858f, 7.4697f, 1.5456f, 0.8320f, 1.6422f, 78.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire8", 168, 162, 0.0000f, 0.0000f, 9.9200f, 3.6800f, 2.2400f, 2.3421f, 90.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall8", 55, 184, 0.0000f, 0.0000f, 8.4480f, 3.0176f, 1.6000f, 1.7450f, 90.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim8", 207, 194, 0.0000f, 0.0000f, 7.6160f, 1.5456f, 0.8320f, 1.6422f, 90.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire9", 182, 162, 0.0000f, 1.9353f, 9.7294f, 3.6800f, 2.2400f, 2.3421f, 101.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall9", 66, 184, 0.0000f, 1.6481f, 8.2857f, 3.0176f, 1.6000f, 1.7450f, 101.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim9", 215, 194, 0.0000f, 1.4858f, 7.4697f, 1.5456f, 0.8320f, 1.6422f, 101.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire10", 196, 162, 0.0000f, 3.7962f, 9.1649f, 3.6800f, 2.2400f, 2.3421f, 112.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall10", 77, 184, 0.0000f, 3.2329f, 7.8049f, 3.0176f, 1.6000f, 1.7450f, 112.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim10", 223, 194, 0.0000f, 2.9145f, 7.0363f, 1.5456f, 0.8320f, 1.6422f, 112.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire11", 210, 162, 0.0000f, 5.5113f, 8.2482f, 3.6800f, 2.2400f, 2.3421f, 123.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall11", 88, 184, 0.0000f, 4.6935f, 7.0243f, 3.0176f, 1.6000f, 1.7450f, 123.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim11", 231, 194, 0.0000f, 4.2312f, 6.3325f, 1.5456f, 0.8320f, 1.6422f, 123.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire12", 224, 162, 0.0000f, 7.0145f, 7.0145f, 3.6800f, 2.2400f, 2.3421f, 135.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall12", 99, 184, 0.0000f, 5.9736f, 5.9736f, 3.0176f, 1.6000f, 1.7450f, 135.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim12", 239, 194, 0.0000f, 5.3853f, 5.3853f, 1.5456f, 0.8320f, 1.6422f, 135.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire13", 238, 162, 0.0000f, 8.2482f, 5.5113f, 3.6800f, 2.2400f, 2.3421f, 146.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall13", 110, 184, 0.0000f, 7.0243f, 4.6935f, 3.0176f, 1.6000f, 1.7450f, 146.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim13", 247, 194, 0.0000f, 6.3325f, 4.2312f, 1.5456f, 0.8320f, 1.6422f, 146.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire14", 0, 168, 0.0000f, 9.1649f, 3.7962f, 3.6800f, 2.2400f, 2.3421f, 157.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall14", 121, 184, 0.0000f, 7.8049f, 3.2329f, 3.0176f, 1.6000f, 1.7450f, 157.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim14", 0, 198, 0.0000f, 7.0363f, 2.9145f, 1.5456f, 0.8320f, 1.6422f, 157.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire15", 14, 168, 0.0000f, 9.7294f, 1.9353f, 3.6800f, 2.2400f, 2.3421f, 168.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall15", 132, 184, 0.0000f, 8.2857f, 1.6481f, 3.0176f, 1.6000f, 1.7450f, 168.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim15", 8, 198, 0.0000f, 7.4697f, 1.4858f, 1.5456f, 0.8320f, 1.6422f, 168.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire16", 28, 168, 0.0000f, 9.9200f, 0.0000f, 3.6800f, 2.2400f, 2.3421f, 180.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall16", 143, 184, 0.0000f, 8.4480f, 0.0000f, 3.0176f, 1.6000f, 1.7450f, 180.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim16", 16, 198, 0.0000f, 7.6160f, 0.0000f, 1.5456f, 0.8320f, 1.6422f, 180.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire17", 42, 168, 0.0000f, 9.7294f, -1.9353f, 3.6800f, 2.2400f, 2.3421f, -168.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall17", 154, 184, 0.0000f, 8.2857f, -1.6481f, 3.0176f, 1.6000f, 1.7450f, -168.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim17", 24, 198, 0.0000f, 7.4697f, -1.4858f, 1.5456f, 0.8320f, 1.6422f, -168.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire18", 56, 168, 0.0000f, 9.1649f, -3.7962f, 3.6800f, 2.2400f, 2.3421f, -157.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall18", 165, 184, 0.0000f, 7.8049f, -3.2329f, 3.0176f, 1.6000f, 1.7450f, -157.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim18", 32, 198, 0.0000f, 7.0363f, -2.9145f, 1.5456f, 0.8320f, 1.6422f, -157.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire19", 70, 168, 0.0000f, 8.2482f, -5.5113f, 3.6800f, 2.2400f, 2.3421f, -146.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall19", 176, 184, 0.0000f, 7.0243f, -4.6935f, 3.0176f, 1.6000f, 1.7450f, -146.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim19", 40, 198, 0.0000f, 6.3325f, -4.2312f, 1.5456f, 0.8320f, 1.6422f, -146.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire20", 84, 168, 0.0000f, 7.0145f, -7.0145f, 3.6800f, 2.2400f, 2.3421f, -135.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall20", 187, 184, 0.0000f, 5.9736f, -5.9736f, 3.0176f, 1.6000f, 1.7450f, -135.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim20", 48, 198, 0.0000f, 5.3853f, -5.3853f, 1.5456f, 0.8320f, 1.6422f, -135.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire21", 98, 168, 0.0000f, 5.5113f, -8.2482f, 3.6800f, 2.2400f, 2.3421f, -123.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall21", 198, 184, 0.0000f, 4.6935f, -7.0243f, 3.0176f, 1.6000f, 1.7450f, -123.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim21", 56, 198, 0.0000f, 4.2312f, -6.3325f, 1.5456f, 0.8320f, 1.6422f, -123.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire22", 112, 168, 0.0000f, 3.7962f, -9.1649f, 3.6800f, 2.2400f, 2.3421f, -112.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall22", 209, 184, 0.0000f, 3.2329f, -7.8049f, 3.0176f, 1.6000f, 1.7450f, -112.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim22", 64, 198, 0.0000f, 2.9145f, -7.0363f, 1.5456f, 0.8320f, 1.6422f, -112.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire23", 126, 168, 0.0000f, 1.9353f, -9.7294f, 3.6800f, 2.2400f, 2.3421f, -101.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall23", 220, 184, 0.0000f, 1.6481f, -8.2857f, 3.0176f, 1.6000f, 1.7450f, -101.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim23", 72, 198, 0.0000f, 1.4858f, -7.4697f, 1.5456f, 0.8320f, 1.6422f, -101.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire24", 140, 168, 0.0000f, 0.0000f, -9.9200f, 3.6800f, 2.2400f, 2.3421f, -90.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall24", 231, 184, 0.0000f, 0.0000f, -8.4480f, 3.0176f, 1.6000f, 1.7450f, -90.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim24", 80, 198, 0.0000f, 0.0000f, -7.6160f, 1.5456f, 0.8320f, 1.6422f, -90.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire25", 154, 168, 0.0000f, -1.9353f, -9.7294f, 3.6800f, 2.2400f, 2.3421f, -78.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall25", 242, 184, 0.0000f, -1.6481f, -8.2857f, 3.0176f, 1.6000f, 1.7450f, -78.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim25", 88, 198, 0.0000f, -1.4858f, -7.4697f, 1.5456f, 0.8320f, 1.6422f, -78.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire26", 168, 168, 0.0000f, -3.7962f, -9.1649f, 3.6800f, 2.2400f, 2.3421f, -67.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall26", 0, 189, 0.0000f, -3.2329f, -7.8049f, 3.0176f, 1.6000f, 1.7450f, -67.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim26", 96, 198, 0.0000f, -2.9145f, -7.0363f, 1.5456f, 0.8320f, 1.6422f, -67.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire27", 182, 168, 0.0000f, -5.5113f, -8.2482f, 3.6800f, 2.2400f, 2.3421f, -56.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall27", 11, 189, 0.0000f, -4.6935f, -7.0243f, 3.0176f, 1.6000f, 1.7450f, -56.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim27", 104, 198, 0.0000f, -4.2312f, -6.3325f, 1.5456f, 0.8320f, 1.6422f, -56.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire28", 196, 168, 0.0000f, -7.0145f, -7.0145f, 3.6800f, 2.2400f, 2.3421f, -45.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall28", 22, 189, 0.0000f, -5.9736f, -5.9736f, 3.0176f, 1.6000f, 1.7450f, -45.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim28", 112, 198, 0.0000f, -5.3853f, -5.3853f, 1.5456f, 0.8320f, 1.6422f, -45.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire29", 210, 168, 0.0000f, -8.2482f, -5.5113f, 3.6800f, 2.2400f, 2.3421f, -33.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall29", 33, 189, 0.0000f, -7.0243f, -4.6935f, 3.0176f, 1.6000f, 1.7450f, -33.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim29", 120, 198, 0.0000f, -6.3325f, -4.2312f, 1.5456f, 0.8320f, 1.6422f, -33.7500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire30", 224, 168, 0.0000f, -9.1649f, -3.7962f, 3.6800f, 2.2400f, 2.3421f, -22.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall30", 44, 189, 0.0000f, -7.8049f, -3.2329f, 3.0176f, 1.6000f, 1.7450f, -22.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim30", 128, 198, 0.0000f, -7.0363f, -2.9145f, 1.5456f, 0.8320f, 1.6422f, -22.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_tire31", 238, 168, 0.0000f, -9.7294f, -1.9353f, 3.6800f, 2.2400f, 2.3421f, -11.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_wall31", 55, 189, 0.0000f, -8.2857f, -1.6481f, 3.0176f, 1.6000f, 1.7450f, -11.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_rim31", 136, 198, 0.0000f, -7.4697f, -1.4858f, 1.5456f, 0.8320f, 1.6422f, -11.2500f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob0_0", 181, 202, 0.0000f, -11.1042f, 1.4619f, 1.4720f, 0.6400f, 1.0240f, 7.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob1_0", 187, 202, -1.1040f, -10.3475f, 4.2861f, 1.1040f, 0.6400f, 1.0240f, 22.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob1_1", 193, 202, 1.1040f, -10.3475f, 4.2861f, 1.1040f, 0.6400f, 1.0240f, 22.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob2_0", 199, 202, 0.0000f, -8.8856f, 6.8181f, 1.4720f, 0.6400f, 1.0240f, 37.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob3_0", 205, 202, -1.1040f, -6.8181f, 8.8856f, 1.1040f, 0.6400f, 1.0240f, 52.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob3_1", 211, 202, 1.1040f, -6.8181f, 8.8856f, 1.1040f, 0.6400f, 1.0240f, 52.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob4_0", 217, 202, 0.0000f, -4.2861f, 10.3475f, 1.4720f, 0.6400f, 1.0240f, 67.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob5_0", 223, 202, -1.1040f, -1.4619f, 11.1042f, 1.1040f, 0.6400f, 1.0240f, 82.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob5_1", 229, 202, 1.1040f, -1.4619f, 11.1042f, 1.1040f, 0.6400f, 1.0240f, 82.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob6_0", 235, 202, 0.0000f, 1.4619f, 11.1042f, 1.4720f, 0.6400f, 1.0240f, 97.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob7_0", 241, 202, -1.1040f, 4.2861f, 10.3475f, 1.1040f, 0.6400f, 1.0240f, 112.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob7_1", 247, 202, 1.1040f, 4.2861f, 10.3475f, 1.1040f, 0.6400f, 1.0240f, 112.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob8_0", 0, 205, 0.0000f, 6.8181f, 8.8856f, 1.4720f, 0.6400f, 1.0240f, 127.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob9_0", 6, 205, -1.1040f, 8.8856f, 6.8181f, 1.1040f, 0.6400f, 1.0240f, 142.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob9_1", 12, 205, 1.1040f, 8.8856f, 6.8181f, 1.1040f, 0.6400f, 1.0240f, 142.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob10_0", 18, 205, 0.0000f, 10.3475f, 4.2861f, 1.4720f, 0.6400f, 1.0240f, 157.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob11_0", 24, 205, -1.1040f, 11.1042f, 1.4619f, 1.1040f, 0.6400f, 1.0240f, 172.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob11_1", 30, 205, 1.1040f, 11.1042f, 1.4619f, 1.1040f, 0.6400f, 1.0240f, 172.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob12_0", 36, 205, 0.0000f, 11.1042f, -1.4619f, 1.4720f, 0.6400f, 1.0240f, -172.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob13_0", 42, 205, -1.1040f, 10.3475f, -4.2861f, 1.1040f, 0.6400f, 1.0240f, -157.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob13_1", 48, 205, 1.1040f, 10.3475f, -4.2861f, 1.1040f, 0.6400f, 1.0240f, -157.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob14_0", 54, 205, 0.0000f, 8.8856f, -6.8181f, 1.4720f, 0.6400f, 1.0240f, -142.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob15_0", 60, 205, -1.1040f, 6.8181f, -8.8856f, 1.1040f, 0.6400f, 1.0240f, -127.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob15_1", 66, 205, 1.1040f, 6.8181f, -8.8856f, 1.1040f, 0.6400f, 1.0240f, -127.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob16_0", 72, 205, 0.0000f, 4.2861f, -10.3475f, 1.4720f, 0.6400f, 1.0240f, -112.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob17_0", 78, 205, -1.1040f, 1.4619f, -11.1042f, 1.1040f, 0.6400f, 1.0240f, -97.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob17_1", 84, 205, 1.1040f, 1.4619f, -11.1042f, 1.1040f, 0.6400f, 1.0240f, -97.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob18_0", 90, 205, 0.0000f, -1.4619f, -11.1042f, 1.4720f, 0.6400f, 1.0240f, -82.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob19_0", 96, 205, -1.1040f, -4.2861f, -10.3475f, 1.1040f, 0.6400f, 1.0240f, -67.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob19_1", 102, 205, 1.1040f, -4.2861f, -10.3475f, 1.1040f, 0.6400f, 1.0240f, -67.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob20_0", 108, 205, 0.0000f, -6.8181f, -8.8856f, 1.4720f, 0.6400f, 1.0240f, -52.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob21_0", 114, 205, -1.1040f, -8.8856f, -6.8181f, 1.1040f, 0.6400f, 1.0240f, -37.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob21_1", 120, 205, 1.1040f, -8.8856f, -6.8181f, 1.1040f, 0.6400f, 1.0240f, -37.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob22_0", 126, 205, 0.0000f, -10.3475f, -4.2861f, 1.4720f, 0.6400f, 1.0240f, -22.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob23_0", 132, 205, -1.1040f, -11.1042f, -1.4619f, 1.1040f, 0.6400f, 1.0240f, -7.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_knob23_1", 138, 205, 1.1040f, -11.1042f, -1.4619f, 1.1040f, 0.6400f, 1.0240f, -7.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_spoke0", 31, 133, -0.5440f, -4.1318f, -1.2454f, 0.2240f, 0.2240f, 5.9900f, -116.0029f, 18.4708f, 180.0000f);
-        cube(rear_wheel, "r_spoke1", 45, 133, 0.5440f, -3.4567f, 2.5835f, 0.2240f, 0.2240f, 5.9900f, 44.6156f, -11.2522f, 0.0000f);
-        cube(rear_wheel, "r_spoke2", 59, 133, -0.5440f, -3.9657f, 1.7018f, 0.2240f, 0.2240f, 5.9900f, 72.8995f, 28.1882f, 0.0000f);
-        cube(rear_wheel, "r_spoke3", 73, 133, 0.5440f, -0.9873f, 4.2009f, 0.2240f, 0.2240f, 5.9900f, 5.1214f, -8.0164f, 0.0000f);
-        cube(rear_wheel, "r_spoke4", 87, 133, -0.5440f, -1.9440f, 3.8528f, 0.2240f, 0.2240f, 5.9900f, 34.4429f, 9.6963f, 0.0000f);
-        cube(rear_wheel, "r_spoke5", 101, 133, 0.5440f, 1.9440f, 3.8528f, 0.2240f, 0.2240f, 5.9900f, -34.4429f, -9.6963f, 0.0000f);
-        cube(rear_wheel, "r_spoke6", 115, 133, -0.5440f, 0.9873f, 4.2009f, 0.2240f, 0.2240f, 5.9900f, -5.1214f, 8.0164f, 0.0000f);
-        cube(rear_wheel, "r_spoke7", 129, 133, 0.5440f, 3.9657f, 1.7018f, 0.2240f, 0.2240f, 5.9900f, -72.8995f, -28.1882f, 0.0000f);
-        cube(rear_wheel, "r_spoke8", 143, 133, -0.5440f, 3.4567f, 2.5835f, 0.2240f, 0.2240f, 5.9900f, -44.6156f, 11.2522f, 0.0000f);
-        cube(rear_wheel, "r_spoke9", 157, 133, 0.5440f, 4.1318f, -1.2454f, 0.2240f, 0.2240f, 5.9900f, 116.0029f, -18.4708f, 180.0000f);
-        cube(rear_wheel, "r_spoke10", 171, 133, -0.5440f, 4.3086f, -0.2429f, 0.2240f, 0.2240f, 5.9900f, -80.6775f, 59.0315f, 0.0000f);
-        cube(rear_wheel, "r_spoke11", 185, 133, 0.5440f, 2.3646f, -3.6099f, 0.2240f, 0.2240f, 5.9900f, 155.0891f, -8.8094f, 180.0000f);
-        cube(rear_wheel, "r_spoke12", 199, 133, -0.5440f, 3.1445f, -2.9555f, 0.2240f, 0.2240f, 5.9900f, 125.9523f, 13.6848f, 180.0000f);
-        cube(rear_wheel, "r_spoke13", 213, 133, 0.5440f, -0.5090f, -4.2853f, 0.2240f, 0.2240f, 5.9900f, -165.3186f, -8.2555f, 180.0000f);
-        cube(rear_wheel, "r_spoke14", 227, 133, -0.5440f, 0.5090f, -4.2853f, 0.2240f, 0.2240f, 5.9900f, 165.3186f, 8.2555f, 180.0000f);
-        cube(rear_wheel, "r_spoke15", 241, 133, 0.5440f, -3.1445f, -2.9555f, 0.2240f, 0.2240f, 5.9900f, -125.9523f, -13.6848f, 180.0000f);
-        cube(rear_wheel, "r_spoke16", 0, 141, -0.5440f, -2.3646f, -3.6099f, 0.2240f, 0.2240f, 5.9900f, -155.0891f, 8.8094f, 180.0000f);
-        cube(rear_wheel, "r_spoke17", 14, 141, 0.5440f, -4.3086f, -0.2429f, 0.2240f, 0.2240f, 5.9900f, 80.6775f, -59.0315f, 0.0000f);
-        cube(rear_wheel, "r_hub", 37, 149, 0.0000f, 0.0000f, 0.0000f, 4.8000f, 2.5600f, 2.5600f, 0.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_hub_l", 180, 124, 1.2800f, 0.0000f, 0.0000f, 0.8000f, 3.5200f, 3.5200f, 0.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_hub_r", 190, 124, -1.2800f, 0.0000f, 0.0000f, 0.8000f, 3.5200f, 3.5200f, 0.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_disc0", 129, 102, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 0.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_disc1", 134, 102, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 22.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_disc2", 139, 102, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 45.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_disc3", 144, 102, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 67.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_disc4", 149, 102, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 90.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_disc5", 154, 102, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 112.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_disc6", 159, 102, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 135.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_disc7", 164, 102, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 157.5000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_sprocket0", 169, 102, 4.3200f, 0.0000f, 0.0000f, 0.2560f, 7.6800f, 2.2225f, 0.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_sprocket1", 175, 102, 4.3200f, 0.0000f, 0.0000f, 0.2560f, 7.6800f, 2.2225f, 30.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_sprocket2", 181, 102, 4.3200f, 0.0000f, 0.0000f, 0.2560f, 7.6800f, 2.2225f, 60.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_sprocket3", 187, 102, 4.3200f, 0.0000f, 0.0000f, 0.2560f, 7.6800f, 2.2225f, 90.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_sprocket4", 193, 102, 4.3200f, 0.0000f, 0.0000f, 0.2560f, 7.6800f, 2.2225f, 120.0000f, -0.0000f, 0.0000f);
-        cube(rear_wheel, "r_sprocket5", 199, 102, 4.3200f, 0.0000f, 0.0000f, 0.2560f, 7.6800f, 2.2225f, 150.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire0", 188, 165, 0.0000f, -9.9200f, 0.0000f, 3.6800f, 2.2400f, 2.3421f, 0.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall0", 104, 188, 0.0000f, -8.4480f, 0.0000f, 3.0176f, 1.6000f, 1.7450f, 0.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim0", 38, 202, 0.0000f, -7.6160f, 0.0000f, 1.5456f, 0.8320f, 1.6422f, 0.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire1", 202, 165, 0.0000f, -9.7294f, 1.9353f, 3.6800f, 2.2400f, 2.3421f, 11.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall1", 115, 188, 0.0000f, -8.2857f, 1.6481f, 3.0176f, 1.6000f, 1.7450f, 11.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim1", 46, 202, 0.0000f, -7.4697f, 1.4858f, 1.5456f, 0.8320f, 1.6422f, 11.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire2", 216, 165, 0.0000f, -9.1649f, 3.7962f, 3.6800f, 2.2400f, 2.3421f, 22.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall2", 126, 188, 0.0000f, -7.8049f, 3.2329f, 3.0176f, 1.6000f, 1.7450f, 22.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim2", 54, 202, 0.0000f, -7.0363f, 2.9145f, 1.5456f, 0.8320f, 1.6422f, 22.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire3", 230, 165, 0.0000f, -8.2482f, 5.5113f, 3.6800f, 2.2400f, 2.3421f, 33.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall3", 137, 188, 0.0000f, -7.0243f, 4.6935f, 3.0176f, 1.6000f, 1.7450f, 33.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim3", 62, 202, 0.0000f, -6.3325f, 4.2312f, 1.5456f, 0.8320f, 1.6422f, 33.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire4", 0, 171, 0.0000f, -7.0145f, 7.0145f, 3.6800f, 2.2400f, 2.3421f, 45.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall4", 148, 188, 0.0000f, -5.9736f, 5.9736f, 3.0176f, 1.6000f, 1.7450f, 45.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim4", 70, 202, 0.0000f, -5.3853f, 5.3853f, 1.5456f, 0.8320f, 1.6422f, 45.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire5", 14, 171, 0.0000f, -5.5113f, 8.2482f, 3.6800f, 2.2400f, 2.3421f, 56.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall5", 159, 188, 0.0000f, -4.6935f, 7.0243f, 3.0176f, 1.6000f, 1.7450f, 56.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim5", 78, 202, 0.0000f, -4.2312f, 6.3325f, 1.5456f, 0.8320f, 1.6422f, 56.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire6", 28, 171, 0.0000f, -3.7962f, 9.1649f, 3.6800f, 2.2400f, 2.3421f, 67.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall6", 170, 188, 0.0000f, -3.2329f, 7.8049f, 3.0176f, 1.6000f, 1.7450f, 67.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim6", 86, 202, 0.0000f, -2.9145f, 7.0363f, 1.5456f, 0.8320f, 1.6422f, 67.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire7", 42, 171, 0.0000f, -1.9353f, 9.7294f, 3.6800f, 2.2400f, 2.3421f, 78.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall7", 181, 188, 0.0000f, -1.6481f, 8.2857f, 3.0176f, 1.6000f, 1.7450f, 78.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim7", 94, 202, 0.0000f, -1.4858f, 7.4697f, 1.5456f, 0.8320f, 1.6422f, 78.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire8", 56, 171, 0.0000f, 0.0000f, 9.9200f, 3.6800f, 2.2400f, 2.3421f, 90.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall8", 192, 188, 0.0000f, 0.0000f, 8.4480f, 3.0176f, 1.6000f, 1.7450f, 90.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim8", 102, 202, 0.0000f, 0.0000f, 7.6160f, 1.5456f, 0.8320f, 1.6422f, 90.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire9", 70, 171, 0.0000f, 1.9353f, 9.7294f, 3.6800f, 2.2400f, 2.3421f, 101.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall9", 203, 188, 0.0000f, 1.6481f, 8.2857f, 3.0176f, 1.6000f, 1.7450f, 101.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim9", 110, 202, 0.0000f, 1.4858f, 7.4697f, 1.5456f, 0.8320f, 1.6422f, 101.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire10", 84, 171, 0.0000f, 3.7962f, 9.1649f, 3.6800f, 2.2400f, 2.3421f, 112.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall10", 214, 188, 0.0000f, 3.2329f, 7.8049f, 3.0176f, 1.6000f, 1.7450f, 112.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim10", 118, 202, 0.0000f, 2.9145f, 7.0363f, 1.5456f, 0.8320f, 1.6422f, 112.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire11", 98, 171, 0.0000f, 5.5113f, 8.2482f, 3.6800f, 2.2400f, 2.3421f, 123.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall11", 225, 188, 0.0000f, 4.6935f, 7.0243f, 3.0176f, 1.6000f, 1.7450f, 123.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim11", 126, 202, 0.0000f, 4.2312f, 6.3325f, 1.5456f, 0.8320f, 1.6422f, 123.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire12", 112, 171, 0.0000f, 7.0145f, 7.0145f, 3.6800f, 2.2400f, 2.3421f, 135.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall12", 236, 188, 0.0000f, 5.9736f, 5.9736f, 3.0176f, 1.6000f, 1.7450f, 135.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim12", 134, 202, 0.0000f, 5.3853f, 5.3853f, 1.5456f, 0.8320f, 1.6422f, 135.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire13", 126, 171, 0.0000f, 8.2482f, 5.5113f, 3.6800f, 2.2400f, 2.3421f, 146.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall13", 0, 193, 0.0000f, 7.0243f, 4.6935f, 3.0176f, 1.6000f, 1.7450f, 146.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim13", 142, 202, 0.0000f, 6.3325f, 4.2312f, 1.5456f, 0.8320f, 1.6422f, 146.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire14", 140, 171, 0.0000f, 9.1649f, 3.7962f, 3.6800f, 2.2400f, 2.3421f, 157.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall14", 11, 193, 0.0000f, 7.8049f, 3.2329f, 3.0176f, 1.6000f, 1.7450f, 157.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim14", 150, 202, 0.0000f, 7.0363f, 2.9145f, 1.5456f, 0.8320f, 1.6422f, 157.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire15", 154, 171, 0.0000f, 9.7294f, 1.9353f, 3.6800f, 2.2400f, 2.3421f, 168.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall15", 22, 193, 0.0000f, 8.2857f, 1.6481f, 3.0176f, 1.6000f, 1.7450f, 168.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim15", 158, 202, 0.0000f, 7.4697f, 1.4858f, 1.5456f, 0.8320f, 1.6422f, 168.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire16", 168, 171, 0.0000f, 9.9200f, 0.0000f, 3.6800f, 2.2400f, 2.3421f, 180.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall16", 33, 193, 0.0000f, 8.4480f, 0.0000f, 3.0176f, 1.6000f, 1.7450f, 180.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim16", 166, 202, 0.0000f, 7.6160f, 0.0000f, 1.5456f, 0.8320f, 1.6422f, 180.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire17", 182, 171, 0.0000f, 9.7294f, -1.9353f, 3.6800f, 2.2400f, 2.3421f, -168.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall17", 44, 193, 0.0000f, 8.2857f, -1.6481f, 3.0176f, 1.6000f, 1.7450f, -168.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim17", 174, 202, 0.0000f, 7.4697f, -1.4858f, 1.5456f, 0.8320f, 1.6422f, -168.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire18", 196, 171, 0.0000f, 9.1649f, -3.7962f, 3.6800f, 2.2400f, 2.3421f, -157.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall18", 55, 193, 0.0000f, 7.8049f, -3.2329f, 3.0176f, 1.6000f, 1.7450f, -157.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim18", 182, 202, 0.0000f, 7.0363f, -2.9145f, 1.5456f, 0.8320f, 1.6422f, -157.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire19", 210, 171, 0.0000f, 8.2482f, -5.5113f, 3.6800f, 2.2400f, 2.3421f, -146.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall19", 66, 193, 0.0000f, 7.0243f, -4.6935f, 3.0176f, 1.6000f, 1.7450f, -146.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim19", 190, 202, 0.0000f, 6.3325f, -4.2312f, 1.5456f, 0.8320f, 1.6422f, -146.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire20", 224, 171, 0.0000f, 7.0145f, -7.0145f, 3.6800f, 2.2400f, 2.3421f, -135.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall20", 77, 193, 0.0000f, 5.9736f, -5.9736f, 3.0176f, 1.6000f, 1.7450f, -135.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim20", 198, 202, 0.0000f, 5.3853f, -5.3853f, 1.5456f, 0.8320f, 1.6422f, -135.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire21", 238, 171, 0.0000f, 5.5113f, -8.2482f, 3.6800f, 2.2400f, 2.3421f, -123.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall21", 88, 193, 0.0000f, 4.6935f, -7.0243f, 3.0176f, 1.6000f, 1.7450f, -123.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim21", 206, 202, 0.0000f, 4.2312f, -6.3325f, 1.5456f, 0.8320f, 1.6422f, -123.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire22", 0, 177, 0.0000f, 3.7962f, -9.1649f, 3.6800f, 2.2400f, 2.3421f, -112.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall22", 99, 193, 0.0000f, 3.2329f, -7.8049f, 3.0176f, 1.6000f, 1.7450f, -112.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim22", 214, 202, 0.0000f, 2.9145f, -7.0363f, 1.5456f, 0.8320f, 1.6422f, -112.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire23", 14, 177, 0.0000f, 1.9353f, -9.7294f, 3.6800f, 2.2400f, 2.3421f, -101.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall23", 110, 193, 0.0000f, 1.6481f, -8.2857f, 3.0176f, 1.6000f, 1.7450f, -101.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim23", 222, 202, 0.0000f, 1.4858f, -7.4697f, 1.5456f, 0.8320f, 1.6422f, -101.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire24", 28, 177, 0.0000f, 0.0000f, -9.9200f, 3.6800f, 2.2400f, 2.3421f, -90.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall24", 121, 193, 0.0000f, 0.0000f, -8.4480f, 3.0176f, 1.6000f, 1.7450f, -90.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim24", 230, 202, 0.0000f, 0.0000f, -7.6160f, 1.5456f, 0.8320f, 1.6422f, -90.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire25", 42, 177, 0.0000f, -1.9353f, -9.7294f, 3.6800f, 2.2400f, 2.3421f, -78.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall25", 132, 193, 0.0000f, -1.6481f, -8.2857f, 3.0176f, 1.6000f, 1.7450f, -78.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim25", 238, 202, 0.0000f, -1.4858f, -7.4697f, 1.5456f, 0.8320f, 1.6422f, -78.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire26", 56, 177, 0.0000f, -3.7962f, -9.1649f, 3.6800f, 2.2400f, 2.3421f, -67.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall26", 143, 193, 0.0000f, -3.2329f, -7.8049f, 3.0176f, 1.6000f, 1.7450f, -67.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim26", 246, 202, 0.0000f, -2.9145f, -7.0363f, 1.5456f, 0.8320f, 1.6422f, -67.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire27", 70, 177, 0.0000f, -5.5113f, -8.2482f, 3.6800f, 2.2400f, 2.3421f, -56.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall27", 154, 193, 0.0000f, -4.6935f, -7.0243f, 3.0176f, 1.6000f, 1.7450f, -56.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim27", 0, 206, 0.0000f, -4.2312f, -6.3325f, 1.5456f, 0.8320f, 1.6422f, -56.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire28", 84, 177, 0.0000f, -7.0145f, -7.0145f, 3.6800f, 2.2400f, 2.3421f, -45.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall28", 165, 193, 0.0000f, -5.9736f, -5.9736f, 3.0176f, 1.6000f, 1.7450f, -45.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim28", 8, 206, 0.0000f, -5.3853f, -5.3853f, 1.5456f, 0.8320f, 1.6422f, -45.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire29", 98, 177, 0.0000f, -8.2482f, -5.5113f, 3.6800f, 2.2400f, 2.3421f, -33.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall29", 176, 193, 0.0000f, -7.0243f, -4.6935f, 3.0176f, 1.6000f, 1.7450f, -33.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim29", 16, 206, 0.0000f, -6.3325f, -4.2312f, 1.5456f, 0.8320f, 1.6422f, -33.7500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire30", 112, 177, 0.0000f, -9.1649f, -3.7962f, 3.6800f, 2.2400f, 2.3421f, -22.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall30", 187, 193, 0.0000f, -7.8049f, -3.2329f, 3.0176f, 1.6000f, 1.7450f, -22.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim30", 24, 206, 0.0000f, -7.0363f, -2.9145f, 1.5456f, 0.8320f, 1.6422f, -22.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_tire31", 126, 177, 0.0000f, -9.7294f, -1.9353f, 3.6800f, 2.2400f, 2.3421f, -11.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_wall31", 198, 193, 0.0000f, -8.2857f, -1.6481f, 3.0176f, 1.6000f, 1.7450f, -11.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_rim31", 32, 206, 0.0000f, -7.4697f, -1.4858f, 1.5456f, 0.8320f, 1.6422f, -11.2500f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob0_0", 80, 210, 0.0000f, -11.1042f, 1.4619f, 1.4720f, 0.6400f, 1.0240f, 7.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob1_0", 86, 210, -1.1040f, -10.3475f, 4.2861f, 1.1040f, 0.6400f, 1.0240f, 22.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob1_1", 92, 210, 1.1040f, -10.3475f, 4.2861f, 1.1040f, 0.6400f, 1.0240f, 22.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob2_0", 98, 210, 0.0000f, -8.8856f, 6.8181f, 1.4720f, 0.6400f, 1.0240f, 37.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob3_0", 104, 210, -1.1040f, -6.8181f, 8.8856f, 1.1040f, 0.6400f, 1.0240f, 52.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob3_1", 110, 210, 1.1040f, -6.8181f, 8.8856f, 1.1040f, 0.6400f, 1.0240f, 52.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob4_0", 116, 210, 0.0000f, -4.2861f, 10.3475f, 1.4720f, 0.6400f, 1.0240f, 67.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob5_0", 122, 210, -1.1040f, -1.4619f, 11.1042f, 1.1040f, 0.6400f, 1.0240f, 82.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob5_1", 128, 210, 1.1040f, -1.4619f, 11.1042f, 1.1040f, 0.6400f, 1.0240f, 82.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob6_0", 134, 210, 0.0000f, 1.4619f, 11.1042f, 1.4720f, 0.6400f, 1.0240f, 97.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob7_0", 140, 210, -1.1040f, 4.2861f, 10.3475f, 1.1040f, 0.6400f, 1.0240f, 112.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob7_1", 146, 210, 1.1040f, 4.2861f, 10.3475f, 1.1040f, 0.6400f, 1.0240f, 112.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob8_0", 152, 210, 0.0000f, 6.8181f, 8.8856f, 1.4720f, 0.6400f, 1.0240f, 127.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob9_0", 158, 210, -1.1040f, 8.8856f, 6.8181f, 1.1040f, 0.6400f, 1.0240f, 142.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob9_1", 164, 210, 1.1040f, 8.8856f, 6.8181f, 1.1040f, 0.6400f, 1.0240f, 142.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob10_0", 170, 210, 0.0000f, 10.3475f, 4.2861f, 1.4720f, 0.6400f, 1.0240f, 157.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob11_0", 176, 210, -1.1040f, 11.1042f, 1.4619f, 1.1040f, 0.6400f, 1.0240f, 172.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob11_1", 182, 210, 1.1040f, 11.1042f, 1.4619f, 1.1040f, 0.6400f, 1.0240f, 172.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob12_0", 188, 210, 0.0000f, 11.1042f, -1.4619f, 1.4720f, 0.6400f, 1.0240f, -172.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob13_0", 194, 210, -1.1040f, 10.3475f, -4.2861f, 1.1040f, 0.6400f, 1.0240f, -157.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob13_1", 200, 210, 1.1040f, 10.3475f, -4.2861f, 1.1040f, 0.6400f, 1.0240f, -157.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob14_0", 206, 210, 0.0000f, 8.8856f, -6.8181f, 1.4720f, 0.6400f, 1.0240f, -142.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob15_0", 212, 210, -1.1040f, 6.8181f, -8.8856f, 1.1040f, 0.6400f, 1.0240f, -127.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob15_1", 218, 210, 1.1040f, 6.8181f, -8.8856f, 1.1040f, 0.6400f, 1.0240f, -127.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob16_0", 224, 210, 0.0000f, 4.2861f, -10.3475f, 1.4720f, 0.6400f, 1.0240f, -112.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob17_0", 230, 210, -1.1040f, 1.4619f, -11.1042f, 1.1040f, 0.6400f, 1.0240f, -97.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob17_1", 236, 210, 1.1040f, 1.4619f, -11.1042f, 1.1040f, 0.6400f, 1.0240f, -97.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob18_0", 242, 210, 0.0000f, -1.4619f, -11.1042f, 1.4720f, 0.6400f, 1.0240f, -82.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob19_0", 248, 210, -1.1040f, -4.2861f, -10.3475f, 1.1040f, 0.6400f, 1.0240f, -67.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob19_1", 0, 213, 1.1040f, -4.2861f, -10.3475f, 1.1040f, 0.6400f, 1.0240f, -67.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob20_0", 6, 213, 0.0000f, -6.8181f, -8.8856f, 1.4720f, 0.6400f, 1.0240f, -52.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob21_0", 12, 213, -1.1040f, -8.8856f, -6.8181f, 1.1040f, 0.6400f, 1.0240f, -37.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob21_1", 18, 213, 1.1040f, -8.8856f, -6.8181f, 1.1040f, 0.6400f, 1.0240f, -37.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob22_0", 24, 213, 0.0000f, -10.3475f, -4.2861f, 1.4720f, 0.6400f, 1.0240f, -22.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob23_0", 30, 213, -1.1040f, -11.1042f, -1.4619f, 1.1040f, 0.6400f, 1.0240f, -7.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_knob23_1", 36, 213, 1.1040f, -11.1042f, -1.4619f, 1.1040f, 0.6400f, 1.0240f, -7.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_spoke0", 138, 135, -0.5440f, -4.1318f, -1.2454f, 0.2240f, 0.2240f, 5.9900f, -116.0029f, 18.4708f, 180.0000f);
+        cube(rear_wheel, "r_spoke1", 152, 135, 0.5440f, -3.4567f, 2.5835f, 0.2240f, 0.2240f, 5.9900f, 44.6156f, -11.2522f, 0.0000f);
+        cube(rear_wheel, "r_spoke2", 166, 135, -0.5440f, -3.9657f, 1.7018f, 0.2240f, 0.2240f, 5.9900f, 72.8995f, 28.1882f, 0.0000f);
+        cube(rear_wheel, "r_spoke3", 180, 135, 0.5440f, -0.9873f, 4.2009f, 0.2240f, 0.2240f, 5.9900f, 5.1214f, -8.0164f, 0.0000f);
+        cube(rear_wheel, "r_spoke4", 194, 135, -0.5440f, -1.9440f, 3.8528f, 0.2240f, 0.2240f, 5.9900f, 34.4429f, 9.6963f, 0.0000f);
+        cube(rear_wheel, "r_spoke5", 208, 135, 0.5440f, 1.9440f, 3.8528f, 0.2240f, 0.2240f, 5.9900f, -34.4429f, -9.6963f, 0.0000f);
+        cube(rear_wheel, "r_spoke6", 222, 135, -0.5440f, 0.9873f, 4.2009f, 0.2240f, 0.2240f, 5.9900f, -5.1214f, 8.0164f, 0.0000f);
+        cube(rear_wheel, "r_spoke7", 236, 135, 0.5440f, 3.9657f, 1.7018f, 0.2240f, 0.2240f, 5.9900f, -72.8995f, -28.1882f, 0.0000f);
+        cube(rear_wheel, "r_spoke8", 0, 144, -0.5440f, 3.4567f, 2.5835f, 0.2240f, 0.2240f, 5.9900f, -44.6156f, 11.2522f, 0.0000f);
+        cube(rear_wheel, "r_spoke9", 14, 144, 0.5440f, 4.1318f, -1.2454f, 0.2240f, 0.2240f, 5.9900f, 116.0029f, -18.4708f, 180.0000f);
+        cube(rear_wheel, "r_spoke10", 28, 144, -0.5440f, 4.3086f, -0.2429f, 0.2240f, 0.2240f, 5.9900f, -80.6775f, 59.0315f, 0.0000f);
+        cube(rear_wheel, "r_spoke11", 42, 144, 0.5440f, 2.3646f, -3.6099f, 0.2240f, 0.2240f, 5.9900f, 155.0891f, -8.8094f, 180.0000f);
+        cube(rear_wheel, "r_spoke12", 56, 144, -0.5440f, 3.1445f, -2.9555f, 0.2240f, 0.2240f, 5.9900f, 125.9523f, 13.6848f, 180.0000f);
+        cube(rear_wheel, "r_spoke13", 70, 144, 0.5440f, -0.5090f, -4.2853f, 0.2240f, 0.2240f, 5.9900f, -165.3186f, -8.2555f, 180.0000f);
+        cube(rear_wheel, "r_spoke14", 84, 144, -0.5440f, 0.5090f, -4.2853f, 0.2240f, 0.2240f, 5.9900f, 165.3186f, 8.2555f, 180.0000f);
+        cube(rear_wheel, "r_spoke15", 98, 144, 0.5440f, -3.1445f, -2.9555f, 0.2240f, 0.2240f, 5.9900f, -125.9523f, -13.6848f, 180.0000f);
+        cube(rear_wheel, "r_spoke16", 112, 144, -0.5440f, -2.3646f, -3.6099f, 0.2240f, 0.2240f, 5.9900f, -155.0891f, 8.8094f, 180.0000f);
+        cube(rear_wheel, "r_spoke17", 126, 144, 0.5440f, -4.3086f, -0.2429f, 0.2240f, 0.2240f, 5.9900f, 80.6775f, -59.0315f, 0.0000f);
+        cube(rear_wheel, "r_hub", 145, 152, 0.0000f, 0.0000f, 0.0000f, 4.8000f, 2.5600f, 2.5600f, 0.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_hub_l", 36, 135, 1.2800f, 0.0000f, 0.0000f, 0.8000f, 3.5200f, 3.5200f, 0.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_hub_r", 46, 135, -1.2800f, 0.0000f, 0.0000f, 0.8000f, 3.5200f, 3.5200f, 0.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_disc0", 236, 102, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 0.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_disc1", 241, 102, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 22.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_disc2", 246, 102, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 45.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_disc3", 251, 102, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 67.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_disc4", 0, 115, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 90.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_disc5", 5, 115, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 112.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_disc6", 10, 115, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 135.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_disc7", 15, 115, -2.2400f, 0.0000f, 0.0000f, 0.1920f, 7.5264f, 1.6193f, 157.5000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_sprocket0", 20, 115, 4.3200f, 0.0000f, 0.0000f, 0.2560f, 7.6800f, 2.2225f, 0.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_sprocket1", 26, 115, 4.3200f, 0.0000f, 0.0000f, 0.2560f, 7.6800f, 2.2225f, 30.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_sprocket2", 32, 115, 4.3200f, 0.0000f, 0.0000f, 0.2560f, 7.6800f, 2.2225f, 60.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_sprocket3", 38, 115, 4.3200f, 0.0000f, 0.0000f, 0.2560f, 7.6800f, 2.2225f, 90.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_sprocket4", 44, 115, 4.3200f, 0.0000f, 0.0000f, 0.2560f, 7.6800f, 2.2225f, 120.0000f, -0.0000f, 0.0000f);
+        cube(rear_wheel, "r_sprocket5", 50, 115, 4.3200f, 0.0000f, 0.0000f, 0.2560f, 7.6800f, 2.2225f, 150.0000f, -0.0000f, 0.0000f);
         // </GENERATED>
         return LayerDefinition.create(mesh, 256, 256);
-    }
-
-    private static PartDefinition bone(PartDefinition parent, String name, float x, float y, float z,
-                                       float rxDeg, float ryDeg, float rzDeg) {
-        return parent.addOrReplaceChild(name, CubeListBuilder.create(),
-                PartPose.offsetAndRotation(x, y, z, rad(rxDeg), rad(ryDeg), rad(rzDeg)));
-    }
-
-    /** Box centred at (cx, cy, cz) in the bone's space, size (sx, sy, sz), rotation in degrees (vanilla Z-Y-X). */
-    private static void cube(PartDefinition bone, String name, int u, int v, float cx, float cy, float cz,
-                             float sx, float sy, float sz, float rxDeg, float ryDeg, float rzDeg) {
-        bone.addOrReplaceChild(name, CubeListBuilder.create().texOffs(u, v).addBox(-sx / 2f, -sy / 2f, -sz / 2f, sx, sy, sz),
-                PartPose.offsetAndRotation(cx, cy, cz, rad(rxDeg), rad(ryDeg), rad(rzDeg)));
-    }
-
-    private static float rad(float deg) {
-        return deg * ((float) Math.PI / 180f);
     }
 }
