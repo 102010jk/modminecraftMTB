@@ -40,7 +40,11 @@ public final class AudioSettingsScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal(Math.round(volume*100)+" %"),b->{volume=volume>=1.99f?.2f:Math.round((volume+.2f)*10)/10f;layout();}).bounds(x+205,y,105,20).build());
         for(int i=0;i<4;i++) {
             int index=page*4+i;if(index>=sources.size())break;
-            var source=sources.get(index);String label=AudioApps.cleanTitle(source.title());if(label.isBlank())label=AudioApps.displayName(source.exePath());
+            var source=sources.get(index);
+            // which program it is first (Spotify vs Chrome), then what it plays; a note while it is making sound
+            String app=AudioApps.displayName(source.exePath()),title=AudioApps.cleanTitle(source.title());
+            String label=(source.peak()>0.01f?"\u266A ":"   ")+app+(title.isBlank()||title.equalsIgnoreCase(app)?"":" \u2014 "+title);
+            label=font.plainSubstrByWidth(label,296);
             Button button=Button.builder(Component.literal(label),b->{AudioClient.start(emitter,source,radius,volume);onClose();}).bounds(x,y+27+i*24,310,20).build();
             button.active=emitter!=null||AudioClient.wearing(); addRenderableWidget(button);
         }
