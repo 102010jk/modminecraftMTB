@@ -1,6 +1,8 @@
 package com.descentmtb.client.map;
 
 import com.descentmtb.map.BikeparkMap;
+import com.descentmtb.map.MapPalette;
+import com.descentmtb.map.TerrainShader;
 import com.descentmtb.map.TrailDifficulty;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
@@ -10,19 +12,22 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * The drawn trail map: hand-shaded parchment, every route as a smooth curve coloured by its bike-park grade
- * (green / blue / red / black), start flag and chequered finish. One bounded cache shared by the screen (256 px) and
- * the item frame (128 px, the vanilla map resolution). Pixel x = world east, pixel y = world south, exactly like a
- * vanilla map, so a framed trail map hangs the same way round as a framed vanilla map.
+ * The drawn trail map: a hand-shaded chart of the real world under the routes (muted palette, hillshading from the top
+ * left, contours, depth-shaded water; parchment where the world is not loaded or is another dimension), every route
+ * as a smooth two-tone-cased curve coloured by its bike-park grade (green / blue / red / black), start flag, chequered
+ * finish, scale bar and north arrow. One bounded cache shared by the screen (256 px) and the item frame (128 px, the
+ * vanilla map resolution). Pixel x = world east, pixel y = world south, exactly like a vanilla map, so a framed trail
+ * map hangs the same way round as a framed vanilla map.
  */
 public final class MapTexture {
-    private record Key(BikeparkMap data, int size) {}
+    private record Key(BikeparkMap data, int size, boolean terrain) {}
     private static final Map<Key,ResourceLocation> CACHE=new LinkedHashMap<>(32,.75f,true);
     public record Bounds(double minX,double minZ,double span) {}
 
     // parchment palette: warm highlights, cool brown shadows (no plain black/white shading)
     private static final int PAPER=0xffe8dcc0, PAPER_LIGHT=0xfff3e9cf, PAPER_DARK=0xffd6c7a4, GRID=0xffd2c39f,
-            FRAME=0xff6b5a43, FRAME_LIGHT=0xff9a8462, FRAME_SHADOW=0xff4a3a2e;
+            FRAME=0xff6b5a43, FRAME_LIGHT=0xff9a8462, FRAME_SHADOW=0xff4a3a2e,
+            CASE_DARK=0xff33283a, CASE_LIGHT=0xfff7ebc6, INK=0xff2f2840, HALO=0xfff3e7c8, ARROW_LIT=0xfff6e6b8, ARROW_SHADE=0xff4b3f5c;
 
     /** The square of the world the map shows: the routes of the first route's dimension, with a margin. */
     public static Bounds bounds(BikeparkMap data) {
@@ -41,19 +46,28 @@ public final class MapTexture {
     public static ResourceLocation get(BikeparkMap data) { return get(data,128); }
 
     public static ResourceLocation get(BikeparkMap data,int size) {
-        Key key=new Key(data,size);
+        Bounds b=bounds(data);
+        ResourceLocation dimension=data.routes().isEmpty()?null:data.routes().getFirst().dimension();
+        Minecraft mc=Minecraft.getInstance();
+        boolean terrain=TerrainSampler.available(mc.level,dimension,b);
+        Key key=new Key(data,size,terrain);
         ResourceLocation cached=CACHE.get(key);if(cached!=null)return cached;
         NativeImage image=new NativeImage(size,size,false);
         paper(image,size);
-        Bounds b=bounds(data);
-        int casing=Math.max(1,size/64),width=Math.max(1,size/96);
-        // casings first, so crossing trails read as one network
-        for(var route:data.routes()) if(route.dimension().equals(data.routes().getFirst().dimension()))
-            stroke(image,curve(route.track().pts(),b,size),width+casing,difficultyOf(route)==TrailDifficulty.BLACK?0xfff4ecd0:0xff5b4a37,size);
-        for(var route:data.routes()) if(route.dimension().equals(data.routes().getFirst().dimension()))
+        TerrainShader.Terrain sampled=terrain?TerrainSampler.sample(mc.level,b,size):null;
+        if(sampled!=null)terrain(image,sampled,size);
+        scaleBar(image,b,size);
+        northArrow(image,size);
+        int casing=Math.max(1,size/64),width=Math.max(1,size/96),outer=width+casing,light=outer-Math.max(1,casing/2);
+        // two-tone casing, dark outside and light inside (readable on any terrain), all casings first so crossing trails read as one network
+        for(var route:data.routes()) if(route.dimension().equals(dimension))
+            stroke(image,curve(route.track().pts(),b,size),outer,CASE_DARK,size);
+        for(var route:data.routes()) if(route.dimension().equals(dimension))
+            stroke(image,curve(route.track().pts(),b,size),light,CASE_LIGHT,size);
+        for(var route:data.routes()) if(route.dimension().equals(dimension))
             stroke(image,curve(route.track().pts(),b,size),width,difficultyOf(route).argb,size);
         for(var route:data.routes()) {
-            if(!route.dimension().equals(data.routes().getFirst().dimension()))continue;
+            if(!route.dimension().equals(dimension))continue;
             int[] p=route.track().pts();
             if(p.length<6)continue;
             startFlag(image,point(p[0]/10.0,b.minX,b.span,size),point(p[2]/10.0,b.minZ,b.span,size),size);
@@ -61,9 +75,16 @@ public final class MapTexture {
         }
         DynamicTexture texture=new DynamicTexture(image);
         texture.setFilter(false,false);
-        ResourceLocation id=Minecraft.getInstance().getTextureManager().register("descentmtb-trail-map",texture);CACHE.put(key,id);
-        while(CACHE.size()>32){var first=CACHE.entrySet().iterator();var entry=first.next();Minecraft.getInstance().getTextureManager().release(entry.getValue());first.remove();}
+        ResourceLocation id=mc.getTextureManager().register("descentmtb-trail-map",texture);CACHE.put(key,id);
+        while(CACHE.size()>32){var first=CACHE.entrySet().iterator();var entry=first.next();mc.getTextureManager().release(entry.getValue());first.remove();}
         return id;
+    }
+
+    /** Drops every cached map (releasing the textures) so the next draw samples the world again, e.g. when the screen opens and more chunks have loaded. */
+    public static void invalidate() {
+        var textures=Minecraft.getInstance().getTextureManager();
+        for(ResourceLocation id:CACHE.values())textures.release(id);
+        CACHE.clear();
     }
 
     private static final Map<BikeparkMap.Route,TrailDifficulty> GRADES=new java.util.WeakHashMap<>();
@@ -112,6 +133,69 @@ public final class MapTexture {
         }
     }
 
+    /** Lays the shaded terrain over the parchment inside the frame; unsampled pixels keep the paper, with a faint survey cross at each grid intersection. */
+    private static void terrain(NativeImage im,TerrainShader.Terrain t,int size) {
+        int edge=Math.max(2,size*3/128),grid=size/8;
+        int[] argb=TerrainShader.shade(t,edge);
+        for(int y=edge;y<size-edge;y++)for(int x=edge;x<size-edge;x++){
+            int c=argb[y*size+x];if(c==0)continue;
+            int gx=x%grid,gy=y%grid;
+            boolean cross=(gx==0&&(gy<=1||gy==grid-1))||(gy==0&&(gx<=1||gx==grid-1));
+            if(cross)c=MapPalette.mix(c,PAPER_LIGHT,.32f);
+            im.setPixelRGBA(x,y,abgr(c));
+        }
+    }
+
+    // 3x5 pixel glyphs for the labels: rows top to bottom, '#' set
+    private static final String GLYPH_CHARS="0123456789mN ";
+    private static final String[][] GLYPHS=java.util.stream.Stream.of("###,#.#,#.#,#.#,###","##.,.#.,.#.,.#.,###","###,..#,###,#..,###","###,..#,###,..#,###",
+            "#.#,#.#,###,..#,..#","###,#..,###,..#,###","###,#..,###,#.#,###","###,..#,..#,..#,..#","###,#.#,###,#.#,###","###,#.#,###,..#,###",
+            "...,###,###,#.#,#.#","#.#,###,###,#.#,#.#","...,...,...,...,...").map(g->g.split(",")).toArray(String[][]::new);
+
+    private static String[] textRows(String text) {
+        String[] rows=new String[5];java.util.Arrays.fill(rows,"");
+        for(int i=0;i<text.length();i++){
+            int k=GLYPH_CHARS.indexOf(text.charAt(i));String[] g=GLYPHS[k<0?GLYPH_CHARS.length()-1:k];
+            for(int r=0;r<5;r++)rows[r]+=g[r]+(i<text.length()-1?".":"");
+        }
+        return rows;
+    }
+
+    /**
+     * Draws a sprite of {@code scale}-pixel cells: '#' ink, 'L' lit and 'D' shaded arrow, '.' empty, with a one-cell
+     * halo around it so it reads on any terrain.
+     */
+    private static void sprite(NativeImage im,int x,int y,String[] rows,int scale,int halo,int size) {
+        for(int pass=0;pass<2;pass++)for(int r=0;r<rows.length;r++)for(int c=0;c<rows[r].length();c++){
+            char ch=rows[r].charAt(c);if(ch=='.')continue;
+            int color=ch=='L'?ARROW_LIT:ch=='D'?ARROW_SHADE:INK;
+            for(int dy=pass==0?-1:0;dy<=(pass==0?1:0);dy++)for(int dx=pass==0?-1:0;dx<=(pass==0?1:0);dx++)
+                for(int sy=0;sy<scale;sy++)for(int sx=0;sx<scale;sx++)pixel(im,x+(c+dx)*scale+sx,y+(r+dy)*scale+sy,pass==0?halo:color,size);
+        }
+    }
+
+    /** Scale bar with a block label in the bottom-left corner, its length a round number of blocks that fits a quarter of the map. */
+    private static void scaleBar(NativeImage im,Bounds b,int size) {
+        int s=Math.max(1,size/128),edge=Math.max(2,size*3/128);
+        double margin=size*5/128.0,pixelsPerBlock=(size-2*margin)/b.span;
+        int blocks=MapPalette.scaleBarBlocks(1/pixelsPerBlock,size/4);
+        int cells=Math.max(5,(int)Math.round(blocks*pixelsPerBlock/s));
+        StringBuilder tick=new StringBuilder("#");
+        for(int i=1;i<cells-1;i++)tick.append(i==cells/2?'#':'.');
+        tick.append('#');
+        int x=edge+4*s,y=size-edge-4*s-2*s;
+        sprite(im,x,y,new String[] {tick.toString(),"#".repeat(cells)},s,HALO,size);
+        sprite(im,x,y-7*s,textRows(MapPalette.scaleLabel(blocks)),s,HALO,size);
+    }
+
+    /** North arrow with an "N" in the top-right corner; north is up the map (towards -Z). */
+    private static void northArrow(NativeImage im,int size) {
+        int s=Math.max(1,size/128),edge=Math.max(2,size*3/128);
+        int x=size-edge-4*s-5*s,y=edge+4*s+7*s;
+        sprite(im,x,y,new String[] {"..L..",".LLD.","LLLDD","..LD.","..LD."},s,CASE_DARK,size);
+        sprite(im,x+s,y-7*s,textRows("N"),s,HALO,size);
+    }
+
     private static void stroke(NativeImage im,double[] xy,int radius,int color,int size) {
         for(int i=2;i<xy.length;i+=2){
             double x0=xy[i-2],y0=xy[i-1],x1=xy[i],y1=xy[i+1];
@@ -129,12 +213,14 @@ public final class MapTexture {
 
     private static void startFlag(NativeImage im,int x,int y,int size) {
         int s=Math.max(2,size/48);
+        for(int dy=-s-2;dy<=s+2;dy++)for(int dx=-s-2;dx<=s+2;dx++)pixel(im,x+dx,y+dy,CASE_LIGHT,size);
         for(int dy=-s-1;dy<=s+1;dy++)for(int dx=-s-1;dx<=s+1;dx++)pixel(im,x+dx,y+dy,0xff2d4a2a,size);
         for(int dy=-s;dy<=s;dy++)for(int dx=-s;dx<=s;dx++)pixel(im,x+dx,y+dy,dy<0&&dx<0?0xff7fd36b:0xff3f9b4f,size);
     }
 
     private static void finishFlag(NativeImage im,int x,int y,int size) {
         int s=Math.max(2,size/48);
+        for(int dy=-s-2;dy<=s+2;dy++)for(int dx=-s-2;dx<=s+2;dx++)pixel(im,x+dx,y+dy,CASE_LIGHT,size);
         for(int dy=-s-1;dy<=s+1;dy++)for(int dx=-s-1;dx<=s+1;dx++)pixel(im,x+dx,y+dy,0xff2b2522,size);
         for(int dy=-s;dy<=s;dy++)for(int dx=-s;dx<=s;dx++)pixel(im,x+dx,y+dy,((dx+s)+(dy+s))%2==0?0xfff6efd9:0xff2b2522,size);
     }
