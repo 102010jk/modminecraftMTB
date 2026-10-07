@@ -137,31 +137,6 @@
       }
     ]
   },
-  "bike.trick.heel_click": {
-    "subtitle": "descentmtb.subtitle.heel_click",
-    "sounds": [
-      {
-        "name": "descentmtb:crash/bike_soft_1",
-        "volume": 0.4,
-        "stream": false
-      },
-      {
-        "name": "descentmtb:crash/bike_soft_2",
-        "volume": 0.4,
-        "stream": false
-      },
-      {
-        "name": "descentmtb:crash/bike_soft_3",
-        "volume": 0.4,
-        "stream": false
-      },
-      {
-        "name": "descentmtb:crash/bike_soft_4",
-        "volume": 0.4,
-        "stream": false
-      }
-    ]
-  },
   "bike.trick.flick": {
     "subtitle": "descentmtb.subtitle.flick",
     "sounds": [
@@ -561,22 +536,22 @@
     "subtitle": "descentmtb.subtitle.crash",
     "sounds": [
       {
-        "name": "descentmtb:crash/bike_soft_1",
+        "name": "descentmtb:crash/dirt_small_1",
         "volume": 0.6,
         "stream": false
       },
       {
-        "name": "descentmtb:crash/bike_soft_2",
+        "name": "descentmtb:crash/dirt_small_2",
         "volume": 0.6,
         "stream": false
       },
       {
-        "name": "descentmtb:crash/bike_soft_3",
+        "name": "descentmtb:crash/dirt_small_3",
         "volume": 0.6,
         "stream": false
       },
       {
-        "name": "descentmtb:crash/bike_soft_4",
+        "name": "descentmtb:crash/dirt_small_4",
         "volume": 0.6,
         "stream": false
       }
@@ -586,22 +561,22 @@
     "subtitle": "descentmtb.subtitle.crash",
     "sounds": [
       {
-        "name": "descentmtb:crash/bike_medium_1",
+        "name": "descentmtb:crash/dirt_med_1",
         "volume": 0.6,
         "stream": false
       },
       {
-        "name": "descentmtb:crash/bike_medium_2",
+        "name": "descentmtb:crash/dirt_med_2",
         "volume": 0.6,
         "stream": false
       },
       {
-        "name": "descentmtb:crash/bike_medium_3",
+        "name": "descentmtb:crash/dirt_med_3",
         "volume": 0.6,
         "stream": false
       },
       {
-        "name": "descentmtb:crash/bike_medium_4",
+        "name": "descentmtb:crash/dirt_med_4",
         "volume": 0.6,
         "stream": false
       }
@@ -611,22 +586,22 @@
     "subtitle": "descentmtb.subtitle.crash",
     "sounds": [
       {
-        "name": "descentmtb:crash/bike_hard_1",
+        "name": "descentmtb:crash/dirt_hard_1",
         "volume": 0.6,
         "stream": false
       },
       {
-        "name": "descentmtb:crash/bike_hard_2",
+        "name": "descentmtb:crash/dirt_hard_2",
         "volume": 0.6,
         "stream": false
       },
       {
-        "name": "descentmtb:crash/bike_hard_3",
+        "name": "descentmtb:crash/dirt_hard_3",
         "volume": 0.6,
         "stream": false
       },
       {
-        "name": "descentmtb:crash/bike_hard_4",
+        "name": "descentmtb:crash/dirt_hard_4",
         "volume": 0.6,
         "stream": false
       }

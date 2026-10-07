@@ -211,10 +211,8 @@ final class BikeVoice {
     private void playTrick(Trick trick, double master) {
         TrickSounds.Kind kind = TrickSounds.of(trick.name());
         if (kind == null) return;
-        SoundEvent event = switch (kind) {
-            case HEEL_CLICK -> ModSounds.HEEL_CLICK.get();
-            case BARSPIN, TAILWHIP -> ModSounds.TRICK_FLICK.get();
-        };
+        if (kind == TrickSounds.Kind.HEEL_CLICK) return; // no metallic clink
+        SoundEvent event = ModSounds.TRICK_FLICK.get();
         Sfx.play(event, follow, 0.8 * master, 0.97 + 0.06 * random.nextDouble());
     }
 

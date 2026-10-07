@@ -277,7 +277,7 @@ group('land/bigdrop', 'SFX', ['fol_bike_land_bigdrop'], rms=-18.0, peak=-4.0)
 
 # ---- crashes: the bike hitting the ground, then the ground (by surface family) ----
 for tier, rms in LAND_TIER.items():
-    group('crash/bike_' + tier, 'SFX', ['fol_impact_bike_%s_*' % tier], n=4, rms=rms, peak=-5.0)
+    # no metallic bike impacts (user: too clinky) - bail thuds reuse the dirt impacts
 CRASH_TIER = {'small': -27.0, 'med': -22.0, 'hard': -18.0}
 for surf, prefix in (('dirt', 'fol_impact_dirt'), ('grass', 'fol_impact_grass'), ('stone', 'fol_impact_stone'),
                      ('wood', 'fol_impact_woodramp')):
@@ -321,7 +321,6 @@ for rate in (6, 10, 16, 25, 40):
     event('bike.hub.buzz.%d' % rate, 'hub_buzz', ['hub/buzz_%d' % rate], 0.40)
 event('bike.pedal', None, ['ride/pedal'], 0.30)
 event('bike.bunnyhop', None, ['ride/bunnyhop'], 0.45)
-event('bike.trick.heel_click', 'heel_click', ['crash/bike_soft'], 0.40)
 event('bike.trick.flick', 'flick', ['ride/bunnyhop'], 0.40)
 event('bike.wind', 'wind', ['ride/wind'], 0.45)
 for fam, levels in (('soft', (1, 2, 3, 4)), ('hard', (1, 2, 3, 4)), ('wood', (2, 3, 4)), ('snow', (1, 2, 3, 4))):
@@ -334,7 +333,7 @@ for wheel in ('front', 'back'):
         event('bike.land.%s.%s' % (wheel, tier), 'land', ['land/%s_%s' % (wheel, tier)], 0.60)
 event('bike.land.bigdrop', 'land', ['land/bigdrop'], 0.70)
 for tier in LAND_TIER:
-    event('bike.crash.bike.' + tier, 'crash', ['crash/bike_' + tier], 0.60)
+    event('bike.crash.bike.' + tier, 'crash', ['crash/dirt_' + {'soft': 'small', 'medium': 'med', 'hard': 'hard'}[tier]], 0.60)
 for surf in ('dirt', 'grass', 'stone', 'wood'):
     for tier in CRASH_TIER:
         event('bike.crash.%s.%s' % (surf, tier), 'crash', ['crash/%s_%s' % (surf, tier)], 0.60)

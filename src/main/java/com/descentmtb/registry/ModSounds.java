@@ -62,7 +62,6 @@ public final class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> CRASH_BIKE_HARD = event("bike.crash.bike.hard");
 
     // Tricks
-    public static final DeferredHolder<SoundEvent, SoundEvent> HEEL_CLICK = event("bike.trick.heel_click");
     public static final DeferredHolder<SoundEvent, SoundEvent> TRICK_FLICK = event("bike.trick.flick");
 
     // Bells
