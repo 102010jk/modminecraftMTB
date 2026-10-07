@@ -45,7 +45,7 @@ public final class SurfacePlans {
   var out=new LinkedHashMap<BlockPos,TrailEdit.Change>();
   for(int x=x0;x<=x1;x++)for(int z=z0;z<=z1;z++){
    if(!contains.test(x+.5,z+.5))continue;
-   net.minecraft.nbt.CompoundTag decoration=null;boolean deck=wood;var material=wood?Blocks.OAK_PLANKS.defaultBlockState():custom!=null?custom:Blocks.COARSE_DIRT.defaultBlockState();
+   net.minecraft.nbt.CompoundTag decoration=null;boolean deck=wood;var material=wood?com.descentmtb.registry.ModBlocks.defaultDeckWood():custom!=null?custom:com.descentmtb.registry.ModBlocks.defaultTrailDirt();
    double old=columnTop.applyAsDouble(x+.5,z+.5);
    if(Double.isNaN(old))continue;
    if(preserve && l.getBlockState(new BlockPos(x,(int)Math.floor(old-.0001),z)).is(ModBlocks.RAMP.get()))continue;

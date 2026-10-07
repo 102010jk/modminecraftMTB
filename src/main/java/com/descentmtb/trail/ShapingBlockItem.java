@@ -48,7 +48,7 @@ public final class ShapingBlockItem extends BlockItem {
                 return state;
             }
         }
-        return Blocks.OAK_PLANKS.defaultBlockState();
+        return com.descentmtb.registry.ModBlocks.defaultDeckWood();
     }
 
     /** A deck gets no posts of its own: they are placed by hand (Wooden support). */
@@ -61,7 +61,7 @@ public final class ShapingBlockItem extends BlockItem {
             return placed;
         }
         shaped.setShape(FULL_BLOCK.clone(), deck);
-        shaped.setMaterial(deck ? deckMaterial(context.getPlayer()) : Blocks.COARSE_DIRT.defaultBlockState(), false);
+        shaped.setMaterial(deck ? deckMaterial(context.getPlayer()) : com.descentmtb.registry.ModBlocks.defaultTrailDirt(), false);
         return true;
     }
 

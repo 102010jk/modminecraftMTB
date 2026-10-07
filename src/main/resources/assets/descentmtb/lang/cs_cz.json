@@ -670,5 +670,7 @@
   "descentmtb.subtitle.backfire": "Střelba do výfuku",
   "item.descentmtb.dirt_bike": "Motokrosová motorka (250F)",
   "descentmtb.hud.gear": "%s. rychlost",
-  "descentmtb.hud.rpm": "%s ot/min"
+  "descentmtb.hud.rpm": "%s ot/min",
+  "block.descentmtb.packed_trail_dirt": "Udusaná trailová hlína",
+  "block.descentmtb.trail_boards": "Prkna na lávky"
 }

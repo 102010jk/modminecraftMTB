@@ -39,7 +39,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 final class ShapedBakedModel implements IDynamicBakedModel {
     private static final int MAX_CACHED_SHAPES = 8192;
-    private static final BlockState DEFAULT_MATERIAL = Blocks.COARSE_DIRT.defaultBlockState();
+    private static BlockState defaultMaterial() { return com.descentmtb.registry.ModBlocks.defaultTrailDirt(); }
     private static final ModelProperty<Integer> COVERED_FACES = new ModelProperty<>();
 
     private record CacheKey(BlockState state, ShapeKey shape) {}
@@ -62,7 +62,7 @@ final class ShapedBakedModel implements IDynamicBakedModel {
 
     private static ShapeKey shapeOf(ModelData data) {
         ShapeKey key = data.get(RampBlockEntity.SHAPE);
-        return key != null ? key : ShapeKey.ramp(DEFAULT_MATERIAL);
+        return key != null ? key : ShapeKey.ramp(defaultMaterial());
     }
 
     @Override

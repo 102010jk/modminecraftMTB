@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "PP",
+    "PP"
+  ],
+  "key": {
+    "P": {
+      "tag": "minecraft:logs"
+    }
+  },
+  "result": {
+    "id": "descentmtb:trail_boards",
+    "count": 6
+  }
+}

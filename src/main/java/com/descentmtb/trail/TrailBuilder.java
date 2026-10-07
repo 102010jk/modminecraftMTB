@@ -48,7 +48,7 @@ public final class TrailBuilder {
                 // so crossing an integer height does not create a phantom flat floor.
                 double[] h=new double[4]; for(int i=0;i<4;i++)h[i]=absolute[i]-y;
                 out.put(new BlockPos(x,y,z),new TrailEdit.Change(ModBlocks.TRAIL_SURFACE.get().defaultBlockState(),null,h,
-                        wood?Blocks.OAK_PLANKS.defaultBlockState():Blocks.COARSE_DIRT.defaultBlockState(),wood));
+                        wood?com.descentmtb.registry.ModBlocks.defaultDeckWood():com.descentmtb.registry.ModBlocks.defaultTrailDirt(),wood));
             }
             if(!wood) {
                 if(!level.isLoaded(new BlockPos(x,bottom,z)))throw new TrailEdit.Rejected("descentmtb.edit.not_loaded");

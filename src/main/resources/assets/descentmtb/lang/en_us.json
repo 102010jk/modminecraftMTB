@@ -670,5 +670,7 @@
   "descentmtb.subtitle.backfire": "Exhaust backfires",
   "item.descentmtb.dirt_bike": "Dirt Bike (250F)",
   "descentmtb.hud.gear": "%s gear",
-  "descentmtb.hud.rpm": "%s rpm"
+  "descentmtb.hud.rpm": "%s rpm",
+  "block.descentmtb.packed_trail_dirt": "Packed Trail Dirt",
+  "block.descentmtb.trail_boards": "Trail Deck Boards"
 }

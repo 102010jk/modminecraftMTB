@@ -47,7 +47,7 @@ public final class ColumnEditor {
                 return new Column(x, z, ColumnShaper.absolute(y, shaped.corners()), shaped.getMaterial(), shaped.deck(),shaped.saveWithoutMetadata(level.registryAccess()));
             }
             if (RampBlock.isRamp(state)) {
-                BlockState material = be instanceof RampBlockEntity ramp ? ramp.getMaterial() : Blocks.COARSE_DIRT.defaultBlockState();
+                BlockState material = be instanceof RampBlockEntity ramp ? ramp.getMaterial() : com.descentmtb.registry.ModBlocks.defaultTrailDirt();
                 double hi = 1 - EPS;
                 return new Column(x, z, new double[]{
                         y + RampBlock.heightAt(state, 0, 0), y + RampBlock.heightAt(state, hi, 0),
@@ -58,7 +58,7 @@ public final class ColumnEditor {
                 double top = y + shape.max(Direction.Axis.Y);
                 boolean full = RampBlock.isValidMaterial(state, level, pos);
                 return new Column(x, z, new double[]{top, top, top, top},
-                        full ? state : Blocks.COARSE_DIRT.defaultBlockState(), false);
+                        full ? state : com.descentmtb.registry.ModBlocks.defaultTrailDirt(), false);
             }
         }
         return null;

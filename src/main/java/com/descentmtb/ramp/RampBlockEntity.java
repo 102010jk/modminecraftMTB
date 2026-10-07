@@ -15,7 +15,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 /** Stores the copycat material of a {@link RampBlock} and syncs it to clients. */
 public class RampBlockEntity extends BlockEntity {
-    private BlockState material = Blocks.COARSE_DIRT.defaultBlockState();
+    private BlockState material = com.descentmtb.registry.ModBlocks.defaultTrailDirt();
     /** True when the material item was taken from a survival player and must drop again on break. */
     private boolean consumed;
 
@@ -91,7 +91,7 @@ public class RampBlockEntity extends BlockEntity {
         super.loadAdditional(tag, registries);
         if (tag.contains("material")) {
             BlockState s = NbtUtils.readBlockState(registries.lookupOrThrow(Registries.BLOCK), tag.getCompound("material"));
-            material = s.isAir() ? Blocks.COARSE_DIRT.defaultBlockState() : s;
+            material = s.isAir() ? com.descentmtb.registry.ModBlocks.defaultTrailDirt() : s;
         }
         consumed = tag.getBoolean("consumed");
     }

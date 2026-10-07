@@ -77,7 +77,7 @@ public final class StraightLineBuilder {
      */
     public static Map<BlockPos, TrailEdit.Change> plan(Level level, StraightLines.Layout layout, BlockState material) {
         BlockState surface = ModBlocks.TRAIL_SURFACE.get().defaultBlockState();
-        BlockState made = material == null ? Blocks.COARSE_DIRT.defaultBlockState() : material;
+        BlockState made = material == null ? com.descentmtb.registry.ModBlocks.defaultTrailDirt() : material;
         int[] box = layout.bounds(0);
         Map<BlockPos, TrailEdit.Change> plan = new LinkedHashMap<>();
         for (int x = box[0]; x <= box[2]; x++) {

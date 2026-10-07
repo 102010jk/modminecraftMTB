@@ -76,7 +76,26 @@ public final class ModBlocks {
     public static final DeferredItem<BlockItem> BIKE_STAND_ITEM=ITEMS.registerSimpleBlockItem("bike_stand",BIKE_STAND);
     public static final DeferredBlock<com.descentmtb.audio.BoomboxBlock> BOOMBOX = BLOCKS.registerBlock("boombox",com.descentmtb.audio.BoomboxBlock::new,BlockBehaviour.Properties.of().strength(1f).sound(SoundType.METAL));
     public static final DeferredItem<BlockItem> BOOMBOX_ITEM = ITEMS.registerSimpleBlockItem("boombox",BOOMBOX);
-    public static final List<Supplier<? extends ItemLike>> TAB_ITEMS = List.of(TRAIL_SHOVEL, TRAIL_DIRT, TRAIL_DECK, ROOT_ITEM, ROCK_ITEM, SUPPORT_ITEM, AIRBAG_ITEM, BARRIER_ITEM, SIGN_ITEM, BIKE_STAND_ITEM, BOOMBOX_ITEM);
+    /** Tamped trail dirt with pebbles: the default material of hand-built trail surfaces. */
+    public static final DeferredBlock<net.minecraft.world.level.block.Block> PACKED_TRAIL_DIRT = BLOCKS.registerBlock("packed_trail_dirt",
+            net.minecraft.world.level.block.Block::new, BlockBehaviour.Properties.of().mapColor(MapColor.DIRT).strength(0.6F).sound(SoundType.ROOTED_DIRT));
+    public static final DeferredItem<BlockItem> PACKED_TRAIL_DIRT_ITEM = ITEMS.registerSimpleBlockItem("packed_trail_dirt", PACKED_TRAIL_DIRT);
+    /** Nailed deck boards (tagged as planks): the default wood of decks and north-shore. */
+    public static final DeferredBlock<net.minecraft.world.level.block.Block> TRAIL_BOARDS = BLOCKS.registerBlock("trail_boards",
+            net.minecraft.world.level.block.Block::new, BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(2.0F, 3.0F).sound(SoundType.WOOD).ignitedByLava());
+    public static final DeferredItem<BlockItem> TRAIL_BOARDS_ITEM = ITEMS.registerSimpleBlockItem("trail_boards", TRAIL_BOARDS);
+
+    /** The dirt a trail surface is made of when nothing else was chosen. */
+    public static net.minecraft.world.level.block.state.BlockState defaultTrailDirt() {
+        return PACKED_TRAIL_DIRT.get().defaultBlockState();
+    }
+
+    /** The wood a deck is made of when the builder holds no planks. */
+    public static net.minecraft.world.level.block.state.BlockState defaultDeckWood() {
+        return TRAIL_BOARDS.get().defaultBlockState();
+    }
+
+    public static final List<Supplier<? extends ItemLike>> TAB_ITEMS = List.of(TRAIL_SHOVEL, TRAIL_DIRT, TRAIL_DECK, ROOT_ITEM, ROCK_ITEM, SUPPORT_ITEM, AIRBAG_ITEM, BARRIER_ITEM, SIGN_ITEM, BIKE_STAND_ITEM, BOOMBOX_ITEM, PACKED_TRAIL_DIRT_ITEM, TRAIL_BOARDS_ITEM);
 
     private ModBlocks() {}
 
