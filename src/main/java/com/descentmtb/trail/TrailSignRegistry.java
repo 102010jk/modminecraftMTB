@@ -22,6 +22,17 @@ public final class TrailSignRegistry {
         LOADED.remove(sign);
     }
 
+    /** Every loaded sign in {@code level} (client side). */
+    public static List<TrailSignEntity> loaded(Level level) {
+        List<TrailSignEntity> found = new ArrayList<>();
+        for (TrailSignEntity sign : LOADED) {
+            if (!sign.isRemoved() && sign.getLevel() == level) {
+                found.add(sign);
+            }
+        }
+        return found;
+    }
+
     /** Loaded signs of the given type in {@code level} whose block is within {@code range} blocks of the point. */
     public static List<TrailSignEntity> near(Level level, double x, double y, double z, double range, SignContent.Type... types) {
         List<TrailSignEntity> found = new ArrayList<>();

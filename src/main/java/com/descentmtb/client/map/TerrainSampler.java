@@ -20,24 +20,27 @@ final class TerrainSampler {
     /** Is there terrain to draw: the client is in the routes' dimension and the middle of the map is loaded. */
     static boolean available(Level level, ResourceLocation dimension, MapTexture.Bounds b) {
         if (level == null || dimension == null || !level.dimension().location().equals(dimension)) return false;
-        int cx = (int) Math.floor(b.minX() + b.span() / 2) >> 4, cz = (int) Math.floor(b.minZ() + b.span() / 2) >> 4;
+        int cx = (int) Math.floor(b.minX() + b.spanX() / 2) >> 4, cz = (int) Math.floor(b.minZ() + b.spanZ() / 2) >> 4;
         return level.hasChunk(cx, cz);
     }
 
-    /** The sampled picture, or null when no column of the area is loaded. */
-    static TerrainShader.Terrain sample(Level level, MapTexture.Bounds b, int size) {
-        int n = size * size, loaded = 0;
+    /**
+     * The sampled picture of {@code w} by {@code h} pixels, or null when no column of the area is loaded. {@code unit}
+     * is the pixels of one frame's worth of map: the margin around the picture scales with it.
+     */
+    static TerrainShader.Terrain sample(Level level, MapTexture.Bounds b, int w, int h, int unit) {
+        int n = w * h, loaded = 0;
         byte[] kind = new byte[n];
         int[] rgb = new int[n], height = new int[n], ground = new int[n], depth = new int[n];
-        double margin = size * 5 / 128.0, perPixel = b.span() / (size - 2 * margin);
+        double margin = unit * 5 / 128.0, perPixel = b.spanX() / (w - 2 * margin);
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         int min = level.getMinBuildHeight();
-        for (int py = 0; py < size; py++) for (int px = 0; px < size; px++) {
+        for (int py = 0; py < h; py++) for (int px = 0; px < w; px++) {
             int bx = (int) Math.floor(b.minX() + (px - margin) * perPixel), bz = (int) Math.floor(b.minZ() + (py - margin) * perPixel);
             if (!level.hasChunk(bx >> 4, bz >> 4)) continue;
             int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, bx, bz) - 1;
             if (top < min) continue;
-            int i = py * size + px;
+            int i = py * w + px;
             pos.set(bx, top, bz);
             BlockState state = level.getBlockState(pos);
             height[i] = top;
@@ -59,6 +62,6 @@ final class TerrainSampler {
             }
             loaded++;
         }
-        return loaded == 0 ? null : new TerrainShader.Terrain(size, kind, rgb, height, ground, depth, perPixel);
+        return loaded == 0 ? null : new TerrainShader.Terrain(w, h, unit, kind, rgb, height, ground, depth, perPixel);
     }
 }
