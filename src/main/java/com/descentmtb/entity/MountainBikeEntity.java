@@ -173,6 +173,10 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
     private double lastPitch, lastLean;
     /** Angular velocity about the vertical axis and about the bike's right axis (BikeSim.omega), from the rider's last packets. */
     private double lastYawOmega, lastPitchOmega;
+    /** The last rider left by crashing (spin handed over), not by stepping off. */
+    private boolean crashHandoff;
+    /** Below this speed (m/s) a rider stepping off brings the bike to a stop with them. */
+    private static final double HOP_OFF_STOP_SPEED = 3.0;
     private double prevReportYaw, prevReportPitch;
     private long prevReportTick;
     private boolean hasPrevReport;
@@ -336,6 +340,7 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
 
     /** Server: the bike's exact angular velocity (about up, about its right axis; rad/s) at the moment of the crash. */
     public void setCrashSpin(double yawOmega, double pitchOmega) {
+        crashHandoff = true;
         double limit = BikeStateLimits.MAX_ANGULAR_RATE;
         if (Double.isFinite(yawOmega)) lastYawOmega = Math.max(-limit, Math.min(limit, yawOmega));
         if (Double.isFinite(pitchOmega)) lastPitchOmega = Math.max(-limit, Math.min(limit, pitchOmega));
@@ -403,7 +408,14 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
             serverSim = new BikeSim(params(), serverColumns.terrain());
             serverSim.riderless = true;
             serverSim.place(getX(), getY(), getZ(), Math.toRadians(getYRot()));
-            if (lastVel.lengthSq() > 0.01) {    // just bailed / hopped off: keep the motion, spin included
+            // An ordinary step-off is not a crash: at walking pace the rider stops the bike with them, faster it
+            // just rolls on and falls over by itself. Only a bail hands over the crash spin and the tumbling.
+            if (!crashHandoff && lastVel.lengthSq() < HOP_OFF_STOP_SPEED * HOP_OFF_STOP_SPEED) lastVel = V3.ZERO;
+            if (lastVel.lengthSq() > 0.01 && !crashHandoff) {
+                serverSim.pos = new V3(getX(), getY() + COM_HEIGHT, getZ());
+                serverSim.pitch = lastPitch;
+                serverSim.vel = lastVel;
+            } else if (lastVel.lengthSq() > 0.01) {    // just bailed: keep the motion, spin included
                 serverSim.pos = new V3(getX(), getY() + COM_HEIGHT, getZ());
                 serverSim.pitch = lastPitch;
                 serverSim.lean = lastLean;
@@ -415,6 +427,7 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
             lastVel = V3.ZERO;
             lastYawOmega = lastPitchOmega = 0;
             hasPrevReport = false;
+            crashHandoff = false;
             restTicks = 0;
         }
         // A settled bike sleeps, but not for good: every GROUND_PROBE_INTERVAL ticks, or as soon as a block
@@ -525,7 +538,7 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
     @Override
     public Vec3 getDismountLocationForPassenger(LivingEntity passenger) {
         Vec3 side = Vec3.directionFromRotation(0, getYRot() + 90).scale(0.8);
-        return com.descentmtb.world.SafeDismount.find(level(), passenger, position().add(side).add(0, 0.1, 0));
+        return com.descentmtb.world.SafeDismount.find(level(), passenger, position().add(side).add(0, 0.1, 0), true);
     }
 
     // =====================================================================
@@ -534,6 +547,7 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
 
     @Override
     public InteractionResult interact(Player player, InteractionHand hand) {
+        if (isRemoved()) return InteractionResult.PASS;
         if(player.getItemInHand(hand).is(net.minecraft.world.item.Items.WATER_BUCKET) && mud()>0) {
             if(!level().isClientSide) {
                 setMud(0);
@@ -577,6 +591,7 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
 
     /** Server: the bike goes into the player's inventory (or drops at their feet when it is full), build and pressures kept. */
     public void pickUp(Player player) {
+        if (isRemoved()) return; // already picked up or broken this tick by someone else: never hand out a second item
         ItemStack stack = toItemStack();
         if (!player.getInventory().add(stack)) {
             player.spawnAtLocation(stack);

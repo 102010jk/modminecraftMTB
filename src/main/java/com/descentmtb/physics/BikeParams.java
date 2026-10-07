@@ -18,6 +18,13 @@ public final class BikeParams {
     public double inertiaPitch = 2.6, inertiaYaw = 5.5, inertiaRoll = 1.2;
     public double wheelRadius = 0.375;
     public double halfWheelbase = 0.63;
+    /**
+     * Water: how strongly it brakes the bike per unit of submersion (1/s, plus a part growing with speed), and how
+     * much of gravity it carries when fully under (bike + rider float a little below neutral).
+     */
+    public double waterDrag = 0.45, waterDragPerSpeed = 0.28, waterBuoyancy = 0.85;
+    /** Half the handlebar width: the bar ends are collision probes (trees, door frames). */
+    public double barHalfWidth = 0.33;
     /** Axle height relative to the bike COM at full extension (negative = below). */
     public double axleDrop = -0.15;
     /** Rider COM neutral position relative to bike COM (along bike up / forward). */

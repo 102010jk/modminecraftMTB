@@ -70,9 +70,37 @@ final class RiderServer {
             reject(player, bike, s, now, String.format(Locale.ROOT, "moved %.1f blocks (%.1f allowed)", dist, s.budget.tokens()));
             return;
         }
+        if (!devTeleport && throughWall(level, bike, m)) {
+            reject(player, bike, s, now, "moved through a wall");
+            return;
+        }
         bike.applyRiderState(m);
         s.accepted(m, bike, now);
     }
+
+    /**
+     * The client simulates its own bike, so the server only has to catch the impossible: the rider's chest moving
+     * through a full solid block between two reports (a no-clip client). The line runs ~1.4 m above the ground,
+     * clear of a 1-block step the tyres climb; shaped trail blocks and partial shapes never count.
+     */
+    static boolean throughWall(ServerLevel level, MountainBikeEntity bike, BikeStatePayload m) {
+        double lift = MountainBikeEntity.COM_HEIGHT + CHEST_ABOVE_COM;
+        Vec3 from = bike.position().add(0, lift, 0);
+        Vec3 to = new Vec3(m.x(), m.y() - MountainBikeEntity.COM_HEIGHT + lift, m.z());
+        if (from.distanceToSqr(to) < 0.05 * 0.05) return false;
+        var hit = level.clip(new net.minecraft.world.level.ClipContext(from, to, net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                net.minecraft.world.level.ClipContext.Fluid.NONE, net.minecraft.world.phys.shapes.CollisionContext.empty()));
+        if (hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS || hit.isInside()) return false;
+        BlockPos pos = hit.getBlockPos();
+        var state = level.getBlockState(pos);
+        if (com.descentmtb.ramp.RampBlock.isRamp(state) || !state.isCollisionShapeFullBlock(level, pos)) return false;
+        // a wall two blocks tall: the rider cannot have ridden over it between two packets
+        return level.getBlockState(pos.above()).isCollisionShapeFullBlock(level, pos.above())
+                || level.getBlockState(pos.below()).isCollisionShapeFullBlock(level, pos.below());
+    }
+
+    /** Height of the checked line above the bike's centre of mass (m). */
+    private static final double CHEST_ABOVE_COM = 0.8;
 
     /** A packet from before the client heard about the last reposition: expected for a moment, never an error. */
     private static void stale(ServerPlayer player, RiderSession s, long now) {

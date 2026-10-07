@@ -284,6 +284,9 @@ public final class BikeSim {
         }
         if (riderless && crashAge >= 0) crashFriction(grounded || bodyGrounded, h);
 
+        // ---------- water: wading drag and buoyancy ----------
+        submersion = water(h);
+
         // ---------- pedalling ----------
         if (rear.contact && c.pedal > 0.01) {
             double vLong = Math.max(pointVel(rear.patch).dot(rear.tF), 0);
@@ -563,6 +566,9 @@ public final class BikeSim {
             V3 sample = ext.addScaled(fH, offset);
             if (!terrain.ground(sample.x, sample.z, ext.y + 1.3,
                     ext.y - p.wheelRadius - travel - 1.5, bodyHit)) continue;
+            // A near-vertical face cannot be expressed as a plane height (division by its normal's y) and is a
+            // wall for the probes anyway; using it would poison the wheel with NaN.
+            if (bodyHit.normal.y < 0.2) continue;
             double support = bodyHit.height + Math.sqrt(p.wheelRadius * p.wheelRadius - offset * offset);
             double c = (support - ext.y) / Math.max(0.25, up.y);
             if (c <= best) continue;
@@ -943,6 +949,14 @@ public final class BikeSim {
         }
     }
 
+    /**
+     * Landing backwards (a 180 that stopped at 180): the bike simply rolls away fakie. Only "sideways" is a crash;
+     * the window mirrors the forward one.
+     */
+    private boolean fakie(double yawErr) {
+        return yawErr > Math.PI - p.riskYawLimit * 0.7;
+    }
+
     private void onTouchdown() {
         Wheel w = front.contact && rear.contact ? (front.load > rear.load ? front : rear)
                 : front.contact ? front : rear;
@@ -964,7 +978,7 @@ public final class BikeSim {
                 bail("landed too hard (" + String.format(java.util.Locale.ROOT, "%.1f", impact) + " m/s into the ground)");
             } else if (pitchErr > p.bailPitchError && !cushioned) {
                 bail("landed with the nose " + (int) Math.toDegrees(pitchErr) + "° off");
-            } else if (p.riskReward && yawErr > p.riskYawLimit && !cushioned) {
+            } else if (p.riskReward && yawErr > p.riskYawLimit && !fakie(yawErr) && !cushioned) {
                 bail("landed sideways (" + (int) Math.toDegrees(yawErr) + "°)");
             } else if (oneHandTimer > 0 && OneHand.landingBails(airTime, impact, p.bailImpactSpeed) && !cushioned) {
                 bail("rang the bell one-handed");
@@ -977,8 +991,8 @@ public final class BikeSim {
             }
         }
         events.add(new Event(Event.Type.LAND, impact,
-                String.format(java.util.Locale.ROOT, "air=%.2fs pitchErr=%.0f° yawErr=%.0f°", airTime,
-                        Math.toDegrees(pitchErr), Math.toDegrees(yawErr))));
+                String.format(java.util.Locale.ROOT, "air=%.2fs pitchErr=%.0f° yawErr=%.0f°%s", airTime,
+                        Math.toDegrees(pitchErr), Math.toDegrees(yawErr), fakie(yawErr) ? " fakie" : "")));
     }
 
     /**
@@ -1040,6 +1054,31 @@ public final class BikeSim {
         vel = vel.addScaled(vt, -Math.min(sp, a * h) / sp);
     }
 
+    /** How deep the bike is in water: 0 dry … 1 the whole bike and the rider's hips under. */
+    public double submersion;
+
+    /**
+     * Rivers and lakes are not tarmac: the water brakes the bike (harder the faster it goes) and carries part of its
+     * weight. Riding through a shallow ford still works; the bottom of a lake is no 60 km/h road.
+     */
+    private double water(double h) {
+        double bottom = pos.y - 0.55;
+        double surface = terrain.waterSurface(pos.x, pos.z, pos.y + 1.6, bottom - 0.5);
+        if (Double.isNaN(surface) || surface <= bottom) return 0;
+        double f = clamp((surface - bottom) / 1.4, 0, 1);
+        double speed = vel.length();
+        // the speed-dependent part is the bow wave: tyres alone in a shallow ford push far less water than a frame
+        double k = f * p.waterDrag + Math.pow(f, 1.5) * p.waterDragPerSpeed * speed;
+        double keep = Math.exp(-k * h);
+        V3 lost = vel.mul(keep - 1);
+        vel = vel.add(lost);
+        riderVel = riderVel.add(lost);
+        double lift = p.gravity * p.waterBuoyancy * f * f * h;
+        vel = vel.addScaled(V3.Y, lift);
+        riderVel = riderVel.addScaled(V3.Y, lift);
+        return f;
+    }
+
     /** True while the bike is in contact with (or just left) an airbag; it cannot bail then. */
     public boolean cushioned() {
         return airbagTimer > 0;
@@ -1057,8 +1096,11 @@ public final class BikeSim {
                 pos.addScaled(fwd, p.halfWheelbase + p.wheelRadius * 0.9).addScaled(up, p.axleDrop + 0.1), // front tyre nose
                 pos.addScaled(fwd, 0.42).addScaled(up, 0.55),                                             // bars
                 riderPos.addScaled(up, 0.55),                                                              // head
+                pos.addScaled(fwd, -p.halfWheelbase - p.wheelRadius * 0.9).addScaled(up, p.axleDrop + 0.1), // rear tyre tail
+                pos.addScaled(fwd, 0.42).addScaled(up, 0.55).addScaled(right, p.barHalfWidth),          // right bar end
+                pos.addScaled(fwd, 0.42).addScaled(up, 0.55).addScaled(right, -p.barHalfWidth),         // left bar end
         };
-        boolean[] needsTall = {true, false, false};
+        boolean[] needsTall = {true, false, false, true, false, false};
         for (int i = 0; i < probes.length; i++) {
             V3 a = probes[i];
             V3 probeVelocity = i == 2 ? riderVel : vel;
@@ -1066,6 +1108,9 @@ public final class BikeSim {
             if (!terrain.raycast(a, b, collisionHit)) continue;
             V3 nrm = collisionHit.normal;
             boolean wall = Math.abs(nrm.y) < .5;
+            // The extra probes (tail, bar ends) only stop the bike at walls: floors are the tyres' business, and a
+            // wallride or a deep berm lean legitimately brings a bar end close to the riding surface.
+            if (i >= 3 && (!wall || wallRide)) continue;
             V3 inside = collisionHit.point.addScaled(nrm, -.01);
             if (needsTall[i] && wall && !terrain.solidAt(inside.x, inside.y + 1.0, inside.z)) continue; // 1-block step: ride it
             double into = -probeVelocity.sub(collisionHit.velocity).dot(nrm);

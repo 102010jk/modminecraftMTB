@@ -16,6 +16,14 @@ public interface Terrain {
     boolean solidAt(double x, double y, double z);
 
     /**
+     * Height of the water surface in column (x, z) between {@code yBottom} and {@code yTop}, or NaN when the column
+     * holds no water there. Default: a dry world.
+     */
+    default double waterSurface(double x, double z, double yTop, double yBottom) {
+        return Double.NaN;
+    }
+
+    /**
      * Surface material of the solid block at (or just below) a point, e.g. the face a ray hit.
      * Default: whatever the ground query reports near the point.
      */

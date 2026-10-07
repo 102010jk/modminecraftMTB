@@ -50,6 +50,11 @@ public final class BlockTerrain implements Terrain {
         default boolean exactSurface(double x, double z, double yTop, double yBottom, double[] out) {
             return false;
         }
+
+        /** Water surface height in the column (see {@link Terrain#waterSurface}); NaN = dry. */
+        default double waterTop(int x, int z, double yTop, double yBottom) {
+            return Double.NaN;
+        }
     }
 
     private final Columns cols;
@@ -126,6 +131,11 @@ public final class BlockTerrain implements Terrain {
     @Override
     public boolean solidAt(double x, double y, double z) {
         return cols.solid(x, y, z);
+    }
+
+    @Override
+    public double waterSurface(double x, double z, double yTop, double yBottom) {
+        return cols.waterTop((int) Math.floor(x), (int) Math.floor(z), yTop, yBottom);
     }
 
     @Override

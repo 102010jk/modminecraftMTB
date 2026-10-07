@@ -43,7 +43,8 @@ public final class SableTerrain implements Terrain {
     public boolean raycast(V3 from, V3 to, RayHit out) {
         var hit = level.clip(new ClipContext(new Vec3(from.x, from.y, from.z), new Vec3(to.x, to.y, to.z),
                 ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, net.minecraft.world.phys.shapes.CollisionContext.empty()));
-        if (hit.getType() == HitResult.Type.MISS || hit.isInside()) return false;
+        if (hit.getType() == HitResult.Type.MISS) return false;
+        if (hit.isInside()) return insideHit(from, to, hit.getBlockPos(), out);
         SubLevelAccess sub = SABLE_PRESENT ? SableCompanion.INSTANCE.getContaining(level, hit.getBlockPos()) : null;
         // Shaped blocks have a continuous riding surface, rather than the walking collider's steps.
         if (RampBlock.isRamp(level.getBlockState(hit.getBlockPos()))) {
@@ -67,6 +68,25 @@ public final class SableTerrain implements Terrain {
                 new V3(velocity.x, velocity.y, velocity.z));
         return true;
     }
+    /**
+     * The probe already starts inside a solid cube (a fast step ended a few centimetres into a wall). Ignoring that
+     * lets every following step slide deeper until the bike is through the rock face; instead report the wall right
+     * where the probe is, facing back against the motion, so its velocity into the block is cancelled. Shaped trail
+     * blocks are left to their own surface query: riding over them keeps probes inside their walking collider.
+     */
+    private boolean insideHit(V3 from, V3 to, net.minecraft.core.BlockPos pos, RayHit out) {
+        var state = level.getBlockState(pos);
+        if (RampBlock.isRamp(state) || !state.isCollisionShapeFullBlock(level, pos)) return false;
+        if (SABLE_PRESENT && SableCompanion.INSTANCE.getContaining(level, pos) != null) return false;
+        V3 d = to.sub(from);
+        double ax = Math.abs(d.x), ay = Math.abs(d.y), az = Math.abs(d.z);
+        if (Math.max(ax, Math.max(ay, az)) < 1e-9) return false;
+        V3 normal = ax >= ay && ax >= az ? new V3(-Math.signum(d.x), 0, 0)
+                : az >= ay ? new V3(0, 0, -Math.signum(d.z)) : new V3(0, -Math.signum(d.y), 0);
+        out.set(from, normal, 0, V3.ZERO);
+        return true;
+    }
+
     private boolean query(double x, double z, double top, double bottom, GroundHit out, boolean floor) {
         boolean found = floor ? base.floor(x, z, top, bottom, out) : base.ground(x, z, top, bottom, out);
         if (!nearby(x, top, z)) return found;
@@ -104,6 +124,11 @@ public final class SableTerrain implements Terrain {
         out.velocity = new V3(v.x, v.y, v.z);
         return true;
     }
+    @Override
+    public double waterSurface(double x, double z, double yTop, double yBottom) {
+        return base.waterSurface(x, z, yTop, yBottom);
+    }
+
     public boolean solidAt(double x, double y, double z) {
         if (base.solidAt(x, y, z)) return true;
         if (!nearby(x, y, z)) return false;

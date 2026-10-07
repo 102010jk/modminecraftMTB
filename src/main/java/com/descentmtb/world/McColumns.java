@@ -91,7 +91,13 @@ public final class McColumns implements BlockTerrain.Columns {
                 out[2]=(obstacle.height(s,fx,fz+.001)-obstacle.height(s,fx,fz-.001))/.002;
                 return true;
             }
-            if (!RampBlock.isRamp(s)) return false;          // ordinary block: use the smoother
+            if (!RampBlock.isRamp(s)) {
+                // A ceiling or overhang reaching above the query (a tunnel roof over a shaped trail): it cannot be
+                // the riding surface, so look on below it instead of giving the wheel up to the smoother, which
+                // leaves ramps out and would drop the bike through the shaped block.
+                if (y + s.getCollisionShape(level, mpos).max(Direction.Axis.Y) > yTop + 1e-3) continue;
+                return false;                                   // ordinary block: use the smoother
+            }
             double fx = x - bx, fz = z - bz;
             if(level.getBlockEntity(mpos) instanceof com.descentmtb.trail.TrailSurfaceEntity shaped && !shaped.hasSurface(fx,fz)) continue;
             double h = y + com.descentmtb.trail.TrailSurfaces.height(s, level, mpos, fx, fz);
@@ -150,6 +156,24 @@ public final class McColumns implements BlockTerrain.Columns {
             }
         }
         return false;
+    }
+
+    @Override
+    public double waterTop(int x, int z, double yTop, double yBottom) {
+        for (int y = (int) Math.floor(yTop); y >= (int) Math.floor(yBottom); y--) {
+            mpos.set(x, y, z);
+            if (!level.isLoaded(mpos)) return Double.NaN;
+            var fluid = level.getFluidState(mpos);
+            if (fluid.is(net.minecraft.tags.FluidTags.WATER)) {
+                // a full column of water reads up to the block above's surface; the topmost block has its own height
+                mpos.set(x, y + 1, z);
+                boolean waterAbove = level.getFluidState(mpos).is(net.minecraft.tags.FluidTags.WATER);
+                mpos.set(x, y, z);
+                return waterAbove ? y + 1 : y + fluid.getHeight(level, mpos);
+            }
+            if (!shapeAt(x, y, z).isEmpty()) return Double.NaN; // solid ground before any water
+        }
+        return Double.NaN;
     }
 
     private boolean hasCollision(int x, int y, int z) {
