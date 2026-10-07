@@ -253,6 +253,10 @@ final class ShapedQuads {
                     continue;
                 }
                 double[][] corner = {{x, z}, {x + d, z}, {x + d, z + d}, {x, z + d}};
+                if (!deck) {
+                    soilCell(c, corner, n, ix, iz);
+                    continue;
+                }
                 for (int i = 0; i < 4; i++) {
                     set(i * 3, corner[i][0], h[i], corner[i][1]);
                 }
@@ -298,6 +302,98 @@ final class ShapedQuads {
         }
         if (key.beam()) {
             beam(bottomOf(c, deck, .5, .5));
+        }
+    }
+
+    /**
+     * One cell of a solid soil layer. The surface is CLIPPED to this block's height range instead of clamped: where
+     * it dips below the block's floor it belongs to the block underneath and is left out (clamping it to 0 drew a flat
+     * shelf sticking out over the real slope at every block boundary of a sloped trail), and where it rises above the
+     * ceiling the cell is capped flat at 1.
+     */
+    private void soilCell(double[] c, double[][] corner, int n, int ix, int iz) {
+        List<double[]> poly = new ArrayList<>(4);
+        for (double[] p : corner) poly.add(new double[]{p[0], p[1], bilerp(c, p[0], p[1])});
+        boolean allHigh = true;
+        for (double[] p : poly) allHigh &= p[2] >= 1;
+
+        double mx = (corner[0][0] + corner[2][0]) / 2, mz = (corner[0][1] + corner[2][1]) / 2;
+        float sx = (float) -((c[1] - c[0]) * (1 - mz) + (c[3] - c[2]) * mz);
+        float sz = (float) -((c[2] - c[0]) * (1 - mx) + (c[3] - c[1]) * mx);
+        List<double[]> slope = clip(clip(poly, 0, true), 1, false);
+        emitPoly(slope, false, unculled, Direction.UP, sx, 1f, sz);
+        List<double[]> cap = clip(poly, 1, true);
+        emitPoly(cap, true, allHigh ? up : unculled, Direction.UP, 0f, 1f, 0f);
+
+        for (int side = 0; side < 4; side++) {
+            boolean edge = (side == 0 && iz == 0) || (side == 1 && ix == n - 1) || (side == 2 && iz == n - 1) || (side == 3 && ix == 0);
+            if (!edge) continue;
+            double[] a = poly.get(side), b = poly.get((side + 1) % 4);
+            // top edge of the wall: the surface along this boundary, clipped to the floor, flattened at the ceiling
+            List<double[]> top = new ArrayList<>(4);
+            top.add(a);
+            if ((a[2] - 1) * (b[2] - 1) < 0) top.add(lerp(a, b, (1 - a[2]) / (b[2] - a[2])));
+            top.add(b);
+            top = clipLine(top);
+            if (top.size() < 2) continue;
+            List<double[]> wall = new ArrayList<>(6);
+            for (double[] p : top) wall.add(new double[]{p[0], p[1], Math.min(1, p[2])});
+            double[] last = top.get(top.size() - 1), first = top.get(0);
+            wall.add(new double[]{last[0], last[1], 0});
+            wall.add(new double[]{first[0], first[1], 0});
+            Direction face = SIDES[side];
+            List<BakedQuad> target = switch (face) {
+                case NORTH -> north;
+                case SOUTH -> south;
+                case WEST -> west;
+                default -> east;
+            };
+            emitPoly(wall, false, target, face, face.getStepX(), 0f, face.getStepZ());
+        }
+    }
+
+    private static double[] lerp(double[] a, double[] b, double t) {
+        return new double[]{a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t};
+    }
+
+    /** Sutherland-Hodgman: keeps the part of a convex polygon (x, z, height) with height >= k (or <= k). */
+    private static List<double[]> clip(List<double[]> in, double k, boolean above) {
+        List<double[]> out = new ArrayList<>(in.size() + 2);
+        for (int i = 0; i < in.size(); i++) {
+            double[] p = in.get(i), q = in.get((i + 1) % in.size());
+            double dp = above ? p[2] - k : k - p[2], dq = above ? q[2] - k : k - q[2];
+            if (dp >= 0) out.add(p);
+            if ((dp >= 0) != (dq >= 0)) out.add(lerp(p, q, dp / (dp - dq)));
+        }
+        return out;
+    }
+
+    /** Keeps the part of a polyline (x, z, height) at or above height 0. */
+    private static List<double[]> clipLine(List<double[]> in) {
+        List<double[]> out = new ArrayList<>(in.size() + 1);
+        for (int i = 0; i < in.size(); i++) {
+            double[] p = in.get(i);
+            if (p[2] >= 0) out.add(p);
+            if (i + 1 < in.size()) {
+                double[] q = in.get(i + 1);
+                if ((p[2] >= 0) != (q[2] >= 0)) out.add(lerp(p, q, p[2] / (p[2] - q[2])));
+            }
+        }
+        // a boundary touching the floor only in a point makes no wall
+        double maxH = 0;
+        for (double[] p : out) maxH = Math.max(maxH, p[2]);
+        return maxH <= .0005 ? List.of() : out;
+    }
+
+    /** Emits a convex polygon (x, z, height) as quads; {@code flat} puts every vertex at height 1. */
+    private void emitPoly(List<double[]> poly, boolean flat, List<BakedQuad> target, Direction face, float nx, float ny, float nz) {
+        int m = poly.size();
+        if (m < 3) return;
+        for (int i = 1; i + 1 < m; i += 2) {
+            double[] p0 = poly.get(0), p1 = poly.get(i), p2 = poly.get(i + 1), p3 = i + 2 < m ? poly.get(i + 2) : p2;
+            double[][] v = {p0, p1, p2, p3};
+            for (int k = 0; k < 4; k++) set(k * 3, v[k][0], flat ? 1 : v[k][2], v[k][1]);
+            emit(target, face, nx, ny, nz);
         }
     }
 
