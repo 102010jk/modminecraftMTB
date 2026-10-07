@@ -667,5 +667,8 @@
   "key.descentmtb.tear_off": "Strhnout fólii brýlí",
   "descentmtb.subtitle.bottom_out": "Odpružení dosedlo na doraz",
   "descentmtb.subtitle.engine": "Motor motorky",
-  "descentmtb.subtitle.backfire": "Střelba do výfuku"
+  "descentmtb.subtitle.backfire": "Střelba do výfuku",
+  "item.descentmtb.dirt_bike": "Motokrosová motorka (250F)",
+  "descentmtb.hud.gear": "%s. rychlost",
+  "descentmtb.hud.rpm": "%s ot/min"
 }

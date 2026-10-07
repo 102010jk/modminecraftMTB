@@ -23,6 +23,21 @@ public final class BikeParams {
      * much of gravity it carries when fully under (bike + rider float a little below neutral).
      */
     public double waterDrag = 0.45, waterDragPerSpeed = 0.28, waterBuoyancy = 0.85;
+    // ---------------- engine (dirt bike only) ----------------
+    /** True for a motorbike: the throttle drives the rear wheel through {@link Engine} instead of pedalling. */
+    public boolean motor = false;
+    /** Crank torque peak (N m) and where it peaks (rpm); idle, launch (extra rpm the auto clutch holds at full
+     *  throttle), shift points, limiter and the revs above which snapping the throttle shut pops the exhaust. */
+    public double peakTorque = 24, peakTorqueRpm = 8500, idleRpm = 1500, launchRpm = 4200,
+            shiftUpRpm = 10900, shiftDownRpm = 4300, limitRpm = 11500, backfireRpm = 7500;
+    /** Primary drive, gearbox and final drive (13/51) reductions of a 250 F. */
+    public double primaryRatio = 3.3, finalRatio = 3.92;
+    public double[] gearRatios = {2.14, 1.73, 1.44, 1.21, 1.05};
+    /** Seconds without drive during an upshift; engine braking torque at the limiter (N m). */
+    public double shiftTime = 0.12, engineBrakeTorque = 4;
+    /** Pitch torque (N m) the spinning rear wheel and the rider give in the air: gas lifts the nose, brake drops it. */
+    public double airThrottlePitch = 260, airBrakePitch = 340;
+
     /** Half the handlebar width: the bar ends are collision probes (trees, door frames). */
     public double barHalfWidth = 0.33;
     /** Axle height relative to the bike COM at full extension (negative = below). */

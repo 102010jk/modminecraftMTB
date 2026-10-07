@@ -163,6 +163,23 @@ public final class BikeSoundController {
         f.skidLocked = locked;
         f.skid = !scrub || cur.airborne || cur.bailed ? 0 : BikeSoundMath.skidAmount(slip, locked, f.speed);
         f.forkVel = Double.isFinite(forkVel) ? forkVel : 0;
+        // engine: the riding client reads it, everyone else unpacks it from the synced crank slot
+        f.motor = bike.bikeType().motor();
+        f.engineRpm = f.throttle = 0;
+        f.limiting = f.backfire = false;
+        if (f.motor) {
+            if (sim != null && sim.engine != null) {
+                f.engineRpm = sim.engine.rpm;
+                f.throttle = sim.engine.throttle;
+                f.limiting = sim.engine.limiting;
+                f.backfire = sim.engine.takeBackfire();
+            } else {
+                f.engineRpm = com.descentmtb.physics.Engine.decodeRpm(cur.crank);
+                f.throttle = com.descentmtb.physics.Engine.decodeThrottle(cur.crank) ? 1 : 0;
+                f.limiting = f.throttle > 0 && f.engineRpm > p.limitRpm - 250;
+            }
+            f.pedalling = true;           // no freewheel on a motorbike: keeps the hub silent
+        }
         f.shockVel = Double.isFinite(shockVel) ? shockVel : 0;
 
         // where and how it will land, while it is in the air

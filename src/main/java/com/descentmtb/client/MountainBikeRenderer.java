@@ -1,6 +1,7 @@
 package com.descentmtb.client;
 
 import com.descentmtb.DescentMtb;
+import com.descentmtb.client.model.DirtBikeModel;
 import com.descentmtb.client.model.EnduroBikeModel;
 import com.descentmtb.client.model.HardtailBikeModel;
 import com.descentmtb.client.model.PartTable;
@@ -33,6 +34,7 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
 
     private final EnduroBikeModel model;
     private final HardtailBikeModel hardtail;
+    private final DirtBikeModel moto;
     private static final ResourceLocation HARDTAIL_TEXTURE =
             ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "textures/entity/hardtail_bike.png");
 
@@ -40,6 +42,7 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
         super(ctx);
         this.model = new EnduroBikeModel(ctx.bakeLayer(EnduroBikeModel.LAYER));
         this.hardtail = new HardtailBikeModel(ctx.bakeLayer(HardtailBikeModel.LAYER));
+        this.moto = new DirtBikeModel(ctx.bakeLayer(DirtBikeModel.LAYER));
         this.shadowRadius = 0.6f;
     }
 
@@ -79,7 +82,11 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
         PartTable.duckSqueeze = b.oneHand
                 ? (float) OneHand.squeeze(a.oneHand ? BikeRenderState.lerp(t, a.oneHandTime, b.oneHandTime) : b.oneHandTime)
                 : 0f;
-        if (bike.bikeType() == BikeType.HARDTAIL) {
+        if (bike.bikeType() == BikeType.DIRT_BIKE) {
+            moto.setupPose(steer, compF, compR, spinF, spinR);
+            moto.renderToBuffer(pose, buffers.getBuffer(moto.renderType(DirtBikeModel.TEXTURE)),
+                    light, OverlayTexture.NO_OVERLAY, -1);
+        } else if (bike.bikeType() == BikeType.HARDTAIL) {
             hardtail.setupPose(steer, compF, compR, spinF, spinR, crank);
             hardtail.setupBrake((float) BikeRenderState.lerp(t, a.brake, b.brake));
             hardtail.setupTrick(b.trick, (float) BikeRenderState.lerp(t,
@@ -109,6 +116,10 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
 
     @Override
     public ResourceLocation getTextureLocation(MountainBikeEntity entity) {
-        return entity.bikeType() == BikeType.HARDTAIL ? HARDTAIL_TEXTURE : TEXTURE;
+        return switch (entity.bikeType()) {
+            case HARDTAIL -> HARDTAIL_TEXTURE;
+            case DIRT_BIKE -> DirtBikeModel.TEXTURE;
+            default -> TEXTURE;
+        };
     }
 }

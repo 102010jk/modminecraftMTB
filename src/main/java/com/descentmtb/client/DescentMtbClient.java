@@ -123,6 +123,7 @@ public final class DescentMtbClient {
     private void registerLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(EnduroBikeModel.LAYER, EnduroBikeModel::createLayer);
         event.registerLayerDefinition(HardtailBikeModel.LAYER, HardtailBikeModel::createLayer);
+        event.registerLayerDefinition(com.descentmtb.client.model.DirtBikeModel.LAYER, com.descentmtb.client.model.DirtBikeModel::createLayer);
     }
 
     private void registerKeyMappings(RegisterKeyMappingsEvent event) {

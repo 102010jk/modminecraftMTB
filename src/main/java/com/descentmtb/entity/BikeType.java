@@ -17,7 +17,16 @@ public enum BikeType {
     HARDTAIL("hardtail",
             new float[]{-0.17f, -0.14f},
             new float[]{0.4141f, 0.6897f, 0.3144f},
-            new Trick[]{Trick.TUCK_NO_HANDER, Trick.TABLETOP, Trick.BARSPIN, Trick.TAILWHIP, Trick.SUPERMAN_SEATGRAB});
+            new Trick[]{Trick.TUCK_NO_HANDER, Trick.TABLETOP, Trick.BARSPIN, Trick.TAILWHIP, Trick.SUPERMAN_SEATGRAB}),
+    /**
+     * 250 cc four-stroke motocross bike: ~105 kg, 21"/18" wheels, 300 mm upside-down fork and a progressive
+     * linkage monoshock, toothed steel footpegs instead of pedals, the throttle drives the rear wheel.
+     * Freestyle-MX trick set. Always appended last: the type is saved by ordinal.
+     */
+    DIRT_BIKE("dirt_bike",
+            new float[]{-0.25f, -0.06f},             // footpegs from the bike COM: up, forward (m)
+            new float[]{0.56f, 0.70f, 0.40f},        // grips from the pegs: forward, up, half-width (800 mm bars)
+            new Trick[]{Trick.NO_HANDER, Trick.TABLETOP, Trick.NAC_NAC, Trick.CAN_CAN, Trick.SUPERMAN});
 
     public final String id;
     public final float feetUp, feetFwd;
@@ -82,9 +91,53 @@ public enum BikeType {
         return tricks[2];
     }
 
+    /** A motorbike: engine instead of pedals, footpegs instead of cranks. */
+    public boolean motor() {
+        return this == DIRT_BIKE;
+    }
+
     /** Physics preset (fresh copy). */
     public BikeParams params() {
         BikeParams p = new BikeParams();
+        if (this == DIRT_BIKE) {
+            p.motor = true;
+            p.bikeMass = 105.0;
+            p.riderMass = 78.0;             // rider in boots, armour and helmet
+            p.inertiaPitch = 24.0;
+            p.inertiaYaw = 34.0;
+            p.inertiaRoll = 9.0;
+            p.wheelRadius = 0.355;          // 80/100-21 front, 110/90-19 rear
+            p.halfWheelbase = 0.74;         // 1.48 m wheelbase
+            p.axleDrop = -0.25;             // COM ~0.6 m up at full extension
+            p.riderHeight = 0.55;
+            p.riderForward = -0.05;
+            p.barHalfWidth = 0.40;
+            p.forkTravel = 0.30;            // 300 mm USD fork
+            p.shockTravel = 0.31;           // monoshock, rear wheel travel
+            p.forkRate = 8800;
+            p.shockRate = 9800;
+            p.forkProgression = 1.5;
+            p.shockProgression = 2.2;        // progressive linkage
+            p.forkCompDamp = 780;
+            p.forkRebDamp = 1100;
+            p.shockCompDamp = 820;
+            p.shockRebDamp = 1250;
+            p.brakeForce = 2600;
+            p.brakeFrontShare = 0.65;
+            p.dragArea = 0.62;
+            p.softSpeedCap = 31.0;          // ~110 km/h, fifth gear on the limiter
+            p.maxSteerAngle = 0.55;
+            p.legPushMax = 1600;            // you do not bunny-hop 105 kg
+            p.legPullMax = 1100;
+            p.flipRate = 4.6;
+            p.spinRate = 4.4;
+            p.bailImpactSpeed = 17.0;       // 300 mm of travel swallows big flat landings
+            p.crashSpeed = 5.0;
+            p.wallCrashSpeed = 9.0;
+            p.manualAssist = 5200;          // holds a power wheelie on the balance point (heavy: scaled with inertia)
+            p.manualTargetPitch = 0.6;
+            p.tyreGrip = 1.05;              // knobbies bite into dirt
+        }
         if (this == HARDTAIL) {
             p.bikeMass = 13.0;
             p.inertiaPitch = 1.9;

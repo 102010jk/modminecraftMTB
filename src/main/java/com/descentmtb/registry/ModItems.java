@@ -27,6 +27,11 @@ public final class ModItems {
             ITEMS.registerItem("hardtail_bike",
                     p -> new MountainBikeItem(p.component(ModComponents.BIKE_BUILD.get(), BikeBuild.HARDTAIL_DEFAULT), BikeType.HARDTAIL),
                     new Item.Properties().stacksTo(1));
+    /** The 250 cc motocross bike (not customisable in the workshop). */
+    public static final DeferredItem<MountainBikeItem> DIRT_BIKE =
+            ITEMS.registerItem("dirt_bike",
+                    p -> new MountainBikeItem(p.component(ModComponents.BIKE_BUILD.get(), BikeBuild.HARDTAIL_DEFAULT), BikeType.DIRT_BIKE),
+                    new Item.Properties().stacksTo(1));
     public static final DeferredItem<com.descentmtb.item.BikePumpItem> BIKE_PUMP =
             ITEMS.registerItem("bike_pump", com.descentmtb.item.BikePumpItem::new, new Item.Properties().stacksTo(1));
     /** The GPS unit: records a ride as a trail track, see {@link com.descentmtb.map.TrailMarkerItem}. */
@@ -43,6 +48,7 @@ public final class ModItems {
                     .displayItems((params, output) -> {
                         output.accept(MOUNTAIN_BIKE.get());
                         output.accept(HARDTAIL_BIKE.get());
+                        output.accept(DIRT_BIKE.get());
                         output.accept(BIKE_PUMP.get());
                         output.accept(TRAIL_GPS.get());
                         output.accept(TRAIL_MAP.get());
@@ -54,7 +60,7 @@ public final class ModItems {
 
     /** The bike item of a type. */
     public static MountainBikeItem itemFor(BikeType type) {
-        return (type == BikeType.HARDTAIL ? HARDTAIL_BIKE : MOUNTAIN_BIKE).get();
+        return (switch (type) { case HARDTAIL -> HARDTAIL_BIKE; case DIRT_BIKE -> DIRT_BIKE; default -> MOUNTAIN_BIKE; }).get();
     }
 
     private ModItems() {}

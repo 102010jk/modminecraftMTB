@@ -142,8 +142,14 @@ public final class RiderPose {
         float hipY = bend + 12f * (float) Math.cos(theta);
 
         // ---------------- legs to the pedals ----------------
-        legTo(m.rightLeg, -1.9f, hipY, hipZ, crank);
-        legTo(m.leftLeg, 1.9f, hipY, hipZ, crank + (float) Math.PI);
+        if (type.motor()) {
+            // dirt bike: both boots planted on the footpegs, knees out a little
+            legToFoot(m.rightLeg, -1.9f, hipY, hipZ, 23.0f, 0f, 0.10f);
+            legToFoot(m.leftLeg, 1.9f, hipY, hipZ, 23.0f, 0f, 0.10f);
+        } else {
+            legTo(m.rightLeg, -1.9f, hipY, hipZ, crank);
+            legTo(m.leftLeg, 1.9f, hipY, hipZ, crank + (float) Math.PI);
+        }
 
         // ---------------- arms to the grips ----------------
         float shoulderY = bend + 2f;
@@ -302,13 +308,18 @@ public final class RiderPose {
     private static void legTo(ModelPart leg, float x, float hipY, float hipZ, float crank) {
         float footZ = -(float) Math.cos(crank) * CRANK_PX;
         float footY = 23.0f + (float) Math.sin(crank) * CRANK_PX;
+        legToFoot(leg, x, hipY, hipZ, footY, footZ, 0.04f);
+    }
+
+    /** Points a leg from the hip at the foot (y, z in player-model pixels); {@code splay} rolls the knee outwards. */
+    private static void legToFoot(ModelPart leg, float x, float hipY, float hipZ, float footY, float footZ, float splay) {
         leg.x = x;
         leg.y = hipY;
         leg.z = hipZ;
         float vy = footY - hipY, vz = footZ - hipZ;
         leg.xRot = (float) Math.atan2(vz, vy);
         leg.yRot = 0;
-        leg.zRot = x < 0 ? 0.04f : -0.04f;
+        leg.zRot = x < 0 ? splay : -splay;
         // the leg box is 12 px; squash it to the hip-pedal distance (reads as a bent knee)
         leg.yScale = clamp((float) Math.sqrt(vy * vy + vz * vz) / 12f, 0.55f, 1.0f);
     }

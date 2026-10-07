@@ -162,6 +162,8 @@ public final class BikeSim {
         landingPitch = 0;
         landingKnown = false;
         riderUp = riderFwd = crankAngle = crankRate = 0;
+        if (engine != null) engine.reset(p);
+        wheelspin = 0;
         legTarget = armTarget = 0;
         leanDrift = false;
         bodyNormal = V3.Y;
@@ -288,8 +290,10 @@ public final class BikeSim {
         // ---------- water: wading drag and buoyancy ----------
         submersion = water(h);
 
-        // ---------- pedalling ----------
-        if (rear.contact && c.pedal > 0.01) {
+        // ---------- engine (dirt bike) or pedalling ----------
+        if (p.motor) {
+            motorDrive(c, grounded, h);
+        } else if (rear.contact && c.pedal > 0.01) {
             double vLong = Math.max(pointVel(rear.patch).dot(rear.tF), 0);
             double f = Math.min(p.pedalMaxForce, p.pedalPower / Math.max(vLong, 1.0)) * c.pedal;
             if (vLong > p.pedalSpinOut) f *= Math.max(0, 1 - (vLong - p.pedalSpinOut) / 1.5);
@@ -300,8 +304,8 @@ public final class BikeSim {
             rear.driveForce = 0;
         }
 
-        // ---------- manual helper (lean back on the rear wheel) ----------
-        if (p.manualAssist > 0 && c.lean < -0.15 && rear.contact && vFwd > 1.5) {
+        // ---------- manual helper (lean back on the rear wheel; on the dirt bike only with the gas on: a wheelie) ----------
+        if (p.manualAssist > 0 && c.lean < -0.15 && rear.contact && vFwd > 1.5 && (!p.motor || c.pedal > 0.3)) {
             double want = -c.lean * p.manualTargetPitch;
             double rel = pitch - groundPitch(rear.normal);
             double tq = p.manualAssist * (-c.lean)
@@ -1055,6 +1059,46 @@ public final class BikeSim {
         vel = vel.addScaled(vt, -Math.min(sp, a * h) / sp);
     }
 
+    /** The dirt bike's engine (null on a bicycle). */
+    public Engine engine;
+    /** Rear tyre spinning past the ground under power: 0 gripping … 1 lit up. */
+    public double wheelspin;
+
+    /**
+     * The throttle opens the engine; its torque pushes the rear tyre. More than the tyre can hold and it breaks loose:
+     * it spins up (roost), only the sliding friction pushes, and with the drive force using up the tyre's grip the
+     * rear steps out in a corner. In the air the spinning wheel and the rider shift the pitch: gas lifts the nose,
+     * the rear brake drops it.
+     */
+    private void motorDrive(Controls c, boolean grounded, double h) {
+        if (engine == null) engine = new Engine(p);
+        double rolling = rear.contact ? pointVel(rear.patch).dot(rear.tF) / p.wheelRadius : rear.spinRate;
+        double omegaWheel = Math.max(rolling, rolling + wheelspin * 45);
+        double f = engine.step(p, riderless ? 0 : c.pedal, omegaWheel, rear.contact, h);
+        rear.driveForce = 0;
+        if (rear.contact && f != 0) {
+            double vLong = pointVel(rear.patch).dot(rear.tF);
+            if (f < 0 && vLong < 0.5) f = 0;                       // engine braking never pushes backwards
+            double traction = Math.max(0, rear.grip * rear.load);
+            double applied = f;
+            if (f > traction) {
+                applied = traction * p.slideFriction;
+                wheelspin += (Math.min(1, (f - traction) / Math.max(1, traction)) - wheelspin) * (1 - Math.exp(-h / 0.05));
+            } else {
+                wheelspin *= Math.exp(-h / 0.08);
+            }
+            if (f < -traction) applied = -traction;
+            applyImpulse(rear.patch, rear.tF.mul(applied * h));
+            rear.driveForce = Math.max(0, applied);
+        } else {
+            wheelspin *= Math.exp(-h / 0.08);
+        }
+        if (!grounded && !riderless) {
+            double tq = engine.throttle * p.airThrottlePitch - c.brake * p.airBrakePitch;
+            if (tq != 0) omega = omega.add(angularDelta(right.mul(tq * h)));
+        }
+    }
+
     /** How deep the bike is in water: 0 dry … 1 the whole bike and the rider's hips under. */
     public double submersion;
 
@@ -1190,11 +1234,18 @@ public final class BikeSim {
             } else {
                 double decay = c.brake > 0.1 ? 10 : 0.25;
                 w.spinRate *= Math.exp(-h * decay);
-                if (w == rear && c.pedal > 0.1) w.spinRate = Math.max(w.spinRate, 18 * c.pedal);
+                if (w == rear && c.pedal > 0.1 && !p.motor) w.spinRate = Math.max(w.spinRate, 18 * c.pedal);
+            }
+            if (w == rear && p.motor && engine != null) {
+                if (w.contact) w.spinRate += wheelspin * 45;          // breaking loose: the tyre spins up past the ground
+                else {                                                // in the air the engine drives the free wheel
+                    double free = engine.rpm / Engine.ratio(p, engine.gear) * 2 * Math.PI / 60 * engine.throttle;
+                    w.spinRate += (Math.max(w.spinRate, free) - w.spinRate) * (1 - Math.exp(-h / 0.15));
+                }
             }
             w.spinAngle += w.spinRate * h;
         }
-        if (c.pedal > 0.05) crankRate = Math.max(rear.spinRate, 0) / p.gearRatio;
+        if (c.pedal > 0.05 && !p.motor) crankRate = Math.max(rear.spinRate, 0) / p.gearRatio;
         else crankRate *= Math.exp(-h * 5);
         crankAngle += crankRate * h;
 

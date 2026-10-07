@@ -281,7 +281,8 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
         if (sim.oneHandTimer > 0) flags |= BikeStatePayload.ONE_HAND;
         return new BikeStatePayload(getId(), sim.pos.x, sim.pos.y, sim.pos.z, (float) sim.yaw, (float) sim.pitch,
                 (float) sim.lean, (float) sim.steerAngle, (float) sim.front.compression, (float) sim.rear.compression,
-                (float) sim.riderUp, (float) sim.riderFwd, (float) sim.crankAngle, flags,
+                // a motorbike has no cranks: the slot carries its engine (revs and throttle) for everyone listening
+                (float) sim.riderUp, (float) sim.riderFwd, sim.engine != null ? sim.engine.encode() : (float) sim.crankAngle, flags,
                 (float) sim.vel.x, (float) sim.vel.y, (float) sim.vel.z,
                 sim.tricks.trick.ordinal(), (float) sim.tricks.amount, (float) sim.tricks.progress, sim.tricks.side, (float) sim.brake,
                 epoch);

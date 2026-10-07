@@ -667,5 +667,8 @@
   "key.descentmtb.tear_off": "Pull goggle tear-off",
   "descentmtb.subtitle.bottom_out": "Suspension bottoms out",
   "descentmtb.subtitle.engine": "Dirt bike engine",
-  "descentmtb.subtitle.backfire": "Exhaust backfires"
+  "descentmtb.subtitle.backfire": "Exhaust backfires",
+  "item.descentmtb.dirt_bike": "Dirt Bike (250F)",
+  "descentmtb.hud.gear": "%s gear",
+  "descentmtb.hud.rpm": "%s rpm"
 }

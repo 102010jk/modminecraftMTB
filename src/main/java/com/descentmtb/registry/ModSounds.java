@@ -98,6 +98,14 @@ public final class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> SLIDE_HARD = event("bike.slide.hard");
     public static final DeferredHolder<SoundEvent, SoundEvent> SLIDE_WOOD = event("bike.slide.wood");
 
+    // Dirt bike engine: four rpm layers, the rev limiter and the backfire
+    public static final DeferredHolder<SoundEvent, SoundEvent> MOTO_IDLE = event("moto.engine.idle");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MOTO_LOW = event("moto.engine.low");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MOTO_MID = event("moto.engine.mid");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MOTO_HIGH = event("moto.engine.high");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MOTO_LIMITER = event("moto.engine.limiter");
+    public static final DeferredHolder<SoundEvent, SoundEvent> MOTO_BACKFIRE = event("moto.engine.backfire");
+
     // Suspension hitting its bump stop
     public static final DeferredHolder<SoundEvent, SoundEvent> BOTTOM_OUT = event("bike.suspension.bottom_out");
 

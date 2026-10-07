@@ -49,9 +49,15 @@ public final class RideEffects {
         }
     }
     private static void roost(Minecraft mc,MountainBikeEntity bike){
-        var rs=bike.rsCur;double velocity=rs.vel.length();if(rs.airborne||rs.bailed||velocity<3)return;
+        var rs=bike.rsCur;double velocity=rs.vel.length();if(rs.airborne||rs.bailed||velocity<(bike.bikeType().motor()?0.5:3))return;
         double lateral=Math.abs(rs.vel.x*Math.cos(rs.yaw)+rs.vel.z*Math.sin(rs.yaw));
         double slip=lateral/Math.max(velocity,1),force=Math.max(rs.brake*.55,Math.max(0,slip-.08)*2);
+        // dirt bike: a spinning rear tyre throws a roost of dirt behind it (the rider's own sim knows the wheelspin,
+        // other players' bikes show it while they launch with the throttle open)
+        if(bike.bikeType().motor()){
+            double spin=bike.sim()!=null?bike.sim().wheelspin*1.6:(com.descentmtb.physics.Engine.decodeThrottle(rs.crank)&&velocity<14?.5:0);
+            force=Math.max(force,spin);
+        }
         if(force<.08||ticks%2!=0)return;
         double fx=-Math.sin(rs.yaw),fz=Math.cos(rs.yaw),x=bike.getX()-fx*bike.params().halfWheelbase,z=bike.getZ()-fz*bike.params().halfWheelbase,y=bike.getY();
         var block=mc.level.getBlockState(BlockPos.containing(x,y-.12,z));
@@ -59,10 +65,11 @@ public final class RideEffects {
         boolean soft=block.is(net.minecraft.tags.BlockTags.DIRT)||block.is(net.minecraft.tags.BlockTags.SAND)||block.is(net.minecraft.world.level.block.Blocks.GRAVEL)||block.is(com.descentmtb.registry.ModBlocks.TRAIL_SURFACE.get());
         if(!soft)return;
         if(mc.level.getBlockEntity(BlockPos.containing(x,y-.03,z)) instanceof com.descentmtb.ramp.RampBlockEntity shaped){block=shaped.getMaterial();if(block.is(net.minecraft.tags.BlockTags.PLANKS))return;}
-        int particles=Math.min(5,1+(int)(force*4));
+        int particles=Math.min(bike.bikeType().motor()?9:5,1+(int)(force*4));
         if(ClientConfig.SPEC.isLoaded())particles=(int)Math.ceil(particles*ClientConfig.ROOST_DENSITY.get());
         for(int i=0;i<particles;i++){
             double scatter=(mc.level.random.nextDouble()-.5)*.8,kick=Math.min(1.1,velocity*.04)*(force+.25);
+            if(bike.bikeType().motor())kick=Math.max(kick,.35+.4*force); // roost flies back even from a standing start
             mc.level.addParticle(new BlockParticleOption(ParticleTypes.BLOCK,block),x+(mc.level.random.nextDouble()-.5)*.15,y+.07,z+(mc.level.random.nextDouble()-.5)*.15,-fx*kick+fz*scatter,.12+mc.level.random.nextDouble()*.15,-fz*kick-fx*scatter);
         }
     }

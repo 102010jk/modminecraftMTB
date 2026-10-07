@@ -32,6 +32,8 @@ final class BikeVoice {
     private final ScreamTrigger screamTrigger = new ScreamTrigger();
     private final RandomSource random = RandomSource.create();
     private LoopSound wind, scream, skid;
+    /** The dirt bike's engine (null on a bicycle). */
+    private MotoSoundController engine;
     private SoundEvent skidEvent;
     private Trick lastTrick = Trick.NONE;
     private boolean prevAirborne, prevBailed, prevRidden;
@@ -51,7 +53,11 @@ final class BikeVoice {
         double master = cfg.master() * (local ? 1.0 : 0.8);
 
         // ---- freehub: only while coasting; the pawls engage the instant you pedal ----
-        boolean hubOn = cfg.hub() && BikeSoundMath.freewheelAudible(hub, f.rearOmega, f.pedalling, f.bailed);
+        boolean hubOn = !f.motor && cfg.hub() && BikeSoundMath.freewheelAudible(hub, f.rearOmega, f.pedalling, f.bailed);
+        if (f.motor) {
+            if (engine == null) engine = new MotoSoundController(follow);
+            engine.update(f, master);
+        }
         freewheel.update(hub, f.rearOmega, hubOn, f.speed, master);
 
         // ---- wind ----
@@ -238,6 +244,8 @@ final class BikeVoice {
         wind = null;
         if (skid != null) skid.fadeOut();
         skid = null;
+        if (engine != null) engine.shutdown();
+        engine = null;
         roll.values().forEach(LoopSound::fadeOut);
         roll.clear();
         rollLevels.clear();
