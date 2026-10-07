@@ -25,7 +25,7 @@ import java.util.Locale;
  * maths lives in {@link MapView}; this class only lays out and draws.
  */
 public final class TrailMapScreen extends Screen {
-    private static final int TEX = 256, ROW = 14, LINE = 10, MARGIN = 8, GAP = 8, TOP = 24, HIT = 5;
+    private static final int TEX = 512, ROW = 14, LINE = 10, MARGIN = 8, GAP = 8, TOP = 24, HIT = 5;
     private static final int PANEL = 0xff15212a, EDGE = 0xff0b1217, TEXT = 0xffd7dedb, MUTED = 0xff8faba7, SHADE = 0xc00f171d;
 
     private final BikeparkMap data;
@@ -45,7 +45,7 @@ public final class TrailMapScreen extends Screen {
     public TrailMapScreen(BikeparkMap data){super(Component.translatable("descentmtb.map.title"));this.data=data;}
 
     @Override protected void init(){
-        // MapTexture.invalidate() TODO: enable once the terrain background has it, so the map repaints when reopened
+        MapTexture.invalidate(); // repaint the terrain: chunks loaded since the map was last drawn now show up
         selected=clampSelection(selected);
         layout();
         addRenderableWidget(Button.builder(Component.translatable("descentmtb.audio.close"),b->onClose()).bounds(width-MARGIN-56,4,56,14).build());
