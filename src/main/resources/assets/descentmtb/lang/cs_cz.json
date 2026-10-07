@@ -717,5 +717,17 @@
   "descentmtb.moto.suspension.stock": "Sériové",
   "descentmtb.moto.suspension.stiff": "Tvrdé",
   "descentmtb.moto.suspension.hint": "Pružiny o 15 % měkčí nebo tužší, tlumení se přizpůsobí. Měkké snáší velké dopady, tvrdé je ostřejší.",
-  "descentmtb.moto.number": "Číslo"
+  "descentmtb.moto.number": "Číslo",
+  "descentmtb.update.title": "Aktualizace Descent MTB",
+  "descentmtb.update.button": "MTB aktualizace",
+  "descentmtb.update.button_new": "§aMTB: nová verze!",
+  "descentmtb.update.check": "Zkontrolovat",
+  "descentmtb.update.download": "Stáhnout aktualizaci",
+  "descentmtb.update.checking": "Kontroluji GitHub…",
+  "descentmtb.update.latest": "Máš nejnovější verzi.",
+  "descentmtb.update.available": "Je k dispozici nová verze %s (%s MB).",
+  "descentmtb.update.downloading": "Stahuji… %s %%",
+  "descentmtb.update.ready": "Staženo! Zavři a znovu spusť hru – nová verze se nainstaluje sama.",
+  "descentmtb.update.dev": "Vývojové prostředí – aktualizace je vypnutá.",
+  "descentmtb.update.error": "Chyba: %s"
 }

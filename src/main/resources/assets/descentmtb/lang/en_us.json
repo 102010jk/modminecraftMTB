@@ -717,5 +717,17 @@
   "descentmtb.moto.suspension.stock": "Stock",
   "descentmtb.moto.suspension.stiff": "Stiff",
   "descentmtb.moto.suspension.hint": "Springs 15% softer or stiffer, damping follows. Soft is comfy on big landings, stiff is sharp.",
-  "descentmtb.moto.number": "Number"
+  "descentmtb.moto.number": "Number",
+  "descentmtb.update.title": "Descent MTB update",
+  "descentmtb.update.button": "MTB update",
+  "descentmtb.update.button_new": "§aMTB: new version!",
+  "descentmtb.update.check": "Check again",
+  "descentmtb.update.download": "Download update",
+  "descentmtb.update.checking": "Checking GitHub…",
+  "descentmtb.update.latest": "You have the latest version.",
+  "descentmtb.update.available": "New version %s is available (%s MB).",
+  "descentmtb.update.downloading": "Downloading… %s %%",
+  "descentmtb.update.ready": "Downloaded! Close and restart the game – it installs itself.",
+  "descentmtb.update.dev": "Development environment – updating is disabled.",
+  "descentmtb.update.error": "Error: %s"
 }
