@@ -364,8 +364,8 @@ public final class BikeSim {
         } else if (!riderless && (grounded || bodyGrounded)) {
             V3 n = grounded ? (rear.contact ? rear.normal : front.normal) : bodyNormal;
             double rel = Math.abs(wrap(pitch - groundPitch(n)));
-            loopTimer = rel > Math.toRadians(80) ? loopTimer + h : 0;
-            if (loopTimer > 0.25) bail(rel > Math.PI / 2 ? "flipped over" : "looped out");
+            loopTimer = rel > p.loopOutAngle ? loopTimer + h : 0;
+            if (loopTimer > p.loopOutTime) bail(rel > Math.PI / 2 ? "flipped over" : "looped out");
         } else loopTimer = 0;
 
         // An airbag dissipates energy returned by the rider/suspension constraints too.
@@ -777,7 +777,7 @@ public final class BikeSim {
             shiftFrame(n.mul(Math.min(pen * (riderless ? .8 : .3), riderless ? .15 : .05)));
             // saddle/bars on the ground only counts as a crash if the bike is clearly over
             // (looped out or nose-planted), not when it just scrapes a steep bank
-            boolean over = Math.abs(wrap(pitch - groundPitch(n))) > Math.toRadians(65);
+            boolean over = Math.abs(wrap(pitch - groundPitch(n))) > p.overBarsAngle;
             if ((i == 1 || i == 2) && over && -vn > p.crashSpeed) bail("went over the bars");
         }
         // the rider's body never sinks into the ground either
@@ -987,12 +987,12 @@ public final class BikeSim {
                 bail("landed sideways (" + (int) Math.toDegrees(yawErr) + "°)");
             } else if (oneHandTimer > 0 && OneHand.landingBails(airTime, impact, p.bailImpactSpeed) && !cushioned) {
                 bail("rang the bell one-handed");
-            } else if (p.riskReward && tricks.unfinished() && !cushioned) {
+            } else if (p.riskReward && tricks.unfinished() && impact > p.midTrickBailImpact && !cushioned) {
                 bail("landed mid-" + tricks.trick.name().toLowerCase(java.util.Locale.ROOT));
             } else {
                 // Descenders-style "magnet": ease pitch onto the slope and finish an
                 // under/over-rotated spin onto the direction of travel
-                if (p.landingAssistRate > 0 && (pitchErr < p.landingAssistAngle || yawErr > 0.02)) landAssistTimer = 0.18;
+                if (p.landingAssistRate > 0 && (pitchErr < p.landingAssistAngle || yawErr > 0.02)) landAssistTimer = p.landingAssistTime;
             }
         }
         events.add(new Event(Event.Type.LAND, impact,

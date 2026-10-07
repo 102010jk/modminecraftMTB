@@ -104,6 +104,23 @@ public enum BikeType {
         return this == DIRT_BIKE || this == PIT_BIKE;
     }
 
+    /**
+     * The motorbikes' bail windows: a wider pitch / yaw landing error, a later loop-out and over-the-bars, a stronger
+     * and longer landing assist, and no mid-trick bail on a soft landing. The impact and crash speeds are set per bike.
+     */
+    private static void forgiveLandings(BikeParams p) {
+        p.bailPitchError = Math.toRadians(130);
+        p.bailYawError = Math.toRadians(140);
+        p.riskYawLimit = Math.toRadians(80);
+        p.landingAssistAngle = Math.toRadians(70);
+        p.landingAssistRate = 8.0;
+        p.landingAssistTime = 0.30;
+        p.loopOutAngle = Math.toRadians(100);
+        p.loopOutTime = 0.40;
+        p.overBarsAngle = Math.toRadians(85);
+        p.midTrickBailImpact = 6.0;
+    }
+
     /** Physics preset (fresh copy). */
     public BikeParams params() {
         BikeParams p = new BikeParams();
@@ -139,9 +156,11 @@ public enum BikeType {
             p.legPullMax = 1100;
             p.flipRate = 4.6;
             p.spinRate = 4.4;
-            p.bailImpactSpeed = 17.0;       // 300 mm of travel swallows big flat landings
-            p.crashSpeed = 5.0;
-            p.wallCrashSpeed = 9.0;
+            // forgiving by design (a freestyle-MX bike lands what a bicycle never could): ~2x the bicycle's impact limit
+            p.bailImpactSpeed = 26.0;       // 300 mm of travel swallows big flat landings
+            p.crashSpeed = 8.5;
+            p.wallCrashSpeed = 13.0;
+            forgiveLandings(p);
             p.manualAssist = 5200;          // holds a power wheelie on the balance point (heavy: scaled with inertia)
             p.manualTargetPitch = 0.6;
             p.tyreGrip = 1.05;              // knobbies bite into dirt
@@ -178,9 +197,10 @@ public enum BikeType {
             p.legPullMax = 1300;
             p.flipRate = 5.6;
             p.spinRate = 5.5;
-            p.bailImpactSpeed = 14.0;
-            p.crashSpeed = 4.5;
-            p.wallCrashSpeed = 8.0;
+            p.bailImpactSpeed = 22.0;       // ~1.6x the bicycle's limit
+            p.crashSpeed = 7.5;
+            p.wallCrashSpeed = 12.0;
+            forgiveLandings(p);
             p.manualAssist = 2400;          // scaled with the inertia of the dirt bike
             p.manualTargetPitch = 0.6;
             p.tyreGrip = 1.0;

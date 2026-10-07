@@ -149,6 +149,15 @@ public final class BikeParams {
     public double wallCrashSpeed = 8.0;
     public double landingAssistAngle = Math.toRadians(42);
     public double landingAssistRate = 5.5;   // 1/s pitch snap toward the slope
+    /** Seconds the landing assist keeps snapping the bike onto the slope after touchdown. */
+    public double landingAssistTime = 0.18;
+    /** On the ground: more than this far (rad) from the slope pitch for {@link #loopOutTime} is a loop-out / flip-over. */
+    public double loopOutAngle = Math.toRadians(80);
+    public double loopOutTime = 0.25;
+    /** Saddle / bars touching the ground this hard count as "over the bars" only beyond this angle (rad) off the slope. */
+    public double overBarsAngle = Math.toRadians(65);
+    /** Landing mid-trick (risk &amp; reward) only bails above this speed into the ground (m/s); 0 = any landing. */
+    public double midTrickBailImpact = 0;
 
     // ---------------- assists (0 = sim, 1 = full arcade help) ----------------
     public double balanceAssist = 1.0;        // reserved: roll is kinematic today
