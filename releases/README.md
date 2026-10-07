@@ -2,6 +2,15 @@
 
 Hotové buildy módu pro **Minecraft 1.21.1 + NeoForge 21.1.x** (Java 21). JAR stačí vložit do složky `mods`.
 
+## 1.0.0-alpha-m23 (milník 23)
+
+Soubor: `descentmtb-1.0.0-alpha-m23.jar`
+SHA-256: `e91206f0495ac61621b73326e8f8c4d336cf0e25d4ce46036a0b4c8e6c6442dc`
+
+- **Terén tratí:** svahy přes víc bloků nad sebou už nemají vodorovné „poličky“ a švy na hranicích bloků – plocha se na hranici bloku přesně ořízne.
+
+Ověřeno jen sestavením; ve hře zatím neověřeno.
+
 ## 1.0.0-alpha-m22 (milník 22)
 
 Soubor: `descentmtb-1.0.0-alpha-m22.jar`
