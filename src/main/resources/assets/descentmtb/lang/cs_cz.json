@@ -664,5 +664,17 @@
   "descentmtb.map.linked": "GPS trasa připojená k ceduli.",
   "descentmtb.map.copied": "Trasy zkopírované na tuto mapu.",
   "item.descentmtb.tear_off": "Trhací fólie brýlí",
-  "key.descentmtb.tear_off": "Strhnout fólii brýlí"
+  "key.descentmtb.tear_off": "Strhnout fólii brýlí",
+  "descentmtb.update.title": "Aktualizace Descent MTB",
+  "descentmtb.update.button": "MTB aktualizace",
+  "descentmtb.update.button_new": "§aMTB: nová verze!",
+  "descentmtb.update.check": "Zkontrolovat",
+  "descentmtb.update.download": "Stáhnout aktualizaci",
+  "descentmtb.update.checking": "Kontroluji GitHub…",
+  "descentmtb.update.latest": "Máš nejnovější verzi.",
+  "descentmtb.update.available": "Je k dispozici nová verze %s (%s MB).",
+  "descentmtb.update.downloading": "Stahuji… %s %%",
+  "descentmtb.update.ready": "Staženo! Zavři a znovu spusť hru – nová verze se nainstaluje sama.",
+  "descentmtb.update.dev": "Vývojové prostředí – aktualizace je vypnutá.",
+  "descentmtb.update.error": "Chyba: %s"
 }

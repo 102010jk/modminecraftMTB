@@ -664,5 +664,17 @@
   "descentmtb.map.linked": "GPS route linked to sign.",
   "descentmtb.map.copied": "Routes copied to this map.",
   "item.descentmtb.tear_off": "Goggle tear-off",
-  "key.descentmtb.tear_off": "Pull goggle tear-off"
+  "key.descentmtb.tear_off": "Pull goggle tear-off",
+  "descentmtb.update.title": "Descent MTB update",
+  "descentmtb.update.button": "MTB update",
+  "descentmtb.update.button_new": "§aMTB: new version!",
+  "descentmtb.update.check": "Check again",
+  "descentmtb.update.download": "Download update",
+  "descentmtb.update.checking": "Checking GitHub…",
+  "descentmtb.update.latest": "You have the latest version.",
+  "descentmtb.update.available": "New version %s is available (%s MB).",
+  "descentmtb.update.downloading": "Downloading… %s %%",
+  "descentmtb.update.ready": "Downloaded! Close and restart the game – it installs itself.",
+  "descentmtb.update.dev": "Development environment – updating is disabled.",
+  "descentmtb.update.error": "Error: %s"
 }
