@@ -2,6 +2,18 @@
 
 Hotové buildy módu pro **Minecraft 1.21.1 + NeoForge 21.1.x** (Java 21). JAR stačí vložit do složky `mods`.
 
+## 1.0.0-alpha-m22 (milník 22)
+
+Soubor: `descentmtb-1.0.0-alpha-m22.jar`
+SHA-256: `9f6043b9536cea9932b0462da713f8ab224172bc63dd06290d6b5b59a56cfa16`
+
+- **Motorky:** v inventáři 3D model jako kola (obarvený podle úprav), výrazně mírnější pády, plynulá kamera z helmy při backflipu (i u kol).
+- **Trail mapa:** víc rámečků vedle sebe = jedna velká mapa na zdi; v ruce ukazuje všechny traily, na zdi jen ty přidané kliknutím na cedule.
+- **Zvuky:** pryč kovové cinkání kola při pádu/Heelclickeru.
+- **Textury:** nová ušlapaná trailová hlína a trailová prkna ve vanilla stylu.
+
+Ověřeno jen sestavením a unit testy; ve hře zatím neověřeno.
+
 ## 1.0.0-alpha-m21 (milník 21)
 
 Soubor: `descentmtb-1.0.0-alpha-m21.jar`
