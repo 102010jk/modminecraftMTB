@@ -137,6 +137,110 @@ public final class CameraMath {
         return -Math.toDegrees(bikePitchRad) * (1 - compensation) + tilt;
     }
 
+    // ------------------------------------------------------------------ helmet cam orientation (flips)
+
+    /** The neck stops levelling the view beyond this bike pitch and has fully let go at {@link #NECK_FREE}. */
+    private static final double NECK_FADE = Math.toRadians(60), NECK_FREE = Math.toRadians(100);
+
+    /**
+     * {@link #helmetPitch} for a camera that may go all the way round: how far the view looks above the horizon, in
+     * radians (+ = up, <b>not</b> limited to +-90 degrees). {@code bikePitchRad} is the bike's continuous (unwrapped)
+     * pitch, so a full backflip runs 0 -> 2 pi. The neck compensation and the steep-ground tilt look at the pitch
+     * wrapped to +-pi and fade out beyond 60..100 degrees, so they are continuous through the flip (and 0 upside
+     * down); for ordinary riding (|pitch| < 60 degrees) it equals {@code -toRadians(helmetPitch(...))}.
+     */
+    public static double helmetNoseUp(double bikePitchRad, double grounded, double tiltDeg) {
+        double g = clamp(grounded, 0, 1);
+        double w = wrap(bikePitchRad);
+        double abs = Math.abs(w);
+        double neck = 0.55 * g * w * (1 - smoothstep(NECK_FADE, NECK_FREE, abs));
+        double steep = clamp(abs / 0.5, 0, 1);
+        double tilt = tiltDeg - 8 * steep * g;
+        return bikePitchRad - neck - Math.toRadians(tilt);
+    }
+
+    /**
+     * Orientation of a camera as a quaternion {x, y, z, w} in Minecraft's camera convention (what
+     * {@code Camera.rotation} holds: camera space looks along -Z, up is +Y, +X is to its right). Built by chaining
+     * rotations, never by extracting Euler angles, so there is no gimbal flip at +-90 degrees of pitch and no
+     * sudden 180 degree yaw or roll change when a bike flips through vertical: continuous angles in, continuous
+     * orientation out. Order: yaw about the world vertical, the bike's pitch about the view's own left-right axis,
+     * the head turn about the view's own up axis, the head nod, and last the roll about the line of sight. With
+     * the head angles 0 and |pitch| &lt; 90 degrees it is exactly vanilla's {@code rotationYXZ(pi - yaw, -pitch,
+     * -roll)}.
+     *
+     * @param yaw       Minecraft yaw (rad): 0 looks along +Z, positive turns right
+     * @param noseUp    pitch above the horizon (rad, + = up), unlimited
+     * @param headYaw   head turn relative to that (rad, + = to the right)
+     * @param headDown  head nod (rad, + = looking down)
+     * @param roll      tilt about the line of sight (rad, + = head to the right shoulder)
+     */
+    public static double[] orientation(double yaw, double noseUp, double headYaw, double headDown, double roll) {
+        // view basis in world space: forward, up, left
+        double[] f = {-Math.sin(yaw), 0, Math.cos(yaw)};
+        double[] u = {0, 1, 0};
+        double[] l = {Math.cos(yaw), 0, Math.sin(yaw)};
+        turn(f, u, noseUp);                        // nose up: forward toward up
+        turn(f, l, -headYaw);                      // head to the right: forward toward right (= away from left)
+        turn(f, u, -headDown);                     // look down: forward away from up
+        turn(u, l, -roll);                         // right shoulder down: up away from left
+        return basisToQuaternion(f, u, l);
+    }
+
+    /** Turns the orthonormal vectors a and b in their common plane: a swings toward b by {@code angle}. */
+    private static void turn(double[] a, double[] b, double angle) {
+        double c = Math.cos(angle), s = Math.sin(angle);
+        for (int i = 0; i < 3; i++) {
+            double ai = a[i], bi = b[i];
+            a[i] = ai * c + bi * s;
+            b[i] = bi * c - ai * s;
+        }
+    }
+
+    /** Quaternion {x, y, z, w} of the camera whose view basis (world space) is forward {@code f}, up {@code u}, left {@code l}. */
+    static double[] basisToQuaternion(double[] f, double[] u, double[] l) {
+        // columns of the rotation: camera +X = right = -left, +Y = up, +Z = -forward
+        double m00 = -l[0], m10 = -l[1], m20 = -l[2];
+        double m01 = u[0], m11 = u[1], m21 = u[2];
+        double m02 = -f[0], m12 = -f[1], m22 = -f[2];
+        double trace = m00 + m11 + m22, x, y, z, w;
+        if (trace > 0) {
+            double k = Math.sqrt(trace + 1) * 2;
+            w = 0.25 * k;
+            x = (m21 - m12) / k;
+            y = (m02 - m20) / k;
+            z = (m10 - m01) / k;
+        } else if (m00 > m11 && m00 > m22) {
+            double k = Math.sqrt(1 + m00 - m11 - m22) * 2;
+            w = (m21 - m12) / k;
+            x = 0.25 * k;
+            y = (m01 + m10) / k;
+            z = (m02 + m20) / k;
+        } else if (m11 > m22) {
+            double k = Math.sqrt(1 + m11 - m00 - m22) * 2;
+            w = (m02 - m20) / k;
+            x = (m01 + m10) / k;
+            y = 0.25 * k;
+            z = (m12 + m21) / k;
+        } else {
+            double k = Math.sqrt(1 + m22 - m00 - m11) * 2;
+            w = (m10 - m01) / k;
+            x = (m02 + m20) / k;
+            y = (m12 + m21) / k;
+            z = 0.25 * k;
+        }
+        double len = Math.sqrt(x * x + y * y + z * z + w * w);
+        return new double[]{x / len, y / len, z / len, w / len};
+    }
+
+    /** Rotates the vector (vx, vy, vz) by the quaternion {x, y, z, w}. */
+    public static double[] rotate(double[] q, double vx, double vy, double vz) {
+        double x = q[0], y = q[1], z = q[2], w = q[3];
+        // v' = v + 2 w (q x v) + 2 q x (q x v)
+        double tx = 2 * (y * vz - z * vy), ty = 2 * (z * vx - x * vz), tz = 2 * (x * vy - y * vx);
+        return new double[]{vx + w * tx + (y * tz - z * ty), vy + w * ty + (z * tx - x * tz), vz + w * tz + (x * ty - y * tx)};
+    }
+
     /**
      * Camera shake ("trauma"): hits add trauma, it drains at {@link #TRAUMA_DECAY} per second, and the shake grows with
      * its square, so small knocks are a twitch and a bottom-out is a proper jolt. Smooth noise, not random jitter.

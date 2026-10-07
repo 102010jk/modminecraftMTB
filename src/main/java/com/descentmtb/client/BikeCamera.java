@@ -37,7 +37,16 @@ public final class BikeCamera {
         }
     }
 
-    public record View(Vec3 pos, float yaw, float pitch, float roll) {}
+    /**
+     * A camera for one frame. {@code yaw/pitch/roll} are Minecraft degrees; {@code rotation} (nullable, quaternion
+     * {x, y, z, w} in camera space) overrides the orientation when the view must go beyond +-90 degrees of pitch,
+     * as in a flip (the Euler angles are then only an approximation of it).
+     */
+    public record View(Vec3 pos, float yaw, float pitch, float roll, double[] rotation) {
+        public View(Vec3 pos, float yaw, float pitch, float roll) {
+            this(pos, yaw, pitch, roll, null);
+        }
+    }
 
     /** Mode used until the config is loaded. */
     private static Mode fallbackMode = Mode.FIRST_PERSON;
@@ -235,7 +244,7 @@ public final class BikeCamera {
             return new View(new Vec3(eye.x, eye.y, eye.z), (float) ang[0], (float) ang[1], 0f);
         }
 
-        if (mode == Mode.FIRST_PERSON) return shaken(helmetView(mc.level, bike, a, b, t, dt, g, yaw, pitch), 1);
+        if (mode == Mode.FIRST_PERSON) return helmetView(mc.level, bike, a, b, t, dt, g, yaw, pitch);
 
         // ---------------- follow cameras ----------------
         Follow f = follow(mode);
@@ -296,7 +305,7 @@ public final class BikeCamera {
     private static View shaken(View v, double scale) {
         double[] s = trauma.shake();
         if (s[0] == 0 && s[1] == 0 && s[2] == 0) return v;
-        return new View(v.pos(), (float) (v.yaw() + s[0] * scale), (float) (v.pitch() + s[1] * scale), (float) (v.roll() + s[2] * scale));
+        return new View(v.pos(), (float) (v.yaw() + s[0] * scale), (float) (v.pitch() + s[1] * scale), (float) (v.roll() + s[2] * scale), v.rotation());
     }
 
     /** Eyes of the posed rider: same stance maths as RiderPose, little smoothing, leans with the bike. */
@@ -332,11 +341,17 @@ public final class BikeCamera {
         double reach = eyePos.distanceTo(chest);
         double hit = castDistance(level, chest, eyePos, bike, (float) t);
         if (hit >= 0 && reach > 1e-6) eyePos = chest.add(eyePos.subtract(chest).scale(Math.max(0, hit - EYE_MARGIN) / reach));
-        double viewPitch = CameraMath.helmetPitch(hPitch, groundBlend, HELMET_TILT_DEG) + Math.toDegrees(headLook.pitch);
-        return new View(eyePos,
-                (float) (Math.toDegrees(hYaw) + Math.toDegrees(headLook.yaw)),
-                (float) CameraMath.clamp(viewPitch, -89, 89),
-                (float) Math.toDegrees(hRoll * 0.3));
+        // The orientation is chained from continuous angles (see CameraMath.orientation), not clamped Euler angles:
+        // a backflip carries the view over the top and back down without freezing at +-89 degrees, flipping the
+        // yaw by 180 degrees or snapping when the bike lands. The impact shake is a small extra head movement.
+        double[] shake = trauma.shake();
+        double noseUp = CameraMath.helmetNoseUp(hPitch, groundBlend, HELMET_TILT_DEG);
+        double[] q = CameraMath.orientation(hYaw, noseUp,
+                headLook.yaw + Math.toRadians(shake[0]), headLook.pitch + Math.toRadians(shake[1]),
+                hRoll * 0.3 + Math.toRadians(shake[2]));
+        double[] fwdView = CameraMath.rotate(q, 0, 0, -1);
+        double[] ang = CameraMath.lookAngles(fwdView[0], fwdView[1], fwdView[2]);
+        return new View(eyePos, (float) ang[0], (float) ang[1], 0f, q);
     }
 
     /**
