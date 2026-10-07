@@ -10,7 +10,6 @@ import com.sun.jna.platform.win32.Guid;
 import com.sun.jna.platform.win32.Kernel32;
 import com.sun.jna.platform.win32.WinNT;
 import com.sun.jna.ptr.IntByReference;
-import com.sun.jna.ptr.LongByReference;
 import com.sun.jna.ptr.PointerByReference;
 
 import java.util.concurrent.CountDownLatch;
@@ -139,11 +138,21 @@ public final class ProcessLoopback implements AutoCloseable {
             running = false;
         } finally {
             started.countDown();
-            Com.release(capture);
-            Com.release(client);
-            if (event != null) Kernel32.INSTANCE.CloseHandle(event);
+            try {
+                Com.release(capture);
+                Com.release(client);
+                if (event != null) Kernel32.INSTANCE.CloseHandle(event);
+            } finally {
+                Com.uninitThread();
+            }
         }
     }
+
+    /**
+     * Callback objects handed to Windows by an activation that timed out. Windows may still call them later, so
+     * they must never be collected; a few hundred bytes per (rare) timeout.
+     */
+    private static final java.util.List<Object> ABANDONED = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
 
     // ------------------------------------------------------------------ ActivateAudioInterfaceAsync
 
@@ -191,8 +200,10 @@ public final class ProcessLoopback implements AutoCloseable {
         path.setWideString(0, "VAD\\Process_Loopback");
         int hr = fn.invokeInt(new Object[]{path, Com.guid(IID_IAudioClient).getPointer(), variant, self, asyncOp});
         Com.check("ActivateAudioInterfaceAsync", hr);
+        boolean answered = false;
         try {
-            if (!done.await(3, TimeUnit.SECONDS)) throw new IllegalStateException("audio activation timed out");
+            answered = done.await(3, TimeUnit.SECONDS);
+            if (!answered) throw new IllegalStateException("audio activation timed out");
             IntByReference activateHr = new IntByReference();
             PointerByReference unk = new PointerByReference();
             Com.check("GetActivateResult", Com.call(asyncOp.getValue(), 3, activateHr, unk));
@@ -202,6 +213,10 @@ public final class ProcessLoopback implements AutoCloseable {
             if (client == null) throw new IllegalStateException("no IAudioClient");
             return client;
         } finally {
+            // Without an answer (timeout, interrupt) Windows still owns pointers to our handler and will call it when
+            // the activation finally ends: keep every callback and its memory alive for good instead of letting the
+            // GC free them under it.
+            if (!answered) ABANDONED.add(new Object[]{qi, ref, completed, vtbl, self, variant, params, opHolder, done});
             Com.release(asyncOp.getValue());
             // keep the callbacks reachable until the call has completed
             java.lang.ref.Reference.reachabilityFence(qi);
@@ -212,7 +227,6 @@ public final class ProcessLoopback implements AutoCloseable {
             java.lang.ref.Reference.reachabilityFence(variant);
             java.lang.ref.Reference.reachabilityFence(params);
             java.lang.ref.Reference.reachabilityFence(opHolder);
-            @SuppressWarnings("unused") LongByReference keep = null;
         }
     }
 }

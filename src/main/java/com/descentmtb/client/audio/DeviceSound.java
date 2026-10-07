@@ -19,9 +19,18 @@ public final class DeviceSound extends AbstractTickableSoundInstance {
     private final int rate;
     private final boolean headphones;
     private final boolean disc;
+    /** Where a free-standing source is (dropped headphones); null = the boombox of {@code state}. */
+    private final java.util.function.Supplier<Vec3> where;
     public DeviceSound(BoomboxState state, PcmRing ring, int rate, boolean headphones, SoundEvent event) {
-        super(event, ring == null ? SoundSource.RECORDS : SoundSource.MASTER, SoundInstance.createUnseededRandom());
-        this.state = state; this.ring = ring; this.rate = rate; this.headphones = headphones;
+        this(state, ring, rate, headphones, event, null);
+    }
+    /** A mono live source at {@code where} — headphones lying in the grass, still playing into the air. */
+    public static DeviceSound at(BoomboxState state, PcmRing ring, int rate, SoundEvent event, java.util.function.Supplier<Vec3> where) {
+        return new DeviceSound(state, ring, rate, false, event, where);
+    }
+    private DeviceSound(BoomboxState state, PcmRing ring, int rate, boolean headphones, SoundEvent event, java.util.function.Supplier<Vec3> where) {
+        super(event, ring == null || where != null ? SoundSource.RECORDS : SoundSource.MASTER, SoundInstance.createUnseededRandom());
+        this.state = state; this.ring = ring; this.rate = rate; this.headphones = headphones; this.where = where;
         disc = ring == null; looping = !disc; relative = headphones;
         attenuation = Attenuation.NONE; // custom radius in metres, independent of event volume
         tick();
@@ -35,7 +44,7 @@ public final class DeviceSound extends AbstractTickableSoundInstance {
     @Override public void tick() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) { stop(); return; }
-        Vec3 at = headphones ? mc.player.position() : BoomboxServer.position(mc.level, state.emitter());
+        Vec3 at = headphones ? mc.player.position() : where != null ? where.get() : BoomboxServer.position(mc.level, state.emitter());
         if (at == null) { stop(); return; }
         x = headphones ? 0 : at.x; y = headphones ? 0 : at.y; z = headphones ? 0 : at.z;
         double distance = headphones ? 0 : mc.gameRenderer.getMainCamera().getPosition().distanceTo(at);

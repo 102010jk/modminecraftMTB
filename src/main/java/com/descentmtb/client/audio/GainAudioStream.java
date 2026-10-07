@@ -12,6 +12,8 @@ import java.util.function.DoubleSupplier;
 public final class GainAudioStream implements AudioStream {
     private final AudioStream source;
     private final DoubleSupplier gain;
+    /** Reused copy target for read-only source blocks (uploaded to OpenAL before the next read). */
+    private ByteBuffer copy;
 
     public GainAudioStream(AudioStream source, DoubleSupplier gain) {
         this.source = source;
@@ -25,7 +27,8 @@ public final class GainAudioStream implements AudioStream {
         AudioFormat format = getFormat();
         if (format.getSampleSizeInBits() != 16 || !AudioFormat.Encoding.PCM_SIGNED.equals(format.getEncoding())) return pcm;
         if (pcm.isReadOnly()) {
-            ByteBuffer copy = BufferUtils.createByteBuffer(pcm.remaining());
+            if (copy == null || copy.capacity() < pcm.remaining()) copy = BufferUtils.createByteBuffer(pcm.remaining());
+            copy.clear();
             copy.put(pcm.duplicate()).flip();
             pcm = copy;
         }

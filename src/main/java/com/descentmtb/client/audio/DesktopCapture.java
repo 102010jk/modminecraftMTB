@@ -59,6 +59,8 @@ public final class DesktopCapture {
     private static volatile float gain = 1f;
     private static volatile String lastError;
     private static boolean hooked;
+    /** The real level of every program we parked this session, by exe: a parked reading is never trusted as "original". */
+    private static final java.util.Map<String, Float> KNOWN_LEVELS = new java.util.concurrent.ConcurrentHashMap<>();
 
     public static boolean supported() {
         return Com.AVAILABLE;
@@ -114,7 +116,7 @@ public final class DesktopCapture {
             try {
                 float vol = WinAudioSessions.volume(rootPid);
                 if (vol < 0) throw new IllegalStateException("The application no longer has an audio session");
-                originalVolume = vol;
+                originalVolume = trustedLevel(vol, exePath);
                 pid = rootPid;
                 exe = exePath == null ? "" : exePath;
                 writeRestoreFile();
@@ -130,6 +132,20 @@ public final class DesktopCapture {
                 return lastError;
             }
         }, WIN);
+    }
+
+    /**
+     * The level to give the program back later. A reading at (or near) the parked level is our own leftover — a
+     * restart of the same program, a crash whose restore has not run yet — and must not become the "original",
+     * or the program would stay silent on the speakers for good.
+     */
+    static float trustedLevel(float measured, String exePath) {
+        String key = AudioApps.exeKey(exePath == null ? "" : exePath);
+        if (measured >= 0.01f) {
+            KNOWN_LEVELS.put(key, measured);
+            return measured;
+        }
+        return KNOWN_LEVELS.getOrDefault(key, 1f);
     }
 
     /** Stops capturing and gives the program its volume back. */
@@ -184,7 +200,10 @@ public final class DesktopCapture {
                 if (v < 0) return;
                 if (Math.abs(v - PARKED) > 1e-5f) {
                     // the user moved the program's slider in the Windows mixer: take that as the new level
-                    if (v > 0.01f) originalVolume = v;
+                    if (v > 0.01f) {
+                        originalVolume = v;
+                        KNOWN_LEVELS.put(AudioApps.exeKey(exe), v);
+                    }
                     gain = originalVolume / PARKED;
                     WinAudioSessions.setVolume(p, PARKED);
                     writeRestoreFile();

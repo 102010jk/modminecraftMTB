@@ -28,10 +28,25 @@ public final class Com {
         return new Guid.GUID(s);
     }
 
-    /** Joins the calling thread to the multithreaded apartment (idempotent; an STA thread is fine too). */
+    /** Threads that hold one successful CoInitializeEx of ours (each must be balanced by one CoUninitialize). */
+    private static final ThreadLocal<Boolean> JOINED = ThreadLocal.withInitial(() -> false);
+
+    /**
+     * Joins the calling thread to the multithreaded apartment. Idempotent per thread (an STA thread is fine too): only
+     * the first call initializes, so a long-lived worker does not pile up apartment references.
+     */
     public static void initThread() {
+        if (JOINED.get()) return;
         int hr = Ole32.INSTANCE.CoInitializeEx(Pointer.NULL, COINIT_MULTITHREADED).intValue();
         if (hr < 0 && hr != RPC_E_CHANGED_MODE) throw new ComException("CoInitializeEx", hr);
+        if (hr >= 0) JOINED.set(true);
+    }
+
+    /** Balances {@link #initThread()} before a short-lived thread ends. */
+    public static void uninitThread() {
+        if (!JOINED.get()) return;
+        JOINED.set(false);
+        Ole32.INSTANCE.CoUninitialize();
     }
 
     public static Pointer create(String clsid, String iid) {

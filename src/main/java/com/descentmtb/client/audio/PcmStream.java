@@ -15,6 +15,8 @@ public final class PcmStream implements AudioStream {
     private final float[] samples, last;
     private boolean underrun;
     private volatile boolean closed;
+    /** Reused output block: the sound engine uploads each read to OpenAL before it asks for the next one. */
+    private ByteBuffer out;
     public PcmStream(PcmRing ring, int rate, int channels) {
         this.ring = ring; this.rate = rate; this.channels = channels;
         blockSamples = rate * BUFFER_MS / 1000 * channels;
@@ -23,7 +25,7 @@ public final class PcmStream implements AudioStream {
     public static int prefillSamples(int rate, int channels) { return rate * BUFFER_MS / 1000 * channels * PREFILL_BUFFERS; }
     @Override public AudioFormat getFormat() { return new AudioFormat(rate, 16, channels, true, false); }
     @Override public ByteBuffer read(int bytes) {
-        if (closed) return BufferUtils.createByteBuffer(0);
+        if (closed) return block(0);
         int count = Math.min(blockSamples, Math.max(channels, bytes / (2 * channels) * channels));
         int n = ring.read(samples, 0, count);
         int fadeFrames = Math.max(1, rate / 500);
@@ -37,9 +39,14 @@ public final class PcmStream implements AudioStream {
         }
         underrun = n < count;
         if (underrun) java.util.Arrays.fill(last, 0);
-        ByteBuffer result = BufferUtils.createByteBuffer(count * 2).order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer result = block(count * 2);
         AudioDsp.toPcm16(samples, count, result);
         return result.flip();
+    }
+    private ByteBuffer block(int bytes) {
+        if (out == null || out.capacity() < bytes) out = BufferUtils.createByteBuffer(Math.max(bytes, blockSamples * 2));
+        out.clear().limit(bytes);
+        return out.order(ByteOrder.LITTLE_ENDIAN);
     }
     @Override public void close() { closed = true; }
 }
