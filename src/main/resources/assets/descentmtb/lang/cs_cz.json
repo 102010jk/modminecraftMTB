@@ -664,5 +664,8 @@
   "descentmtb.map.linked": "GPS trasa připojená k ceduli.",
   "descentmtb.map.copied": "Trasy zkopírované na tuto mapu.",
   "item.descentmtb.tear_off": "Trhací fólie brýlí",
-  "key.descentmtb.tear_off": "Strhnout fólii brýlí"
+  "key.descentmtb.tear_off": "Strhnout fólii brýlí",
+  "descentmtb.subtitle.bottom_out": "Odpružení dosedlo na doraz",
+  "descentmtb.subtitle.engine": "Motor motorky",
+  "descentmtb.subtitle.backfire": "Střelba do výfuku"
 }

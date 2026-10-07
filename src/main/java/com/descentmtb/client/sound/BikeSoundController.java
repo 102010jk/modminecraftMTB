@@ -155,6 +155,13 @@ public final class BikeSoundController {
                 }
             }
         }
+        // rear tyre scrub: how far the travel direction is off the bike's heading, or a wheel locked by the brake
+        double lateral = Math.abs(f.vel.x * Math.cos(cur.yaw) + f.vel.z * Math.sin(cur.yaw));
+        double slip = f.speed > 1.5 ? lateral / f.speed : 0;
+        boolean locked = sim != null ? sim.rear.contact && sim.rear.sliding && sim.brake > 0.8 : cur.brake > 0.85 && f.speed > 2.5;
+        boolean scrub = sim != null ? sim.rear.contact && (sim.rear.sliding || sim.rear.latSaturated) : f.rearContact;
+        f.skidLocked = locked;
+        f.skid = !scrub || cur.airborne || cur.bailed ? 0 : BikeSoundMath.skidAmount(slip, locked, f.speed);
         f.forkVel = Double.isFinite(forkVel) ? forkVel : 0;
         f.shockVel = Double.isFinite(shockVel) ? shockVel : 0;
 

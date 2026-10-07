@@ -139,4 +139,13 @@ public final class TrickAnimation {
     }
 
     public static double ease(double t) { return t * t * (3 - 2 * t); }
+
+    /**
+     * Rotation of a spin trick (tailwhip, barspin) over its progress: thrown hard (fastest a quarter of the way in) and
+     * slowing into the catch, instead of a constant-speed turn. 0 → 0, 1 → 1, monotonic; {@code f(p) = 1 - (1-p)^4 (1+4p)}.
+     */
+    public static double spinCurve(double progress) {
+        double p = Math.max(0, Math.min(1, progress)), q = 1 - p;
+        return 1 - q * q * q * q * (1 + 4 * p);
+    }
 }

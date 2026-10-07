@@ -67,17 +67,18 @@ public final class RideEffects {
         }
     }
     public static void render(GuiGraphics g,float partial){
-        Minecraft mc=Minecraft.getInstance();if(mc.player==null||mc.screen!=null||mc.options.hideGui||!BikeCamera.helmet())return;
+        Minecraft mc=Minecraft.getInstance();if(mc.player==null||mc.screen!=null||mc.options.hideGui||BikeClientController.riding()==null)return;
         int w=g.guiWidth(),h=g.guiHeight();
         float amount=Mth.lerp(partial,lastLens,lens);
-        if(enabled(ClientConfig.MUD_EFFECTS)&&amount>.01){
+        // mud on the lens is a helmet-cam thing; the speed rush works from every camera
+        if(BikeCamera.helmet()&&enabled(ClientConfig.MUD_EFFECTS)&&amount>.01){
             com.mojang.blaze3d.systems.RenderSystem.enableBlend();
             g.setColor(1,1,1,amount);int slide=(int)(tear>0?(1-tear)*w:0);
             g.blit(SPLASH,slide,0,w,h,0,0,256,144,256,144);g.setColor(1,1,1,1);com.mojang.blaze3d.systems.RenderSystem.disableBlend();
         }
         if(!enabled(ClientConfig.SPEED_LINES))return;
         double v=Mth.lerp(partial,lastSpeed,speed),strength=ClientConfig.SPEC.isLoaded()?ClientConfig.SPEED_LINE_STRENGTH.get():.5;
-        double intensity=Mth.clamp((v*3.6-28)/45,0,1)*strength;
+        double intensity=Mth.clamp((v*3.6-28)/45,0,1)*strength*(BikeCamera.helmet()?1:.7);
         if(intensity<.01)return;
         float time=(ticks+partial)/8f;
         for(int i=0;i<22;i++){

@@ -158,7 +158,7 @@ public class HardtailBikeModel extends Model {
     }
 
     public void setupTrick(com.descentmtb.trick.Trick trick, float progress, int side) {
-        float angle = (float) (2 * Math.PI * progress * side);
+        float angle = (float) (2 * Math.PI * com.descentmtb.trick.TrickAnimation.spinCurve(progress) * side);
         tailwhip = trick == com.descentmtb.trick.Trick.TAILWHIP ? angle : 0;
         if (trick == com.descentmtb.trick.Trick.BARSPIN) steer.yRot += angle;
     }

@@ -47,6 +47,12 @@ public final class BikeCamera {
     private static double camYaw, slope, focusY, fovBoost, collisionScale = 1, lookAheadX, lookAheadZ;
     private static double hYaw, hPitch, hRoll;
     private static final CameraMath.Orbit orbit = new CameraMath.Orbit();
+    /** Helmet cam: the rider's head turned by the mouse, inside a cone, easing back to the trail. */
+    private static final CameraMath.HeadLook headLook = new CameraMath.HeadLook();
+    /** Impact shake shared by every mode (landings, bottom-outs). */
+    private static final CameraMath.Trauma trauma = new CameraMath.Trauma();
+    /** 1 on the ground, 0 in the air, smoothed: how much the neck levels the helmet view. */
+    private static double groundBlend = 1;
     /** Dev autopilot only: 0 = off, ±1 = side view, 2 = front view. */
     static int debugSide;
     private static boolean hInit;
@@ -54,8 +60,12 @@ public final class BikeCamera {
 
     private static CameraType applied;
 
-    /** Helmet cam looks this far below the bike's heading, like a tilted action cam. */
+    /** Helmet cam looks this far below the bike's heading on flat ground, like a tilted action cam. */
     private static final double HELMET_TILT_DEG = 24.0;
+    /** Follow cameras shake less than the helmet (they are not bolted to the rider's head). */
+    private static final double FOLLOW_SHAKE = 0.5;
+    /** Eye kept this far from a ceiling or wall the head would otherwise poke into (blocks). */
+    private static final double EYE_MARGIN = 0.12;
     private static final double HELMET_EXTRA_FOV = 22.0;
     /** Mouse units to degrees (vanilla {@code Entity.turn}). */
     private static final double MOUSE_DEGREES = 0.15;
@@ -94,12 +104,19 @@ public final class BikeCamera {
         init = false;
         hInit = false;
         orbit.reset();
+        headLook.reset();
+    }
+
+    /** A hit the camera should feel (0..1; adds up, drains by itself). */
+    public static void addTrauma(double amount) {
+        trauma.add(amount);
     }
 
     /** Mouse look while riding orbits the follow cameras ({@code Entity.turn}, raw mouse units). */
     public static void onMouseLook(double yRot, double xRot) {
-        if (mode() == Mode.FIRST_PERSON || debugSide != 0) return;
-        orbit.add(Math.toRadians(yRot * MOUSE_DEGREES), Math.toRadians(xRot * MOUSE_DEGREES));
+        if (debugSide != 0) return;
+        if (mode() == Mode.FIRST_PERSON) headLook.add(Math.toRadians(yRot * MOUSE_DEGREES), Math.toRadians(xRot * MOUSE_DEGREES));
+        else orbit.add(Math.toRadians(yRot * MOUSE_DEGREES), Math.toRadians(xRot * MOUSE_DEGREES));
     }
 
     static void onMount() {
@@ -116,6 +133,8 @@ public final class BikeCamera {
         applied = null;
         fovBoost = 0;
         orbit.reset();
+        headLook.reset();
+        trauma.reset();
     }
 
     static CameraType originalCameraType() {
@@ -199,6 +218,8 @@ public final class BikeCamera {
         if (mode == Mode.DRONE) fovTarget *= 0.5;                 // gentle
         if (mode == Mode.FIRST_PERSON) fovTarget += HELMET_EXTRA_FOV;   // action-cam wide angle
         fovBoost += (fovTarget - fovBoost) * CameraMath.blend(dt, 0.4);
+        trauma.update(dt);
+        groundBlend = CameraMath.approach(groundBlend, b.airborne || b.bailed ? 0 : 1, dt, 0.2);
 
         if (debugSide != 0) {
             // dev autopilot: look at the bike from its side (debugSide = ±1) or from the front (2)
@@ -214,7 +235,7 @@ public final class BikeCamera {
             return new View(new Vec3(eye.x, eye.y, eye.z), (float) ang[0], (float) ang[1], 0f);
         }
 
-        if (mode == Mode.FIRST_PERSON) return helmetView(a, b, t, dt, g, yaw, pitch);
+        if (mode == Mode.FIRST_PERSON) return shaken(helmetView(mc.level, bike, a, b, t, dt, g, yaw, pitch), 1);
 
         // ---------------- follow cameras ----------------
         Follow f = follow(mode);
@@ -269,11 +290,17 @@ public final class BikeCamera {
         Vec3 d = lookAt.subtract(pos);
         double[] ang = CameraMath.lookAngles(d.x, d.y, d.z);
         float roll = mode == Mode.THIRD_PERSON ? (float) Math.toDegrees(lean * 0.12) : 0f;
-        return new View(pos, (float) ang[0], (float) ang[1], roll);
+        return shaken(new View(pos, (float) ang[0], (float) ang[1], roll), FOLLOW_SHAKE);
+    }
+
+    private static View shaken(View v, double scale) {
+        double[] s = trauma.shake();
+        if (s[0] == 0 && s[1] == 0 && s[2] == 0) return v;
+        return new View(v.pos(), (float) (v.yaw() + s[0] * scale), (float) (v.pitch() + s[1] * scale), (float) (v.roll() + s[2] * scale));
     }
 
     /** Eyes of the posed rider: same stance maths as RiderPose, little smoothing, leans with the bike. */
-    private static View helmetView(BikeRenderState a, BikeRenderState b, double t, double dt, double g,
+    private static View helmetView(Level level, Entity bike, BikeRenderState a, BikeRenderState b, double t, double dt, double g,
                                    double yaw, double pitch) {
         double sy = Math.sin(yaw), cy = Math.cos(yaw), sp = Math.sin(pitch), cp = Math.cos(pitch);
         V3 fH = new V3(-sy, 0, cy);
@@ -297,9 +324,18 @@ public final class BikeCamera {
         hYaw = CameraMath.approachAngle(hYaw, yaw, dt, s);
         hPitch = CameraMath.approach(hPitch, pitch, dt, s);
         hRoll = CameraMath.approach(hRoll, roll, dt, s);
-        return new View(new Vec3(head.x, head.y, head.z),
-                (float) Math.toDegrees(hYaw),
-                (float) (-Math.toDegrees(hPitch) + HELMET_TILT_DEG),
+        headLook.update(dt, cfg(ClientConfig.CAMERA_ORBIT_RETURN), ORBIT_RETURN_TAU);
+        // the eye never pokes through a tunnel roof or an overhang: trace from the chest up to the eye
+        Vec3 eyePos = new Vec3(head.x, head.y, head.z);
+        V3 chestV = feet.addScaled(up, Math.min(1.0, eye[1] * 0.6));
+        Vec3 chest = new Vec3(chestV.x, chestV.y, chestV.z);
+        double reach = eyePos.distanceTo(chest);
+        double hit = castDistance(level, chest, eyePos, bike, (float) t);
+        if (hit >= 0 && reach > 1e-6) eyePos = chest.add(eyePos.subtract(chest).scale(Math.max(0, hit - EYE_MARGIN) / reach));
+        double viewPitch = CameraMath.helmetPitch(hPitch, groundBlend, HELMET_TILT_DEG) + Math.toDegrees(headLook.pitch);
+        return new View(eyePos,
+                (float) (Math.toDegrees(hYaw) + Math.toDegrees(headLook.yaw)),
+                (float) CameraMath.clamp(viewPitch, -89, 89),
                 (float) Math.toDegrees(hRoll * 0.3));
     }
 

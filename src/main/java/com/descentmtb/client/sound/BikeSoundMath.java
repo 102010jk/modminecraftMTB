@@ -84,6 +84,16 @@ public final class BikeSoundMath {
     /** The three tyre-noise samples. */
     public enum RollFamily { SOFT, HARD, WOOD }
 
+    /**
+     * Loudness of the rear tyre scrubbing (0..1): nothing while it tracks straight, rising as the rear steps out, and a
+     * locked wheel under the brake always scrubs. Fades in from walking pace.
+     */
+    public static double skidAmount(double slip, boolean locked, double speed) {
+        double sideways = clamp((slip - 0.12) * 2.5, 0, 1);
+        double amount = Math.max(sideways, locked ? 0.75 : 0);
+        return amount * clamp((speed - 1.0) / 5.0, 0, 1);
+    }
+
     public static RollFamily family(Surface s) {
         return switch (s) {
             case DIRT, TRAIL, GRASS, SAND, MUD, SNOW, AIRBAG -> RollFamily.SOFT;

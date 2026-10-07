@@ -31,7 +31,8 @@ final class BikeVoice {
     private final EnumMap<RollFamily, Integer> rollLevels = new EnumMap<>(RollFamily.class);
     private final ScreamTrigger screamTrigger = new ScreamTrigger();
     private final RandomSource random = RandomSource.create();
-    private LoopSound wind, scream;
+    private LoopSound wind, scream, skid;
+    private SoundEvent skidEvent;
     private Trick lastTrick = Trick.NONE;
     private boolean prevAirborne, prevBailed, prevRidden;
     /** Ticks in the air so far (for the "just left the ground" rule of the crash predictor). */
@@ -82,6 +83,16 @@ final class BikeVoice {
                 rollLevels.put(fam, newLevel);
             }
         }
+
+        // ---- skid: rear tyre scrubbing in a power slide or locked under the brake ----
+        double skidVol = f.skid * master * 0.85;
+        SoundEvent wantedSkid = ModSounds.slideEvent(family, f.skidLocked);
+        if (skid != null && skidEvent != wantedSkid && skidVol > 0.012) {
+            skid.fadeOutFast();
+            skid = null;
+        }
+        skid = drive(manager, skid, wantedSkid, skidVol, 0.9 + Math.min(0.25, f.speed * 0.012), 0.3f);
+        if (skid != null) skidEvent = wantedSkid;
 
         // ---- landings ----
         if (prevAirborne && !f.airborne && !f.bailed && airTicks >= 4) {
@@ -225,6 +236,8 @@ final class BikeVoice {
         freewheel.stop();
         if (wind != null) wind.fadeOut();
         wind = null;
+        if (skid != null) skid.fadeOut();
+        skid = null;
         roll.values().forEach(LoopSound::fadeOut);
         roll.clear();
         rollLevels.clear();

@@ -96,6 +96,7 @@ public final class BikeClientController {
         // The server needs the crash frame (BAILED flag) before the bail packet, so the state goes out first.
         sendState(bike, sim, in.controls());
         handleEvents(sim);
+        checkBottomOut(sim);
 
         if (in.cycleCamera()) BikeCamera.cycle();
         if (in.resetCamera()) BikeCamera.snapBehind();
@@ -191,6 +192,7 @@ public final class BikeClientController {
             switch (e.type()) {
                 case BAIL -> {
                     bailTicks = 0;
+                    BikeCamera.addTrauma(0.85);
                     DescentMtb.LOG.info("[bike] bail: {} at {} speed {} m/s", e.info(), sim.pos, String.format(Locale.ROOT, "%.1f", e.value()));
                     show(Component.translatable("descentmtb.msg.bail", e.info()).getString(), 0xFF5555, 60);
                     showBailLine(sim, e.info());
@@ -200,9 +202,11 @@ public final class BikeClientController {
                             (float) sim.omega.dot(V3.Y), (float) sim.omega.dot(sim.rightAxis()), epoch));
                 }
                 case LAND -> {
+                    BikeCamera.addTrauma(CameraMath.landingTrauma(e.value(), sim.p.bailImpactSpeed, false));
                     if (!sim.bailed && sim.airTime > 0.45) showLanding(sim);
                 }
                 case HIT -> {
+                    if (e.value() > 2) BikeCamera.addTrauma(Math.min(0.6, e.value() / 10));
                     if (DevAutopilot.ENABLED) DescentMtb.LOG.info("[bike] hit {} m/s: {}", String.format(Locale.ROOT, "%.1f", e.value()), e.info());
                 }
                 case TAKEOFF -> airLabel = "";
@@ -223,6 +227,31 @@ public final class BikeClientController {
             }
         }
     }
+
+    /** Fork or shock that was not bottomed out last tick (a rising edge plays one clunk). */
+    private static boolean wasBottomed;
+    private static int bottomCooldown;
+
+    /**
+     * Suspension slamming into its end stop: the camera takes a jolt and the frame gives a metallic clunk, once per
+     * bottom-out (rising edge, with a short cooldown so a rock garden is not a machine gun).
+     */
+    private static void checkBottomOut(BikeSim sim) {
+        if (bottomCooldown > 0) bottomCooldown--;
+        boolean bottomed = !sim.bailed && (sim.front.contact && sim.front.overshoot > BOTTOM_OUT_DEPTH
+                || sim.rear.contact && sim.rear.overshoot > BOTTOM_OUT_DEPTH);
+        if (bottomed && !wasBottomed && bottomCooldown == 0) {
+            BikeCamera.addTrauma(0.35);
+            double master = ClientConfig.SPEC.isLoaded() ? ClientConfig.BIKE_SOUND_VOLUME.get() : 0.6;
+            com.descentmtb.client.sound.Sfx.play(com.descentmtb.registry.ModSounds.BOTTOM_OUT.get(), null, 0.9 * master,
+                    0.95 + 0.1 * Math.random());
+            bottomCooldown = 6;
+        }
+        wasBottomed = bottomed;
+    }
+
+    /** Overshoot past the end of travel (m) that counts as hitting the bump stop. */
+    private static final double BOTTOM_OUT_DEPTH = 0.004;
 
     private static void showLanding(BikeSim sim) {
         ComboTracker.Summary summary = sim.tricks.takeSummary();

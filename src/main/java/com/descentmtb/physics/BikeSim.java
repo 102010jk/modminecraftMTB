@@ -221,8 +221,9 @@ public final class BikeSim {
         // ---------- steering: angle limit shrinks with speed (grip-limited carve) ----------
         double avgGrip = 0.5 * (front.grip + rear.grip);
         double demand = p.steerGripDemand * p.corneringGrip * g * Math.max(avgGrip, 0.1);
-        // rear brake + full lock asks for more than the tyres give: a deliberate, controlled slide
-        if (c.brake > 0.5 && Math.abs(c.steer) > 0.8) {
+        // rear brake + full lock, or hard braking while leaned over into a corner, asks for more than the tyres
+        // give: the rear lets go into a deliberate, controlled power slide
+        if (c.brake > 0.5 && (Math.abs(c.steer) > 0.8 || Math.abs(lean) > 0.35 && Math.abs(vFwd) > 4)) {
             demand *= p.driftDemandBoost;
         }
         // weight shifted forward unloads the rear: ask a little less of the tyres so it doesn't wash out by itself
@@ -1184,7 +1185,8 @@ public final class BikeSim {
         for (Wheel w : new Wheel[]{front, rear}) {
             if (w.contact) {
                 w.spinRate = pointVel(w.patch).dot(w.tF) / p.wheelRadius;
-                if (w.sliding && c.brake > 0.8) w.spinRate *= 0.2;
+                // a skidding rear under full brake is locked: the wheel stops turning (the front just slows)
+                if (w.sliding && c.brake > 0.8) w.spinRate = w == rear ? 0 : w.spinRate * 0.2;
             } else {
                 double decay = c.brake > 0.1 ? 10 : 0.25;
                 w.spinRate *= Math.exp(-h * decay);
@@ -1300,7 +1302,8 @@ public final class BikeSim {
         public V3 ext = V3.ZERO, patch = V3.ZERO, normal = V3.Y, tF = V3.ZERO, tL = V3.ZERO;
         final Terrain.GroundHit hit = new Terrain.GroundHit();
         double accN, accL, accS;
-        boolean latSaturated;
+        /** The tyre is using all its sideways grip (scrubbing); read by the skid sound. */
+        public boolean latSaturated;
 
         Wheel(boolean isFront) {
             this.isFront = isFront;

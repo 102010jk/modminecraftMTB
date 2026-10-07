@@ -23,6 +23,9 @@ public final class BikeAudioFrame {
     /** Fork / rear shock compression speed (m/s, + = compressing). */
     public double forkVel, shockVel;
     public boolean fullSuspension;
+    /** Rear tyre scrubbing: 0 gripping … 1 full slide; {@code skidLocked} = the brake has stopped the wheel turning. */
+    public double skid;
+    public boolean skidLocked;
     // ---- crash prediction inputs ----
     public V3 vel = V3.ZERO;
     /** Seconds until the wheels touch down (infinity = not within the prediction window). */

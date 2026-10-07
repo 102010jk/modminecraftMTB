@@ -1425,5 +1425,75 @@
         "stream": true
       }
     ]
+  },
+  "bike.suspension.bottom_out": {
+    "subtitle": "descentmtb.subtitle.bottom_out",
+    "sounds": [
+      {
+        "name": "descentmtb:misc/bottom_out",
+        "volume": 0.9,
+        "stream": false
+      }
+    ]
+  },
+  "moto.engine.idle": {
+    "subtitle": "descentmtb.subtitle.engine",
+    "sounds": [
+      {
+        "name": "descentmtb:moto/moto_idle",
+        "volume": 1.0,
+        "stream": false
+      }
+    ]
+  },
+  "moto.engine.low": {
+    "subtitle": "descentmtb.subtitle.engine",
+    "sounds": [
+      {
+        "name": "descentmtb:moto/moto_low",
+        "volume": 1.0,
+        "stream": false
+      }
+    ]
+  },
+  "moto.engine.mid": {
+    "subtitle": "descentmtb.subtitle.engine",
+    "sounds": [
+      {
+        "name": "descentmtb:moto/moto_mid",
+        "volume": 1.0,
+        "stream": false
+      }
+    ]
+  },
+  "moto.engine.high": {
+    "subtitle": "descentmtb.subtitle.engine",
+    "sounds": [
+      {
+        "name": "descentmtb:moto/moto_high",
+        "volume": 1.0,
+        "stream": false
+      }
+    ]
+  },
+  "moto.engine.limiter": {
+    "subtitle": "descentmtb.subtitle.engine",
+    "sounds": [
+      {
+        "name": "descentmtb:moto/moto_limiter",
+        "volume": 1.0,
+        "stream": false
+      }
+    ]
+  },
+  "moto.engine.backfire": {
+    "subtitle": "descentmtb.subtitle.backfire",
+    "sounds": [
+      {
+        "name": "descentmtb:moto/moto_backfire",
+        "volume": 1.0,
+        "stream": false
+      }
+    ]
   }
 }

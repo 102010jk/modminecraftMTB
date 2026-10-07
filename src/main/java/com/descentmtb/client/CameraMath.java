@@ -89,6 +89,103 @@ public final class CameraMath {
         }
     }
 
+    // ------------------------------------------------------------------ helmet cam
+
+    /** Free look from the helmet: how far the head turns from the bike's heading. */
+    public static final double HEAD_MAX_YAW = Math.toRadians(70), HEAD_MAX_PITCH = Math.toRadians(45);
+
+    /**
+     * The rider turning their head while riding: mouse input within a cone of {@link #HEAD_MAX_YAW} to the sides and
+     * {@link #HEAD_MAX_PITCH} up and down, easing back to the trail ahead after a moment without input.
+     */
+    public static final class HeadLook {
+        public double yaw, pitch, idle;
+
+        public void add(double dYaw, double dPitch) {
+            yaw = clamp(yaw + dYaw, -HEAD_MAX_YAW, HEAD_MAX_YAW);
+            pitch = clamp(pitch + dPitch, -HEAD_MAX_PITCH, HEAD_MAX_PITCH);
+            idle = 0;
+        }
+
+        public void update(double dt, double hold, double returnTau) {
+            double before = idle;
+            idle += Math.max(0, dt);
+            if (idle <= hold) return;
+            double k = blend(idle - Math.max(before, Math.max(0, hold)), returnTau);
+            yaw -= yaw * k;
+            pitch -= pitch * k;
+            if (Math.abs(yaw) < 1e-4) yaw = 0;
+            if (Math.abs(pitch) < 1e-4) pitch = 0;
+        }
+
+        public void reset() {
+            yaw = pitch = idle = 0;
+        }
+    }
+
+    /**
+     * Helmet cam view pitch in Minecraft degrees (+ = looking down). On flat ground it looks {@code tiltDeg} below the
+     * heading like a tilted action cam. On the ground the neck takes out part of the bike's pitch and looks further
+     * ahead on steep ground, so a steep chute shows the trail below, not the dirt under the front wheel, and a climb
+     * does not stare into the sky. In the air ({@code grounded} → 0) the head stays locked to the bike for flips.
+     */
+    public static double helmetPitch(double bikePitchRad, double grounded, double tiltDeg) {
+        double g = clamp(grounded, 0, 1);
+        double compensation = 0.55 * g;
+        double steep = clamp(Math.abs(bikePitchRad) / 0.5, 0, 1);
+        double tilt = tiltDeg - 8 * steep * g;
+        return -Math.toDegrees(bikePitchRad) * (1 - compensation) + tilt;
+    }
+
+    /**
+     * Camera shake ("trauma"): hits add trauma, it drains at {@link #TRAUMA_DECAY} per second, and the shake grows with
+     * its square, so small knocks are a twitch and a bottom-out is a proper jolt. Smooth noise, not random jitter.
+     */
+    public static final class Trauma {
+        public static final double TRAUMA_DECAY = 1.6;
+        /** Shake at full trauma, degrees. */
+        public static final double MAX_YAW = 3.0, MAX_PITCH = 4.0, MAX_ROLL = 5.0;
+        private double trauma, time;
+
+        public void add(double amount) {
+            if (amount > 0 && Double.isFinite(amount)) trauma = clamp(trauma + amount, 0, 1);
+        }
+
+        public double trauma() {
+            return trauma;
+        }
+
+        public void update(double dt) {
+            time += Math.max(0, dt);
+            trauma = Math.max(0, trauma - TRAUMA_DECAY * Math.max(0, dt));
+        }
+
+        /** {yaw, pitch, roll} shake in degrees for this moment. */
+        public double[] shake() {
+            double s = trauma * trauma;
+            if (s < 1e-6) return new double[3];
+            return new double[]{MAX_YAW * s * noise(time, 0.0), MAX_PITCH * s * noise(time, 1.7), MAX_ROLL * s * noise(time, 3.1)};
+        }
+
+        /** Smooth, roughly -1..1, ~20 Hz dominant (sum of incommensurate sines). */
+        static double noise(double t, double seed) {
+            return 0.55 * Math.sin(t * 117.0 + seed * 5.3) + 0.3 * Math.sin(t * 71.3 + seed * 11.1) + 0.15 * Math.sin(t * 191.7 + seed * 2.9);
+        }
+
+        public void reset() {
+            trauma = 0;
+        }
+    }
+
+    /**
+     * Trauma for a landing: nothing for a soft touch-down, rising to a big jolt as the impact nears the speed that
+     * would throw the rider off; a bottomed-out fork or shock adds its own clunk on top.
+     */
+    public static double landingTrauma(double impact, double bailImpact, boolean bottomedOut) {
+        double t = clamp((impact - 3.0) / Math.max(1, bailImpact - 3.0), 0, 1) * 0.65;
+        return clamp(t + (bottomedOut ? 0.35 : 0), 0, 1);
+    }
+
     /**
      * Offset from the focus to the camera: {@code dist} horizontally and {@code height} up, on the {@code side}
      * of the heading (-1 behind the direction of travel, +1 ahead of it); {@code extraElevation} tilts the whole

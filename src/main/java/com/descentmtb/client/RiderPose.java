@@ -60,6 +60,43 @@ public final class RiderPose {
         }
     }
 
+    /** Last drawn limb pose per rider, so one trick flows into the next instead of snapping through neutral. */
+    private static final class LimbMemory {
+        final float[][] v = new float[4][7];
+        long last;
+        double window;
+        boolean valid;
+    }
+
+    private static final java.util.Map<LivingEntity, LimbMemory> MEMORY = new java.util.WeakHashMap<>();
+    /** Limb inertia during and just after tricks (s); short enough that a catch still looks snappy. */
+    private static final double LIMB_TAU = 0.07, CARRY_WINDOW = 0.3;
+
+    /**
+     * Gives the limbs a little inertia while tricks play and for a moment after: chaining a whip into a barspin, the
+     * hands and feet travel from one pose to the next. Off otherwise, so the feet stay locked to turning pedals.
+     */
+    private static void carryThrough(LivingEntity entity, ModelPart[] limbs, boolean tricking) {
+        LimbMemory mem = MEMORY.computeIfAbsent(entity, k -> new LimbMemory());
+        long now = System.nanoTime();
+        double dt = mem.valid ? Math.max(0, Math.min(0.1, (now - mem.last) / 1e9)) : 0;
+        mem.last = now;
+        mem.window = tricking ? CARRY_WINDOW : Math.max(0, mem.window - dt);
+        boolean smooth = mem.valid && mem.window > 0;
+        float k = (float) (1 - Math.exp(-dt / LIMB_TAU));
+        for (int i = 0; i < limbs.length; i++) {
+            ModelPart p = limbs[i];
+            float[] v = mem.v[i];
+            if (smooth) {
+                p.x = v[0] + (p.x - v[0]) * k; p.y = v[1] + (p.y - v[1]) * k; p.z = v[2] + (p.z - v[2]) * k;
+                p.xRot = v[3] + (p.xRot - v[3]) * k; p.yRot = v[4] + (p.yRot - v[4]) * k; p.zRot = v[5] + (p.zRot - v[5]) * k;
+                p.yScale = v[6] + (p.yScale - v[6]) * k;
+            }
+            v[0] = p.x; v[1] = p.y; v[2] = p.z; v[3] = p.xRot; v[4] = p.yRot; v[5] = p.zRot; v[6] = p.yScale;
+        }
+        mem.valid = true;
+    }
+
     public static Stance stance(float riderUp, float riderFwd) {
         // attack position: knees and elbows bent, chest low, head over the stem
         float bend = 4.5f + clamp(-riderUp, -0.15f, 0.30f) * PX * 0.9f;
@@ -202,8 +239,10 @@ public final class RiderPose {
             }
             case BARSPIN -> {
                 // Hands follow the catch/release in a full timed bar rotation.
-                m.rightArm.xRot = -1.3f - .45f * (float) Math.sin(progress * Math.PI * 2);
-                m.leftArm.xRot = -1.1f + .45f * (float) Math.sin(progress * Math.PI * 2);
+                // hands follow the bars on the same thrown-then-caught curve the bars spin on
+                float turn = (float) (TrickAnimation.spinCurve(progress) * Math.PI * 2);
+                m.rightArm.xRot = -1.3f - .45f * (float) Math.sin(turn);
+                m.leftArm.xRot = -1.1f + .45f * (float) Math.sin(turn);
                 m.rightArm.zRot = 0.65f * b.trickSide;
                 m.leftArm.zRot = -0.85f * b.trickSide;
                 m.rightArm.yScale = m.leftArm.yScale = 0.8f;
@@ -225,6 +264,7 @@ public final class RiderPose {
             part.xRot = mix(n[3], part.xRot, amount); part.yRot = mix(n[4], part.yRot, amount); part.zRot = mix(n[5], part.zRot, amount);
             part.yScale = mix(SCALE[i], part.yScale, amount);
         }
+        carryThrough(entity, limbs, trick != Trick.NONE && !bailed);
         // Keep braking visible even without an active trick.
         m.rightArm.xRot -= brake * .09f; m.leftArm.xRot -= brake * .09f;
         m.rightArm.zRot += brake * .04f; m.leftArm.zRot -= brake * .04f;

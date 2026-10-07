@@ -664,5 +664,8 @@
   "descentmtb.map.linked": "GPS route linked to sign.",
   "descentmtb.map.copied": "Routes copied to this map.",
   "item.descentmtb.tear_off": "Goggle tear-off",
-  "key.descentmtb.tear_off": "Pull goggle tear-off"
+  "key.descentmtb.tear_off": "Pull goggle tear-off",
+  "descentmtb.subtitle.bottom_out": "Suspension bottoms out",
+  "descentmtb.subtitle.engine": "Dirt bike engine",
+  "descentmtb.subtitle.backfire": "Exhaust backfires"
 }

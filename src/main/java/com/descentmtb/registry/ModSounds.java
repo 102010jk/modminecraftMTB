@@ -92,6 +92,15 @@ public final class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> RIDER_FEMALE_LANDED_BIG = event("bike.rider.female.landed.big");
     public static final DeferredHolder<SoundEvent, SoundEvent> RIDER_FEMALE_LANDED_HUGE = event("bike.rider.female.landed.huge");
 
+    // Slides / skids (rear tyre scrubbing sideways or locked under the brake)
+    public static final DeferredHolder<SoundEvent, SoundEvent> SLIDE_SOFT = event("bike.slide.soft");
+    public static final DeferredHolder<SoundEvent, SoundEvent> SLIDE_SKID_SOFT = event("bike.slide.skid.soft");
+    public static final DeferredHolder<SoundEvent, SoundEvent> SLIDE_HARD = event("bike.slide.hard");
+    public static final DeferredHolder<SoundEvent, SoundEvent> SLIDE_WOOD = event("bike.slide.wood");
+
+    // Suspension hitting its bump stop
+    public static final DeferredHolder<SoundEvent, SoundEvent> BOTTOM_OUT = event("bike.suspension.bottom_out");
+
     // Misc
     public static final DeferredHolder<SoundEvent, SoundEvent> TAPE_BREAK = event("tape.break");
 
@@ -114,6 +123,15 @@ public final class ModSounds {
             case DT_SWISS_RATCHET -> HUB_BUZZ_16.get();
             case HOPE_PRO -> HUB_BUZZ_10.get();
             case ONYX_VESPER -> null;
+        };
+    }
+
+    /** Tyre scrubbing over a surface family: a locked, braking skid on dirt sounds different from a sideways drift. */
+    public static SoundEvent slideEvent(RollFamily family, boolean locked) {
+        return switch (family) {
+            case SOFT -> locked ? SLIDE_SKID_SOFT.get() : SLIDE_SOFT.get();
+            case HARD -> SLIDE_HARD.get();
+            case WOOD -> SLIDE_WOOD.get();
         };
     }
 
