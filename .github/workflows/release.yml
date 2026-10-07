@@ -1,0 +1,38 @@
+name: Release
+
+# Pushing a tag v* publishes a GitHub Release with the matching prebuilt JAR from releases/
+# (releases/descentmtb-<tag without the leading v>.jar) and the notes in releases/README.md.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v1.0.0-alpha-m20)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - name: Find the JAR
+        id: jar
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          JAR="releases/descentmtb-${TAG#v}.jar"
+          test -f "$JAR" || { echo "missing $JAR"; exit 1; }
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "jar=$JAR" >> "$GITHUB_OUTPUT"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.jar.outputs.tag }}
+          name: Descent MTB ${{ steps.jar.outputs.tag }}
+          body_path: releases/README.md
+          prerelease: true
+          files: ${{ steps.jar.outputs.jar }}
