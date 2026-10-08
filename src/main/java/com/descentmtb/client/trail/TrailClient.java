@@ -1,5 +1,8 @@
 package com.descentmtb.client.trail;
 
+import com.descentmtb.client.ClientConfig;
+import com.descentmtb.client.ui.UiTheme;
+
 import com.descentmtb.client.ModKeyMappings;
 import com.descentmtb.entity.MountainBikeEntity;
 import com.descentmtb.network.ShapeTunePayload;
@@ -26,6 +29,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -33,6 +37,7 @@ import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.Locale;
+import java.util.List;
 
 /**
  * Client side of the Trail Shaper: the radial menu key, the undo key (Ctrl+Z), Shift + wheel mode cycling (and the
@@ -169,17 +174,17 @@ public final class TrailClient {
         PacketDistributor.sendToServer(new ShapeTunePayload(next));
     }
 
-    /** Bottom-left box: icon, name, what the mode does, one hint line and, for the berm and downhill modes, their settings. */
+    /** Compact card above the hotbar; Shift reveals the description and full instructions. */
     public static void hud(GuiGraphics g) {
         var mc = Minecraft.getInstance();
-        if (mc.options.hideGui || !holdingShaper(mc)) {
-            return;
-        }
+        if (mc.options.hideGui || mc.screen != null || !holdingShaper(mc)
+                || ClientConfig.SPEC.isLoaded() && !ClientConfig.SHOW_TRAIL_HINTS.get()) return;
         var stack = mc.player.getMainHandItem();
         ShapeMode mode = ShapeToolItem.mode(stack);
         Component name = Component.translatable(mode.key());
-        Component description = Component.translatable(mode.descriptionKey());
-        Component hint = Component.translatable(mode.hintKey(), ModKeyMappings.TRAIL_MENU.getTranslatedKeyMessage());
+        boolean expanded = Screen.hasShiftDown() || ClientConfig.SPEC.isLoaded() && !ClientConfig.COMPACT_TRAIL_HINTS.get();
+        Component hint = Component.translatable(expanded ? mode.hintKey() : "descentmtb.shape.hud.compact",
+                ModKeyMappings.TRAIL_MENU.getTranslatedKeyMessage());
         Component status = switch (mode.kind) {
             case BERM -> bermStatus(stack);
             case DOWNHILL -> downhillStatus(stack);
@@ -187,21 +192,32 @@ public final class TrailClient {
             case CLEAR, LINE -> lineStatus(mc, stack, mode);
             default -> mode == ShapeMode.AUTO ? cursorStatus(stack) : null;
         };
-        int width = Math.max(mc.font.width(description), Math.max(mc.font.width(hint), mc.font.width(name) + 21));
+        int maxWidth = Math.min(300, g.guiWidth() - 32);
+        var hintLines = mc.font.split(hint, maxWidth);
+        List<FormattedCharSequence> description = expanded
+                ? mc.font.split(Component.translatable(mode.descriptionKey()), maxWidth) : List.of();
+        int contentWidth = Math.min(maxWidth, mc.font.width(name) + 21);
+        for (var line : hintLines) contentWidth = Math.max(contentWidth, mc.font.width(line));
+        for (var line : description) contentWidth = Math.max(contentWidth, mc.font.width(line));
+        if (status != null) contentWidth = Math.min(maxWidth, Math.max(contentWidth, mc.font.width(status)));
+        int descriptionRows = Math.min(2, description.size()), hintRows = Math.min(5, hintLines.size());
+        int boxHeight = 28 + (status == null ? 0 : 11) + descriptionRows * 10 + hintRows * 10;
+        int x = 12, y = g.guiHeight() - 62 - boxHeight;
+        g.fill(x - 5, y, x + contentWidth + 6, y + boxHeight, HUD_BACKGROUND);
+        g.fill(x - 5, y, x - 3, y + boxHeight, HUD_ACCENT);
+        g.blit(mode == ShapeMode.AUTO ? cursorIcon(CursorSettings.read(stack)) : ShapeRadialScreen.icon(mode), x, y + 4, 0, 0, 16, 16, 16, 16);
+        g.drawString(mc.font, UiTheme.fit(mc.font, name.getString(), contentWidth - 21), x + 21, y + 7, UiTheme.ACCENT, false);
+        int textY = y + 23;
         if (status != null) {
-            width = Math.max(width, mc.font.width(status));
+            g.drawString(mc.font, UiTheme.fit(mc.font, status.getString(), contentWidth), x, textY, UiTheme.TEXT, false);
+            textY += 11;
         }
-        int lines = status == null ? 0 : 13;
-        int x = 12, y = g.guiHeight() - 62 - lines;
-        g.fill(x - 5, y - 5, x + width + 6, y + 46 + lines, HUD_BACKGROUND);
-        g.fill(x - 5, y - 5, x - 3, y + 46 + lines, HUD_ACCENT);
-        g.blit(mode == ShapeMode.AUTO ? cursorIcon(CursorSettings.read(stack)) : ShapeRadialScreen.icon(mode), x, y, 0, 0, 16, 16, 16, 16);
-        g.drawString(mc.font, name, x + 21, y + 4, 0xffe7d7ad);
-        g.drawString(mc.font, description, x, y + 20, 0xff91cbbb);
-        if (status != null) {
-            g.drawString(mc.font, status, x, y + 33, 0xfff5d087);
+        for (int i = 0; i < descriptionRows; i++, textY += 10) {
+            g.drawString(mc.font, description.get(i), x, textY, 0xff91cbbb, false);
         }
-        g.drawString(mc.font, hint, x, y + 33 + lines, 0xff9aa6a8);
+        for (int i = 0; i < hintRows; i++, textY += 10) {
+            g.drawString(mc.font, hintLines.get(i), x, textY, UiTheme.MUTED, false);
+        }
     }
 
     /** "Bank: Steep (60°) • Width 4 m • Points 1/3" */

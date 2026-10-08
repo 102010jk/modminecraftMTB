@@ -63,7 +63,8 @@ public final class TrickToast {
         float pop = dry ? 0 : (float) (.28 * Math.exp(-t * 7) * Math.cos(t * 18));
         float scale = base + pop;
         scale = Math.min(scale, (g.guiWidth() - 30f) / Math.max(1, mc.font.width(text)));
-        int cx = g.guiWidth() / 2, y = Math.max(16, g.guiHeight() / 8);
+        int cx = g.guiWidth() / 2;
+        int y = Math.max(Math.max(16, g.guiHeight() / 8), com.descentmtb.client.trail.TrailTimerHud.bottom() + 8);
         g.pose().pushPose(); g.pose().translate(cx, y, 0); g.pose().scale(scale, scale, 1);
         int x = -mc.font.width(text) / 2;
         for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 1; dy++)

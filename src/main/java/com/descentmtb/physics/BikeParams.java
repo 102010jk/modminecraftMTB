@@ -3,7 +3,7 @@ package com.descentmtb.physics;
 /**
  * Every tunable of the bike simulation, SI units (m, kg, s, N, rad).
  * Defaults describe a 29" enduro bike (170/160 mm) with a 75 kg rider and are
- * tuned toward the Descenders feel spec in PLAN.md. Fields are mutable so a
+ * tuned toward the Descenders feel spec in docs/archive/PLAN.md. Fields are mutable so a
  * config file can live-reload them.
  */
 public final class BikeParams {

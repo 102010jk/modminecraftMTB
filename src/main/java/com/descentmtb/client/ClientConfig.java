@@ -46,6 +46,7 @@ public final class ClientConfig {
     public static final ModConfigSpec.EnumValue<RiderVoice> RIDER_VOICE;
 
     public static final ModConfigSpec.DoubleValue MUSIC_VOLUME, MUSIC_GAIN, HEADPHONE_WORLD_VOLUME;
+    public static final ModConfigSpec.BooleanValue SHOW_SPEED_HUD, SHOW_AIR_TIME, SHOW_TRAIL_HINTS, COMPACT_TRAIL_HINTS;
     public static final ModConfigSpec.BooleanValue MUD_EFFECTS, ROOST_PARTICLES, SPEED_LINES;
     public static final ModConfigSpec.DoubleValue ROOST_DENSITY, SPEED_LINE_STRENGTH, SPEED_FOV_STRENGTH;
     static {
@@ -121,6 +122,12 @@ public final class ClientConfig {
         MUSIC_VOLUME = number(b,"musicVolume","Local boombox and headphone music volume.",.8,0,1);
         MUSIC_GAIN = number(b,"musicGain","PCM amplification for boombox/headphones before the soft limiter; 1 = original signal, 3 = louder default. Minecraft master volume still applies.",3,0,8);
         HEADPHONE_WORLD_VOLUME = number(b,"headphoneWorldVolume","World sound level while listening through worn headphones (0.15 = closed-back cans, the world drops by 85 %). Your own bike and voice stay clearly audible.",.15,0,1);
+        b.pop();
+        b.push("hud");
+        SHOW_SPEED_HUD = b.comment("Show speed and motorbike revs while riding.").define("showSpeed", true);
+        SHOW_AIR_TIME = b.comment("Show the air-time line above the speed display.").define("showAirTime", true);
+        SHOW_TRAIL_HINTS = b.comment("Show the active trail-tool mode and settings above the hotbar.").define("showTrailHints", true);
+        COMPACT_TRAIL_HINTS = b.comment("Keep trail hints compact; hold Shift for the full instructions.").define("compactTrailHints", true);
         b.pop();
         b.push("immersion");
         MUD_EFFECTS = b.comment("Mud speckles on the bike and helmet camera lens.").define("mudEffects",true);

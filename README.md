@@ -1,87 +1,77 @@
 # Descent MTB
 
-A mountain-biking mod for **Minecraft 1.21.1 / NeoForge** with arcade,
-*Descenders*-style physics: momentum, downhill acceleration, ramp/kicker
-launches, charged bunny hops, lean and air control — with **full controller
-support** alongside keyboard.
+Kola, motorky a stavění tratí pro **Minecraft 1.21.1 / NeoForge 21.1.250 / Java 21**.
 
-## Downloads and project status
+## Stažení
 
-The current build is [descentmtb-latest.jar](dist/descentmtb-latest.jar).
-Previous milestone builds are archived in [dist/](dist/).
-See [the current handoff](HANDOFF_CHATGPT.md) for completed work, known limitations and milestone notes.
+- [Aktuální JAR](dist/descentmtb-latest.jar)
+- [GitHub Releases](https://github.com/102010jk/modminecraftMTB/releases)
+- [Přehled milníků](releases/README.md)
 
-## Build
+JAR vlož do složky `mods` profilu s NeoForge. Při aktualizaci nahraď původní Descent MTB JAR; ve složce má být jedna jeho verze.
 
-Requires **Java 21**. Run from the cloned repository; `JAVA_HOME` must point to your Java 21 installation.
+## Jak začít
+
+Kreativní inventář má tři kategorie:
+
+- **Kola:** enduro, hardtail, motokrosová motorka, pitbike a servisní stojan.
+- **Stavění tratí:** trailová lopata, tvarovaná hlína a lávky, podpěry, kořeny, kameny, airbag, bariéry a cedule.
+- **Vybavení:** pumpa, GPS, mapa, sluchátka, reproduktor a trhací fólie.
+
+Pravým klikem na blok polož kolo, pravým klikem na kolo nasedni. Shift slouží k sesednutí; **Shift + pravý klik na prázdné zaparkované kolo** ho vrátí do inventáře s jeho úpravami. Ve stojanu upravíš komponenty, barvy a samolepky; obrazovka ukazuje náhled a stav neuložených změn.
+
+## Ovládání
+
+Výchozí klávesy odpovídají současnému kódu. Modové vazby lze změnit v **Nastavení → Ovládání → Descent MTB**.
+
+| Akce | Klávesa |
+|---|---|
+| Šlapání / plyn | Z |
+| Brzda; ve vzduchu tweak/table | Space |
+| Zatáčení / rotace do stran | ← / → |
+| Náklon dopředu / dozadu | ↑ / ↓ |
+| Skrčení / protažení | S / D |
+| Bunny hop | podrž X, pak pusť |
+| Jednotlivé triky | I, O, J, L, K, U |
+| Kamera / reset kamery | V / B |
+| Návrat / návrat na start | R / Backspace |
+| Zvonek | H |
+| Audio nastavení | P |
+| Stržení fólie | Y |
+| Nabídka trailové lopaty | G |
+| Vrácení změny trati | Ctrl + Z |
+
+Triky závisí na typu kola. Nastavení tricks.trickKeyScheme = CLASSIC používá C + šipky místo samostatných trikových kláves. Ovladač používá RT/LT pro plyn/brzdu, páčky pro náklon a pumpování a LB + pravou páčku pro triky.
+
+## Stavění a orientace
+
+Trailová lopata má režimy pro skoky, klopenky, ruční úpravy, rampy a celé linie. Podrž G, najeď na režim a pusť; krátké stisknutí otevře klikací nabídku. V ní funguje i Tab pro kategorii, šipky pro režim a Enter pro potvrzení. Shift + kolečko mění režim nebo jeho nastavení. Ctrl + pravý klik na tvarovaný blok otevře detailní editor. Nápověda nad hotbarem běžně ukazuje jen režim a nastavení; při držení Shift se rozbalí.
+
+GPS zaznamenává jízdu. Trasy lze propojit s cedulemi a zobrazit v mapě; mapa podporuje posun, zoom a výškový profil. Více mapových rámečků vedle sebe může tvořit mapu na zdi.
+
+## Nastavení
+
+Client config config/descentmtb-client.toml obsahuje jízdu, kamery, triky, zvuk, audio a vizuální efekty. V části hud lze samostatně vypnout rychlost, čas ve vzduchu a nápovědu nástrojů; compactTrailHints ovládá kompaktní nápovědu. audioDevices.musicGain zesiluje PCM hudbu před limiterem. Posuvníky v audio nabídce se použijí při výběru aplikace nebo desky.
+
+Trailové nástroje mají společný config; limity úprav komponentů spravuje serverový config. Integrace pohyblivých staveb je volitelná: samostatný mod Sable není potřeba pro běžnou jízdu.
+
+## Sestavení
+
+Nastav JAVA_HOME na Java 21 a z kořene naklonovaného projektu spusť:
 
 ```powershell
 .\gradlew.bat assemble --console=plain
 ```
 
-The finished mod jar lands in `build\libs\descentmtb-1.0.0-alpha.jar`. Drop it into
-your `.minecraft\mods` folder (NeoForge 1.21.1 profile) together with NeoForge.
+Výsledek: build/libs/descentmtb-1.0.0-alpha.jar.
 
-For a dev test run: `.\gradlew.bat runClient`.
+## Struktura projektu
 
-## How to ride
+- src/main: aktivní mod a jeho assety; src/test: existující automatické testy.
+- tools: generátory a pomocné nástroje; tools/preview: kontrolní podklady.
+- docs: technická dokumentace; docs/archive: historické plány a předání.
+- releases a dist: hotové a archivované JARy.
+- wip: historický rozpracovaný kód mimo build.
+- addons: samostatné projekty, které hlavní build nezahrnuje.
 
-1. Grab a **Mountain Bike** from the *Descent MTB* creative tab (or
-   `/give @s descentmtb:mountain_bike`).
-2. **Right-click a block** to deploy the bike.
-3. **Right-click the bike** to get on. **Sneak (Shift)** to get off.
-4. Hit the bike (attack) to pick it back up.
-
-## Controls (Descenders mapping)
-
-| Action            | Controller            | Keyboard         |
-|-------------------|-----------------------|------------------|
-| Steer (turns bars)| Left stick X          | A / D            |
-| **Lean / tilt**   | **Right stick X**     | Z / C            |
-| Pedal (accel)     | Right trigger (RT)    | W                |
-| Lean back / slow  | Left stick down       | S                |
-| Brake             | Left trigger (LT)     | Left Ctrl        |
-| Bunny hop         | A (hold to charge)    | Space (hold)     |
-
-Steering only **turns the handlebars** and the heading — it no longer rolls the
-whole bike. The body **lean/tilt** is its own thing on the **right stick** (Z/C
-on keyboard).
-
-The bunny hop is more than one button: **tap** = small hop; **hold** A/Space to
-charge; **pull back** (left stick down / S) just before releasing to preload a
-**manual-style pop** — the three stack. Controller input is read directly from
-the OS gamepad (GLFW); on mounting, a chat line tells you which controller was
-detected (or that none was). All keys rebind under
-**Options → Controls → Descent MTB**.
-
-## Ramps & jumps
-
-Launches come straight out of the physics: ride up any incline and you fly off
-the lip, with launch height scaling to the ramp's steepness. Build kickers from
-**stairs or slabs** (the bike samples the real collision surface), or just hit
-natural terrain. The steeper the lip and the faster you go, the bigger the air.
-
-## Tuning the feel
-
-Physics is modelled on the **Automobility** mod: steering is a smoothed
-angular-speed (you turn more at speed, never twitchy, can't spin on the spot),
-momentum comes from a grip blend, terrain is handled by gravity + a real step
-height so it **climbs blocks/stairs**, and riding off a lip launches you using
-the actual climb rate. The rider's view turns with the bike. All feel constants
-live at the top of
-[`MountainBikeEntity.java`](src/main/java/com/descentmtb/entity/MountainBikeEntity.java):
-`COMFORT_SPEED`, `MAX_SPEED`, `ACCEL`, `BRAKE`, `SLOPE_GAIN`, `TURN_BASE`,
-`TURN_SPEED`, `STEP_HEIGHT`, `HOP_BASE`, etc. Presentation/direction knobs:
-
-- If A/D (or the stick) steer the *wrong* way, flip `STEER_SIGN` (currently `-1f`).
-- If it climbs walls too eagerly / not enough, change `STEP_HEIGHT` (default `1.0`
-  — set `0.6` for slabs/stairs only).
-- If the bike visually floats or sinks, nudge `MODEL_Y` in
-  [`MountainBikeRenderer.java`](src/main/java/com/descentmtb/client/MountainBikeRenderer.java).
-- If the model faces backwards, change the `180.0f - entityYaw` term in the same
-  file to `-entityYaw`.
-
-## Not yet in (planned)
-
-Tricks/whips (right stick), crash/bail on bad landings, sound, and a dedicated
-ramp block. The input and physics are already structured to grow into these.
+[Aktuální předání a stav ověření](HANDOFF_CHATGPT.md). Starší tvrzení v archivech popisují tehdejší stav a nenahrazují ověření aktuální verze.

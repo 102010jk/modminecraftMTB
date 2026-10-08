@@ -1,10 +1,12 @@
 package com.descentmtb.client.update;
 
 import com.descentmtb.DescentMtb;
+import com.descentmtb.client.ui.UiTheme;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
+import com.descentmtb.client.ui.DescentScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.Dist;
@@ -14,9 +16,11 @@ import net.neoforged.neoforge.client.event.ScreenEvent;
 
 /** "Descent MTB update" screen, reached from a small button on the title and pause screens. */
 @EventBusSubscriber(modid = DescentMtb.MODID, value = Dist.CLIENT)
-public final class UpdateScreen extends Screen {
+public final class UpdateScreen extends DescentScreen {
     private final Screen parent;
     private Button action;
+    private int panelX, panelY, panelWidth;
+    private static final int PANEL_HEIGHT = 184;
 
     public UpdateScreen(Screen parent) {
         super(Component.translatable("descentmtb.update.title"));
@@ -26,12 +30,16 @@ public final class UpdateScreen extends Screen {
     @Override
     protected void init() {
         ModUpdater.checkIfStale();
-        int cx = width / 2, y = height / 2 + 30;
+        panelWidth = Math.min(340, width - 16);
+        panelX = (width - panelWidth) / 2;
+        panelY = (height - PANEL_HEIGHT) / 2;
+        int buttonWidth = (panelWidth - 28) / 2, y = panelY + PANEL_HEIGHT - 30;
         action = addRenderableWidget(Button.builder(Component.empty(), b -> {
             if (ModUpdater.state() == ModUpdater.State.AVAILABLE) ModUpdater.download();
             else ModUpdater.check();
-        }).bounds(cx - 154, y, 150, 20).build());
-        addRenderableWidget(Button.builder(Component.translatable("gui.back"), b -> onClose()).bounds(cx + 4, y, 150, 20).build());
+        }).bounds(panelX + 10, y, buttonWidth, 20).build());
+        addRenderableWidget(Button.builder(Component.translatable("gui.back"), b -> onClose()).bounds(panelX + 18 + buttonWidth, y, buttonWidth, 20).build());
+        tick();
     }
 
     @Override
@@ -43,9 +51,9 @@ public final class UpdateScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mx, int my, float pt) {
-        super.render(g, mx, my, pt);
-        int cx = width / 2, y = height / 2 - 40;
-        g.drawCenteredString(font, title, cx, y, 0xFFFFFF);
+        renderBackground(g, mx, my, pt);
+        UiTheme.panel(g, panelX, panelY, panelWidth, PANEL_HEIGHT);
+        g.drawCenteredString(font, title, width / 2, panelY + 12, UiTheme.ACCENT);
         ModUpdater.State s = ModUpdater.state();
         Component line = switch (s) {
             case IDLE, CHECKING -> Component.translatable("descentmtb.update.checking");
@@ -57,10 +65,17 @@ public final class UpdateScreen extends Screen {
             case DEV -> Component.translatable("descentmtb.update.dev");
             case ERROR -> Component.translatable("descentmtb.update.error", ModUpdater.message());
         };
-        g.drawCenteredString(font, line, cx, y + 20, s == ModUpdater.State.ERROR ? 0xFF7070 : s == ModUpdater.State.READY ? 0x80FF80 : 0xD0D0D0);
+        UiTheme.wrapped(g, font, line, panelX + 12, panelY + 35, panelWidth - 24, 3,
+                s == ModUpdater.State.ERROR ? 0xffef9990 : s == ModUpdater.State.READY ? 0xff8bd8a2 : UiTheme.TEXT);
         if (s == ModUpdater.State.AVAILABLE && !ModUpdater.remoteNotes().isEmpty()) {
-            g.drawCenteredString(font, Component.literal(ModUpdater.remoteNotes()), cx, y + 36, 0xA0A0A0);
+            UiTheme.wrapped(g, font, Component.literal(ModUpdater.remoteNotes()), panelX + 12, panelY + 76, panelWidth - 24, 5, UiTheme.MUTED);
         }
+        if (s == ModUpdater.State.DOWNLOADING) {
+            int x = panelX + 12, y = panelY + 130, barWidth = panelWidth - 24;
+            g.fill(x, y, x + barWidth, y + 4, UiTheme.EDGE);
+            g.fill(x, y, x + (int) Math.round(barWidth * Math.max(0, Math.min(1, ModUpdater.progress()))), y + 4, UiTheme.ACCENT);
+        }
+        for (var widget : renderables) widget.render(g, mx, my, pt);
     }
 
     @Override

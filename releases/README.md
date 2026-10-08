@@ -2,6 +2,18 @@
 
 Hotové buildy módu pro **Minecraft 1.21.1 + NeoForge 21.1.x** (Java 21). JAR stačí vložit do složky `mods`.
 
+## 1.0.0-alpha-m25 (milník 25)
+
+Soubor: `descentmtb-1.0.0-alpha-m25.jar`
+SHA-256: `d1231bae76ef5ca75f77b53ac3751033dc813ded293d7324f2f150bea25cb089`
+
+- Sjednocená pozadí devíti editorů, přehlednější audio s posuvníky a stránkováním, zalomené texty aktualizací.
+- Adaptivní nabídka hůlky s klávesnicovou volbou; kompaktní nápověda nad hotbarem, podrobnosti při držení Shift.
+- Kola, stavění tratí a vybavení mají vlastní kreativní kategorie. HUD a banner triku respektují místo časomíry.
+- Aktuální návody a úklid starých podkladů do archivů.
+
+Ověřeno pouze `assemble`; bez herního, vizuálního či poslechového ověření a bez nezávislé review. Fyzika, modely a textury nebyly v tomto milníku přepisované.
+
 ## 1.0.0-alpha-m24 (milník 24)
 
 Soubor: `descentmtb-1.0.0-alpha-m24.jar`

@@ -1,5 +1,5 @@
 {
-  "itemGroup.descentmtb": "Descent MTB",
+  "itemGroup.descentmtb": "Descent MTB · Bikes",
   "item.descentmtb.mountain_bike": "Enduro Bike",
   "item.descentmtb.hardtail_bike": "Dirt Jump Hardtail",
   "entity.descentmtb.mountain_bike": "Enduro Bike",
@@ -650,7 +650,7 @@
   "descentmtb.audio.refresh": "Refresh",
   "descentmtb.audio.next": "Next",
   "descentmtb.audio.stop": "Stop music",
-  "descentmtb.audio.disc": "Play held disc",
+  "descentmtb.audio.disc": "Play disc",
   "descentmtb.audio.close": "Close",
   "descentmtb.audio.no_disc": "Carry a music disc in your inventory.",
   "descentmtb.audio.equip": "Equip headphones first (right-click).",
@@ -729,5 +729,17 @@
   "descentmtb.update.downloading": "Downloading… %s %%",
   "descentmtb.update.ready": "Downloaded! Close and restart the game – it installs itself.",
   "descentmtb.update.dev": "Development environment – updating is disabled.",
-  "descentmtb.update.error": "Error: %s"
+  "descentmtb.update.error": "Error: %s",
+  "descentmtb.audio.previous": "Previous page",
+  "descentmtb.audio.sources": "Choose an application · %s / %s",
+  "descentmtb.audio.source_error": "Could not read audio sources. Try refreshing the list.",
+  "descentmtb.audio.radius": "Range: %s m",
+  "descentmtb.audio.volume": "Volume: %s %%",
+  "descentmtb.audio.radius_hint": "Distance at which the boombox becomes inaudible. Used when you choose a source.",
+  "descentmtb.audio.volume_hint": "Music level from 0 to 200%. Used when you choose a source.",
+  "descentmtb.shape.keyboard_hint": "Click / Enter: select · Tab: category · Arrows: mode",
+  "descentmtb.shape.release_hint": "Release %s: select · Tab: category",
+  "descentmtb.shape.hud.compact": "[%s] menu · Shift: details",
+  "itemGroup.descentmtb.trails": "Descent MTB · Trail building",
+  "itemGroup.descentmtb.equipment": "Descent MTB · Equipment"
 }

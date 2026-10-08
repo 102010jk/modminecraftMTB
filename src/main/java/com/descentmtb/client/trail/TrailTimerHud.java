@@ -6,6 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import com.descentmtb.client.ui.UiTheme;
 
 /**
  * Top-centre timer box: trail name, the clock and a line with the personal best. While the finished run is
@@ -24,7 +25,7 @@ public final class TrailTimerHud {
     public static void render(GuiGraphics g) {
         TrailTimer.State state = TrailTimer.state();
         Minecraft mc = Minecraft.getInstance();
-        if (state == TrailTimer.State.IDLE || mc.options.hideGui) {
+        if (state == TrailTimer.State.IDLE || mc.options.hideGui || mc.screen != null) {
             return;
         }
         Font font = mc.font;
@@ -62,7 +63,9 @@ public final class TrailTimerHud {
         }
 
         int timeWidth = Math.round(font.width(time) * TIME_SCALE);
-        int width = Math.max(Math.max(font.width(name), timeWidth), font.width(detail)) + 22;
+        int width = Math.min(g.guiWidth() - 16, Math.max(Math.max(font.width(name), timeWidth), font.width(detail)) + 22);
+        name = UiTheme.fit(font, name, width - 22);
+        detail = UiTheme.fit(font, detail, width - 22);
         int height = 12 + 9 + Math.round(8 * TIME_SCALE) + (detail.isEmpty() ? 0 : 12) + 6;
         int x = (g.guiWidth() - width) / 2;
         int y = 6;
@@ -77,6 +80,12 @@ public final class TrailTimerHud {
         if (!detail.isEmpty()) {
             g.drawCenteredString(font, detail, g.guiWidth() / 2, y + 18 + Math.round(8 * TIME_SCALE) + 4, detailColour);
         }
+    }
+
+    /** Reserve the timer's largest card before the trick banner is drawn, regardless of render-layer order. */
+    public static int bottom() {
+        var mc = Minecraft.getInstance();
+        return TrailTimer.state() == TrailTimer.State.IDLE || mc.options.hideGui || mc.screen != null ? 0 : 61;
     }
 
     /** A dark box with rounded corners and a brass line along its bottom edge. */

@@ -9,6 +9,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import com.descentmtb.client.ui.DescentScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -28,7 +29,7 @@ import java.util.function.IntSupplier;
  * faces) or by Shift + right-click in the air (no block: the settings can be changed and saved, but not built).
  * Closing the screen keeps the settings in the tool, so the in-world preview and the next opening use them.
  */
-public final class JumpProfileScreen extends Screen {
+public final class JumpProfileScreen extends DescentScreen {
     private static final int GOLD = 0xffe2c48a, LABEL = 0xffa9b4b8, VALUE = 0xffeee6d2, DIM = 0xff5f6a6e;
     private static final int ROW = 19, TOP = 26, CONTROLS_WIDTH = 176;
 
@@ -237,11 +238,6 @@ public final class JumpProfileScreen extends Screen {
     }
 
     // ---- drawing ----
-
-    @Override
-    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        g.fill(0, 0, width, height, 0xd018252d);
-    }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {

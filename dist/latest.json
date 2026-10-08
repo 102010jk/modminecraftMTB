@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0-alpha-m24",
-  "sha256": "9a2fc24d7939bf1f3bd1f06b6f2caa95676226007035d53d2958234268ee423b",
-  "size": 4728088,
-  "notes": "Nov\u00e9 textury a cedule trat\u00ed"
+  "version": "1.0.0-alpha-m25",
+  "sha256": "d1231bae76ef5ca75f77b53ac3751033dc813ded293d7324f2f150bea25cb089",
+  "size": 4738093,
+  "notes": "Clean UI: jednotne editory, kompaktni HUD, audio posuvniky a prehledny inventar"
 }

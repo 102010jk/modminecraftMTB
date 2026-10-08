@@ -8,10 +8,11 @@ version = "1.0.0-alpha"
 displayName = "Descent MTB"
 authors = "jakub"
 description = '''
-Descenders in Minecraft: a full-suspension enduro bike on real physics -
-spring/damper suspension, tyre grip, a rider you can pump and pop with,
-bunny hops, flips and spins, bails and a chase camera. Controller (GLFW)
-and keyboard, Descenders bindings.
+Mountain biking and trail building in Minecraft: enduro and dirt-jump bikes,
+motocross and pit bikes, suspension and tyre grip, tricks and chase cameras.
+Build trails, jumps, berms and wooden decks; customise bikes in the workshop,
+record GPS routes and play music through boomboxes or headphones.
+Rebindable keyboard controls and GLFW gamepad support.
 '''
 
 [[mixins]]

@@ -11,7 +11,7 @@ import java.util.function.Function;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * The Descenders "feel spec" (PLAN.md §1) as numbers. Each scenario rides a
+ * The Descenders "feel spec" (docs/archive/PLAN.md §1) as numbers. Each scenario rides a
  * synthetic world headless and checks the outcome; telemetry CSVs land in
  * build/telemetry for tuning.
  */

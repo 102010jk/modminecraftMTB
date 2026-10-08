@@ -13,18 +13,20 @@ public class SpeedHud implements LayeredDraw.Layer {
     @Override
     public void render(GuiGraphics g, DeltaTracker delta) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.options.hideGui) return;
+        if (mc.player == null || mc.options.hideGui || mc.screen != null) return;
         TrickToast.render(g);
         MountainBikeEntity bike = BikeClientController.riding();
-        if (mc.player == null || mc.options.hideGui || bike == null || bike.sim() == null) return;
+        if (bike == null || bike.sim() == null) return;
         BikeSim sim = bike.sim();
         int cx = g.guiWidth() / 2;
         int y = g.guiHeight() - 58;
 
         int kmh = (int) Math.round(sim.speed() * 3.6);
-        g.drawCenteredString(mc.font, Component.translatable("descentmtb.hud.speed", kmh), cx, y, 0xFFFFFFFF);
-        if (sim.engine != null) tachometer(g, mc, sim, cx, y + 11);
-        if (sim.airborne && sim.airTime > 0.3) {
+        if (!ClientConfig.SPEC.isLoaded() || ClientConfig.SHOW_SPEED_HUD.get()) {
+            g.drawCenteredString(mc.font, Component.translatable("descentmtb.hud.speed", kmh), cx, y, 0xFFFFFFFF);
+            if (sim.engine != null) tachometer(g, mc, sim, cx, y + 11);
+        }
+        if (sim.airborne && sim.airTime > 0.3 && (!ClientConfig.SPEC.isLoaded() || ClientConfig.SHOW_AIR_TIME.get())) {
             g.drawCenteredString(mc.font, Component.translatable("descentmtb.hud.air", String.format(java.util.Locale.ROOT, "%.1f", sim.airTime)),
                     cx, y - 12, 0xFF55FFFF);
         }

@@ -12,6 +12,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
+import com.descentmtb.client.ui.DescentScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -26,7 +27,7 @@ import java.util.function.BooleanSupplier;
  * type on the right (name, difficulty, arrow, warning icon, or the pixel canvas for custom signs).
  * Save sends everything in one packet.
  */
-public final class SignEditorScreen extends Screen {
+public final class SignEditorScreen extends DescentScreen {
     private static final int PANEL_WIDTH = 440;
     private static final int TAB_TOP = 22;
     private static final int CONTENT_TOP = 58;
@@ -209,11 +210,6 @@ public final class SignEditorScreen extends Screen {
     }
 
     // ---- drawing ----
-
-    @Override
-    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        g.fill(0, 0, width, height, 0xd018252d);
-    }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {

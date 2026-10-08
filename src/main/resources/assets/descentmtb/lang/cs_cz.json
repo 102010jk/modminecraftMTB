@@ -1,5 +1,5 @@
 {
-  "itemGroup.descentmtb": "Descent MTB",
+  "itemGroup.descentmtb": "Descent MTB · Kola",
   "item.descentmtb.mountain_bike": "Enduro kolo",
   "item.descentmtb.hardtail_bike": "Hardtail (dirt jump)",
   "entity.descentmtb.mountain_bike": "Enduro kolo",
@@ -729,5 +729,17 @@
   "descentmtb.update.downloading": "Stahuji… %s %%",
   "descentmtb.update.ready": "Staženo! Zavři a znovu spusť hru – nová verze se nainstaluje sama.",
   "descentmtb.update.dev": "Vývojové prostředí – aktualizace je vypnutá.",
-  "descentmtb.update.error": "Chyba: %s"
+  "descentmtb.update.error": "Chyba: %s",
+  "descentmtb.audio.previous": "Předchozí stránka",
+  "descentmtb.audio.sources": "Vyber aplikaci · %s / %s",
+  "descentmtb.audio.source_error": "Zvukové zdroje se nepodařilo načíst. Zkus obnovit seznam.",
+  "descentmtb.audio.radius": "Dosah: %s m",
+  "descentmtb.audio.volume": "Hlasitost: %s %%",
+  "descentmtb.audio.radius_hint": "Vzdálenost, na které reproduktor přestane být slyšet. Použije se při výběru zdroje.",
+  "descentmtb.audio.volume_hint": "Úroveň hudby od 0 do 200 %. Použije se při výběru zdroje.",
+  "descentmtb.shape.keyboard_hint": "Klik / Enter: vybrat · Tab: kategorie · Šipky: režim",
+  "descentmtb.shape.release_hint": "Pusť %s: vybrat · Tab: kategorie",
+  "descentmtb.shape.hud.compact": "[%s] menu · Shift: podrobnosti",
+  "itemGroup.descentmtb.trails": "Descent MTB · Stavění tratí",
+  "itemGroup.descentmtb.equipment": "Descent MTB · Vybavení"
 }

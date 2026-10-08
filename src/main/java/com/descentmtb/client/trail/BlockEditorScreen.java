@@ -9,6 +9,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import com.descentmtb.client.ui.DescentScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
@@ -25,7 +26,7 @@ import java.util.function.UnaryOperator;
  * reset, turn, mirror, copy and paste the shape, switch the wooden deck and take the material from the off-hand.
  * Apply sends it to the server ({@link BlockEditPayload}), which rebuilds only that column as one undoable edit.
  */
-public final class BlockEditorScreen extends Screen {
+public final class BlockEditorScreen extends DescentScreen {
     private static final int GOLD = 0xffe2c48a, LABEL = 0xffa9b4b8, VALUE = 0xffeee6d2;
     /** Corner names in the order NW NE SW SE (language keys). */
     private static final String[] CORNERS = {"nw", "ne", "sw", "se"};
@@ -204,11 +205,6 @@ public final class BlockEditorScreen extends Screen {
     }
 
     // ---- drawing ----
-
-    @Override
-    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        g.fill(0, 0, width, height, 0xd018252d);
-    }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {

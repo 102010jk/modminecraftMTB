@@ -7,7 +7,7 @@ import com.mojang.math.Axis;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.client.gui.screens.Screen;
+import com.descentmtb.client.ui.DescentScreen;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
@@ -24,7 +24,7 @@ import java.util.Locale;
  * the player shows as a heading arrow and hovering the profile marks the matching spot on the trail. All the view
  * maths lives in {@link MapView}; this class only lays out and draws.
  */
-public final class TrailMapScreen extends Screen {
+public final class TrailMapScreen extends DescentScreen {
     private static final int TEX = 512, ROW = 14, LINE = 10, MARGIN = 8, GAP = 8, TOP = 24, HIT = 5;
     private static final int PANEL = 0xff15212a, EDGE = 0xff0b1217, TEXT = 0xffd7dedb, MUTED = 0xff8faba7, SHADE = 0xc00f171d;
 

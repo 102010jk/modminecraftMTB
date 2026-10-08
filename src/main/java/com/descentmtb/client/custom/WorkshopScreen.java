@@ -36,6 +36,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
+import com.descentmtb.client.ui.DescentScreen;
+import com.descentmtb.client.ui.UiTheme;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
@@ -58,7 +60,7 @@ import java.util.function.UnaryOperator;
  * Closing with unsaved changes asks what to do. The layout is computed from the GUI size, so it fits down to a
  * 320 x 180 GUI (1280 x 720 at GUI scale 4).
  */
-public final class WorkshopScreen extends Screen {
+public final class WorkshopScreen extends DescentScreen {
     private static final int GOLD = WorkshopPanel.GOLD, LABEL = WorkshopPanel.LABEL, VALUE = WorkshopPanel.VALUE,
             DIM = WorkshopPanel.DIM, EDGE = WorkshopPanel.EDGE;
     private static final int MARGIN = 4, BAR_H = 20, TAB_H = 14;
@@ -967,11 +969,6 @@ public final class WorkshopScreen extends Screen {
     // ================================================================== screen plumbing
 
     @Override
-    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        g.fill(0, 0, width, height, 0xd018252d);
-    }
-
-    @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         boolean modal = pending != Pending.NONE;
         int mx = modal ? -9999 : mouseX, my = modal ? -9999 : mouseY;
@@ -984,8 +981,9 @@ public final class WorkshopScreen extends Screen {
 
         Component heading = t("title.full", build().name().isBlank() ? name("descentmtb.workshop.type." + type.id)
                 : Component.literal(build().name()));
-        g.drawString(font, heading, MARGIN, MARGIN + 1, GOLD, false);
         Component status = savedFlash > 0 ? t("status.saved") : dirty() ? t("status.unsaved") : null;
+        int headingWidth = width - 2 * MARGIN - (status == null ? 0 : font.width(status) + 10);
+        g.drawString(font, UiTheme.fit(font, heading.getString(), headingWidth), MARGIN, MARGIN + 1, GOLD, false);
         if (status != null) {
             g.drawString(font, status, width - MARGIN - font.width(status), MARGIN + 1, savedFlash > 0 ? 0xff7fd18b : LABEL, false);
         }
