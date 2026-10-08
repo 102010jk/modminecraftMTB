@@ -49,8 +49,8 @@ public final class TrailSignBlock extends BaseEntityBlock {
      * frame lip, and the post behind it. Must match the models.
      */
     private static final double[][] STANDING_BOXES = {
-            {1, 6, 6.5, 15, 16, 9},
-            {7, 0, 9, 9, 16, 11},
+            {1, 6, 6.5, 15, 16, 9.5},
+            {6.5, 0, 9.5, 9.5, 16, 12.5},
     };
     private static final double[][] WALL_BOXES = {
             {1, 3, 13.5, 15, 13, 16},
