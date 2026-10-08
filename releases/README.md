@@ -2,6 +2,16 @@
 
 Hotové buildy módu pro **Minecraft 1.21.1 + NeoForge 21.1.x** (Java 21). JAR stačí vložit do složky `mods`.
 
+## 1.0.0-alpha-m24 (milník 24)
+
+Soubor: `descentmtb-1.0.0-alpha-m24.jar`
+SHA-256: `9a2fc24d7939bf1f3bd1f06b6f2caa95676226007035d53d2958234268ee423b`
+
+- **Textury:** všechny bloky a předměty přepracované ve vanilla stylu (stínované palety, žádné ploché výplně); lopata má pravý Minecraft stick.
+- **Cedule tratí:** masivnější jako skutečné trailové cedule – tlustá deska s rámem a šrouby, hranatý sloupek se stříškou, správně namapované textury.
+
+Ověřeno jen sestavením; ve hře zatím neověřeno.
+
 ## 1.0.0-alpha-m23 (milník 23)
 
 Soubor: `descentmtb-1.0.0-alpha-m23.jar`
