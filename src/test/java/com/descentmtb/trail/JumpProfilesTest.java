@@ -156,12 +156,12 @@ class JumpProfilesTest {
     void settingsAreClampedAndSnapped() {
         Params wild = new Params(null, 40, -2, 9.03, 90, 0, 99).clamped();
         assertEquals(Type.KICKER, wild.type());
-        assertEquals(JumpProfiles.MAX_LENGTH, wild.length());
+        assertEquals(40, wild.length());
         assertEquals(JumpProfiles.MIN_WIDTH, wild.width());
-        assertEquals(JumpProfiles.MAX_HEIGHT, wild.height(), EPS);
+        assertEquals(9, wild.height(), EPS);
         assertEquals(JumpProfiles.MAX_LIP, wild.lip());
         assertEquals(JumpProfiles.MIN_DECK, wild.deck());
-        assertEquals(JumpProfiles.MAX_LANDING, wild.landing());
+        assertEquals(99, wild.landing());
         assertEquals(1.0625, new Params(Type.RAMP, 3, 3, 1.07, 30, 3, 5).clamped().height(), EPS);
         assertEquals(Params.DEFAULT.height(), new Params(Type.RAMP, 3, 3, Double.NaN, 30, 3, 5).clamped().height(), EPS);
     }

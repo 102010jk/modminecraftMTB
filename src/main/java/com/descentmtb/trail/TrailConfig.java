@@ -12,7 +12,7 @@ public final class TrailConfig {
         WIDTH = b.comment("Default trail width in blocks.").defineInRange("width", 5, 2, 9);
         MAX_LENGTH = b.comment("Maximum distance between guide points.").defineInRange("maxLength", 64, 8, 128);
         MAX_DOWNHILL = b.comment("Longest downhill line (m) the Trail Shaper builds from one start and finish.").defineInRange("maxDownhill", 200, 32, 400);
-        MAX_BLOCKS = b.comment("Maximum blocks per edit/clone.").defineInRange("maxBlocks", 8192, 256, 32768);
+        MAX_BLOCKS = b.comment("Maximum blocks per terrain edit/clone. Jump profiles and linked ramps are not capped by this setting.").defineInRange("maxBlocks", 8192, 256, 32768);
         UNDO_DEPTH = b.comment("Edits retained per player; undo skips blocks changed since that edit.").defineInRange("undoDepth", 8, 1, 24);
         BERM_HEIGHT = b.defineInRange("bermHeight", 1.8, .5, 4);
         ROLLER_HEIGHT = b.defineInRange("rollerHeight", .75, .25, 2);

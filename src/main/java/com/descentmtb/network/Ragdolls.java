@@ -23,7 +23,6 @@ public final class Ragdolls {
 
     static void start(ServerPlayer p, Vec3 throwSpeed) {
         ACTIVE.put(p.getUUID(), new Active(DURATION, throwSpeed));
-        com.descentmtb.audio.BoomboxServer.dropHeadphones(p);
         if(POSE_ACTIVE.add(p.getUUID()) && p.getForcedPose()!=null)POSES.put(p.getUUID(),p.getForcedPose());
         p.setForcedPose(net.minecraft.world.entity.Pose.SWIMMING);
     }

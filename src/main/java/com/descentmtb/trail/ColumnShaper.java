@@ -28,11 +28,16 @@ public final class ColumnShaper {
      * @throws IllegalArgumentException when the corners differ by more than {@link #MAX_LAYERS} blocks
      */
     public static Layers layers(double[] abs, boolean deck) {
+        return layers(abs, deck, MAX_LAYERS);
+    }
+
+    /** A construction planner can use the dimension's actual vertical range instead of the sculpting cap. */
+    public static Layers layers(double[] abs, boolean deck, int maxLayers) {
         double min = Math.min(Math.min(abs[0], abs[1]), Math.min(abs[2], abs[3]));
         double max = Math.max(Math.max(abs[0], abs[1]), Math.max(abs[2], abs[3]));
         int bottom = (int) Math.floor(min - (deck ? DECK_THICKNESS : 0) - .001);
         int top = (int) Math.ceil(max) - 1;
-        if (top - bottom + 1 > MAX_LAYERS) {
+        if ((long) top - bottom + 1 > maxLayers) {
             throw new TrailEdit.Rejected("descentmtb.edit.too_steep");
         }
         List<Layer> list = new ArrayList<>();

@@ -104,12 +104,6 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
         }
         PartTable.duckSqueeze = 0f;
         PartTable.mudLevel = 0f;
-        if (bike.hasBoombox()) {
-            pose.pushPose(); pose.translate(-.18,-.9,.4); pose.scale(.36f,-.36f,.36f);
-            net.minecraft.client.Minecraft.getInstance().getBlockRenderer().renderSingleBlock(
-                    ModBlocks.BOOMBOX.get().defaultBlockState(),pose,buffers,light,OverlayTexture.NO_OVERLAY);
-            pose.popPose();
-        }
         pose.popPose();
         super.render(bike, entityYaw, partialTick, pose, buffers, light);
     }

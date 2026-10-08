@@ -53,13 +53,10 @@ import java.util.function.Consumer;
  * <p>The entity position is the ground point under the frame's centre of mass
  * ({@link #COM_HEIGHT} below it).
  */
-public class MountainBikeEntity extends Entity implements com.descentmtb.audio.BoomboxHolder {
-    private static final EntityDataAccessor<Boolean> D_BOOMBOX = def(EntityDataSerializers.BOOLEAN);
+public class MountainBikeEntity extends Entity {
     private static final EntityDataAccessor<Float> D_MUD = def(EntityDataSerializers.FLOAT);
     public float mud(){return entityData.get(D_MUD);}
     public void setMud(float value){entityData.set(D_MUD,Float.isFinite(value)?Math.max(0,Math.min(1,value)):0);}
-    public boolean hasBoombox() { return entityData.get(D_BOOMBOX); }
-    public static java.util.function.Consumer<com.descentmtb.audio.Emitter> audioEditor = e -> {};
     /** Entity position → frame centre of mass, metres. */
     public static final double COM_HEIGHT = 0.52;
     public static final float DEFAULT_FRONT_PSI = 26f, DEFAULT_REAR_PSI = 28f, DEFAULT_FORK_PSI = 80f;
@@ -148,7 +145,6 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
         setBuild(MountainBikeItem.buildOf(stack));
         setMoto(bikeType().motor() ? MountainBikeItem.motoOf(stack) : MotoBuild.DEFAULT);
         CompoundTag tune = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-        entityData.set(D_BOOMBOX,tune.getBoolean("Boombox"));
         setMud(tune.getFloat("Mud"));
         if (tune.contains("FrontPsi")) setPressure(tune.getFloat("FrontPsi"), tune.getFloat("RearPsi"), tune.getFloat("ForkPsi"));
     }
@@ -159,7 +155,6 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
         stack.set(ModComponents.BIKE_BUILD.get(), build());
         if (bikeType().motor()) stack.set(ModComponents.MOTO_BUILD.get(), moto());
         CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
-            tag.putBoolean("Boombox",hasBoombox());
             tag.putFloat("Mud",mud());
             tag.putFloat("FrontPsi", frontPsi()); tag.putFloat("RearPsi", rearPsi()); tag.putFloat("ForkPsi", forkPsi());
         });
@@ -585,15 +580,6 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
             }
             return InteractionResult.sidedSuccess(level().isClientSide);
         }
-        if (player.getItemInHand(hand).is(com.descentmtb.registry.ModBlocks.BOOMBOX_ITEM.get()) && !hasBoombox()) {
-            if (!player.mayBuild()) return InteractionResult.FAIL;
-            if (!level().isClientSide) { entityData.set(D_BOOMBOX,true); if (!player.getAbilities().instabuild) player.getItemInHand(hand).shrink(1); }
-            return InteractionResult.sidedSuccess(level().isClientSide);
-        }
-        if (hasBoombox() && player.isSecondaryUseActive() && !player.getItemInHand(hand).isEmpty()) {
-            if (level().isClientSide) audioEditor.accept(com.descentmtb.audio.Emitter.bike(getId()));
-            return InteractionResult.sidedSuccess(level().isClientSide);
-        }
         if (player.getItemInHand(hand).getItem() instanceof com.descentmtb.item.BikePumpItem) {
             if (isVehicle()) return InteractionResult.FAIL;
             if (!level().isClientSide) {
@@ -689,13 +675,11 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
         b.define(D_BRAKE, 0f);
         b.define(D_BUILD, new CompoundTag());
         b.define(D_MOTO, new CompoundTag());
-        b.define(D_BOOMBOX,false);
         b.define(D_MUD,0f);
     }
 
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
-        entityData.set(D_BOOMBOX,tag.getBoolean("Boombox"));
         setMud(tag.getFloat("Mud"));
         setBikeType(BikeType.byId(tag.getInt("BikeType")));
         if (tag.contains("FrontPsi")) setPressure(tag.getFloat("FrontPsi"), tag.getFloat("RearPsi"), tag.getFloat("ForkPsi"));
@@ -709,10 +693,8 @@ public class MountainBikeEntity extends Entity implements com.descentmtb.audio.B
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
-        tag.putBoolean("Boombox",hasBoombox());
         tag.putFloat("Mud",mud());
         tag.putInt("BikeType", bikeType().ordinal());
-        tag.putBoolean("Boombox",hasBoombox());
             tag.putFloat("FrontPsi", frontPsi()); tag.putFloat("RearPsi", rearPsi()); tag.putFloat("ForkPsi", forkPsi());
         tag.put("Build", BikeBuild.CODEC.encodeStart(NbtOps.INSTANCE, build()).getOrThrow());
         if (bikeType().motor()) tag.put("Moto", MotoBuildCodecs.CODEC.encodeStart(NbtOps.INSTANCE, moto()).getOrThrow());

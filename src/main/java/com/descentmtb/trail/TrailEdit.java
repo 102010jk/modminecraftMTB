@@ -127,7 +127,16 @@ public final class TrailEdit {
      * @throws Rejected when the plan is not allowed; nothing has been changed then
      */
     public static int apply(Level level, Player player, Map<BlockPos,Change> plan, boolean charge) {
-        if (plan.size() > TrailConfig.MAX_BLOCKS.get()) throw new Rejected("descentmtb.edit.too_big", TrailConfig.MAX_BLOCKS.get());
+        return apply(level, player, plan, charge, true);
+    }
+
+    /** Ramps and jump profiles have no edit-size cap; permissions, payment and undo still apply. */
+    public static int applyConstruction(Level level, Player player, Map<BlockPos,Change> plan) {
+        return apply(level, player, plan, !player.getAbilities().instabuild, false);
+    }
+
+    private static int apply(Level level, Player player, Map<BlockPos,Change> plan, boolean charge, boolean bounded) {
+        if (bounded && plan.size() > TrailConfig.MAX_BLOCKS.get()) throw new Rejected("descentmtb.edit.too_big", TrailConfig.MAX_BLOCKS.get());
         preflight(level, player, plan);
         Map<Item,Integer> price = charge ? new HashMap<>(TrailEconomy.balance(level, plan)) : Map.of();
         Set<BlockPos> newlyPaid = new HashSet<>();
@@ -236,8 +245,8 @@ public final class TrailEdit {
 
     /** Keeps at most {@link TrailConfig#UNDO_DEPTH} steps and {@code 2 x MAX_BLOCKS} changed blocks (the newest step always stays). */
     private static void trim(ArrayDeque<Undo> history) {
-        int budget = 2 * TrailConfig.MAX_BLOCKS.get();
-        int stored = history.stream().mapToInt(u -> u.blocks.size()).sum();
+        long budget = 2L * TrailConfig.MAX_BLOCKS.get();
+        long stored = history.stream().mapToLong(u -> u.blocks.size()).sum();
         while (history.size() > 1 && (history.size() > TrailConfig.UNDO_DEPTH.get() || stored > budget)) {
             stored -= history.removeFirst().blocks.size();
         }

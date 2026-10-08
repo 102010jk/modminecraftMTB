@@ -12,11 +12,7 @@ JAR vlož do složky `mods` profilu s NeoForge. Při aktualizaci nahraď původn
 
 ## Jak začít
 
-Kreativní inventář má tři kategorie:
-
-- **Kola:** enduro, hardtail, motokrosová motorka, pitbike a servisní stojan.
-- **Stavění tratí:** trailová lopata, tvarovaná hlína a lávky, podpěry, kořeny, kameny, airbag, bariéry a cedule.
-- **Vybavení:** pumpa, GPS, mapa, sluchátka, reproduktor a trhací fólie.
+V jedné záložce **Descent MTB** najdeš kola, motorky, servisní stojan, pumpu, GPS, mapu i všechny stavební nástroje a bloky.
 
 Pravým klikem na blok polož kolo, pravým klikem na kolo nasedni. Shift slouží k sesednutí; **Shift + pravý klik na prázdné zaparkované kolo** ho vrátí do inventáře s jeho úpravami. Ve stojanu upravíš komponenty, barvy a samolepky; obrazovka ukazuje náhled a stav neuložených změn.
 
@@ -36,8 +32,6 @@ Výchozí klávesy odpovídají současnému kódu. Modové vazby lze změnit v 
 | Kamera / reset kamery | V / B |
 | Návrat / návrat na start | R / Backspace |
 | Zvonek | H |
-| Audio nastavení | P |
-| Stržení fólie | Y |
 | Nabídka trailové lopaty | G |
 | Vrácení změny trati | Ctrl + Z |
 
@@ -47,13 +41,17 @@ Triky závisí na typu kola. Nastavení tricks.trickKeyScheme = CLASSIC použív
 
 Trailová lopata má režimy pro skoky, klopenky, ruční úpravy, rampy a celé linie. Podrž G, najeď na režim a pusť; krátké stisknutí otevře klikací nabídku. V ní funguje i Tab pro kategorii, šipky pro režim a Enter pro potvrzení. Shift + kolečko mění režim nebo jeho nastavení. Ctrl + pravý klik na tvarovaný blok otevře detailní editor. Nápověda nad hotbarem běžně ukazuje jen režim a nastavení; při držení Shift se rozbalí.
 
+Generátor skoků nemá původní stropy 12 m délky, 7 m šířky a 4 m výšky. Délku, šířku, výšku, úhel odrazu, plošinu a dopad můžeš přímo napsat do číselných polí; Enter potvrdí hodnotu. Propojení ramp nemá limit 32 m / 8 m převýšení. Stavba musí být uvnitř hranic a výšky světa, v načtených chunkech a na povolených blocích; převislá stěna není výškový profil a odraz má úhel pod 90°. Tyto stavby nadále podporují vrácení změn a spotřebu materiálu v survivalu.
+
+Boombox, sluchátka a trhací fólie jsou odstraněné. Bláto zůstává pouze na samotném kole; výhled se nešpiní. Předměty odstraněných zařízení ze starých světů již tato verze neregistruje.
+
 GPS zaznamenává jízdu. Trasy lze propojit s cedulemi a zobrazit v mapě; mapa podporuje posun, zoom a výškový profil. Více mapových rámečků vedle sebe může tvořit mapu na zdi.
 
 ## Nastavení
 
-Client config config/descentmtb-client.toml obsahuje jízdu, kamery, triky, zvuk, audio a vizuální efekty. V části hud lze samostatně vypnout rychlost, čas ve vzduchu a nápovědu nástrojů; compactTrailHints ovládá kompaktní nápovědu. audioDevices.musicGain zesiluje PCM hudbu před limiterem. Posuvníky v audio nabídce se použijí při výběru aplikace nebo desky.
+Client config config/descentmtb-client.toml obsahuje jízdu, kamery, triky, zvuk a vizuální efekty. V části hud lze samostatně vypnout rychlost, čas ve vzduchu a nápovědu nástrojů; compactTrailHints ovládá kompaktní nápovědu.
 
-Trailové nástroje mají společný config; limity úprav komponentů spravuje serverový config. Integrace pohyblivých staveb je volitelná: samostatný mod Sable není potřeba pro běžnou jízdu.
+Trailové nástroje mají společný config; `maxBlocks` dál omezuje běžné terénní úpravy a kopírování, ale ne generátor skoků a propojení ramp. Limity úprav komponentů spravuje serverový config. Integrace pohyblivých staveb je volitelná: samostatný mod Sable není potřeba pro běžnou jízdu.
 
 ## Sestavení
 

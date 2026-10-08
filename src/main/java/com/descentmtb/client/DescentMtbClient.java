@@ -51,7 +51,6 @@ public final class DescentMtbClient {
         com.descentmtb.client.trail.TrailClient.setup();
         com.descentmtb.client.trail.SignClient.setup(modBus);
         com.descentmtb.client.map.MapClient.setup();
-        com.descentmtb.client.audio.AudioClient.setup();
         RideEffects.setup();
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e)->com.descentmtb.client.trail.TrailClient.tick());
         NeoForge.EVENT_BUS.addListener(com.descentmtb.client.trail.ShapingHighlight::render);

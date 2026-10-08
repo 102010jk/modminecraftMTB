@@ -43,9 +43,7 @@ public final class ModItems {
     public static final DeferredItem<com.descentmtb.map.TrailMarkerItem> TRAIL_GPS =
             ITEMS.registerItem("trail_gps", com.descentmtb.map.TrailMarkerItem::new, new Item.Properties().stacksTo(1));
 
-    public static final DeferredItem<com.descentmtb.audio.HeadphonesItem> HEADPHONES = ITEMS.registerItem("headphones",com.descentmtb.audio.HeadphonesItem::new,new Item.Properties().stacksTo(1));
     public static final DeferredItem<com.descentmtb.map.TrailMapItem> TRAIL_MAP = ITEMS.registerItem("trail_map",com.descentmtb.map.TrailMapItem::new,new Item.Properties().stacksTo(1));
-    public static final DeferredItem<com.descentmtb.item.TearOffItem> TEAR_OFF = ITEMS.registerItem("tear_off",com.descentmtb.item.TearOffItem::new,new Item.Properties());
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TAB =
             TABS.register("main", () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.descentmtb"))
@@ -55,33 +53,10 @@ public final class ModItems {
                         output.accept(HARDTAIL_BIKE.get());
                         output.accept(DIRT_BIKE.get());
                         output.accept(PIT_BIKE.get());
-                        output.accept(ModBlocks.BIKE_STAND_ITEM.get());
-                    })
-                    .build());
-
-    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TRAILS_TAB =
-            TABS.register("trails", () -> CreativeModeTab.builder()
-                    .title(Component.translatable("itemGroup.descentmtb.trails"))
-                    .icon(() -> new ItemStack(ModBlocks.TRAIL_SHOVEL.get()))
-                    .withTabsBefore(TAB.getKey())
-                    .displayItems((params, output) -> ModBlocks.TAB_ITEMS.forEach(supplier -> {
-                        var item = supplier.get();
-                        if (item != ModBlocks.BIKE_STAND_ITEM.get() && item != ModBlocks.BOOMBOX_ITEM.get()) output.accept(item);
-                    }))
-                    .build());
-
-    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> EQUIPMENT_TAB =
-            TABS.register("equipment", () -> CreativeModeTab.builder()
-                    .title(Component.translatable("itemGroup.descentmtb.equipment"))
-                    .icon(() -> new ItemStack(HEADPHONES.get()))
-                    .withTabsBefore(TRAILS_TAB.getKey())
-                    .displayItems((params, output) -> {
                         output.accept(BIKE_PUMP.get());
                         output.accept(TRAIL_GPS.get());
                         output.accept(TRAIL_MAP.get());
-                        output.accept(HEADPHONES.get());
-                        output.accept(ModBlocks.BOOMBOX_ITEM.get());
-                        output.accept(TEAR_OFF.get());
+                        ModBlocks.TAB_ITEMS.forEach(supplier -> output.accept(supplier.get()));
                     })
                     .build());
 

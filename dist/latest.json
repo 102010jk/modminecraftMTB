@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0-alpha-m25",
-  "sha256": "d1231bae76ef5ca75f77b53ac3751033dc813ded293d7324f2f150bea25cb089",
-  "size": 4738093,
-  "notes": "Clean UI: jednotne editory, kompaktni HUD, audio posuvniky a prehledny inventar"
+  "version": "1.0.0-alpha-m26",
+  "sha256": "c11894186facfab27d274c7debdde204cae110fc73e04cad78f77d126aadd93b",
+  "size": 4633021,
+  "notes": "Volne rozmery ramp a skoku, jeden inventar; bez boomboxu, sluchatek a spineni vyhledu"
 }

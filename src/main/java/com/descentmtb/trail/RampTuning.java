@@ -50,10 +50,6 @@ public final class RampTuning {
 
     /** One click changes the START / END height by this many sixteenths of a block. */
     private static final int HEIGHT_STEP = 2;
-    /** LINK limits: blocks along the run and vertical distance between the first and last block. */
-    private static final int LINK_MAX_LENGTH = 32;
-    private static final int LINK_MAX_DY = 8;
-
     /** First block of a pending LINK, and the dimension it is in. */
     private record Start(ResourceKey<Level> dimension, BlockPos pos) {}
 
@@ -232,15 +228,10 @@ public final class RampTuning {
             message(player, "descentmtb.ramp_tune.link.not_in_line");
             return;
         }
-        if (along + 1 > LINK_MAX_LENGTH || Math.abs(dy) > LINK_MAX_DY) {
-            message(player, "descentmtb.ramp_tune.link.too_far");
-            return;
-        }
-
         int length = along + 1;
         Map<BlockPos, TrailEdit.Change> changes = linkedRun(level, first, firstState, target, facing, length, dy);
         if (!changes.isEmpty()) {
-            TrailEdit.apply(level, player, changes);
+            TrailEdit.applyConstruction(level, player, changes);
         }
         LINK_START.remove(player.getUUID());
         level.playSound(null, pos, SoundEvents.UI_BUTTON_CLICK.value(), SoundSource.BLOCKS, .5f, 1f);
@@ -259,7 +250,7 @@ public final class RampTuning {
             long h1 = Math.round(startHeight + (endHeight - startHeight) * RampMath.profile(profile, (double) (k + 1) / length));
             int levelOffset = levelOffset(k, length, dy, h0, h1);
             BlockPos p = first.offset(facing.getStepX() * k, levelOffset, facing.getStepZ() * k);
-            if (!level.isLoaded(p)) {
+            if (!level.isLoaded(p) || level.isOutsideBuildHeight(p) || !level.getWorldBorder().isWithinBounds(p)) {
                 throw new TrailEdit.Rejected("descentmtb.ramp_tune.link.not_loaded");
             }
             BlockState existing = level.getBlockState(p);

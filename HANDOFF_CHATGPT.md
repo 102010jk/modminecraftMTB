@@ -1,35 +1,30 @@
 # Descent MTB — aktuální předání (2026-10-08)
 
-Repozitář: `C:/MTBMod`, GitHub `102010jk/modminecraftMTB`, větev `master`.
+Repozitář `C:/MTBMod`; GitHub `102010jk/modminecraftMTB`; publikovaná větev `master`.
 Minecraft 1.21.1, NeoForge 21.1.250, Java 21.
 
-## Milník 25: úklid rozhraní a projektu
+## Milník 26
 
-JAR: `dist/descentmtb-milestone-25-clean-ui.jar`; jeho kopie je `dist/descentmtb-latest.jar` a `releases/descentmtb-1.0.0-alpha-m25.jar`.
+JAR: `dist/descentmtb-milestone-26-construction-freedom.jar`, kopie `dist/descentmtb-latest.jar` a `releases/descentmtb-1.0.0-alpha-m26.jar`.
 
-- Sdílené pozadí devíti editorů přes `client/ui/DescentScreen`; společné barvy a omezený text přes `UiTheme`.
-- Adaptivní kategorie hůlky, popisy mimo prstenec, klávesnicová volba a opravené krátké otevření nabídky.
-- Audio: pojmenované posuvníky, stránkování, tooltipy aplikací, zahazování zastaralých výsledků načítání.
-- Aktualizace: zalomený text, přehledná karta a ukazatel stahování. Workshop: nadpis nezasahuje do stavu uložení.
-- Menší nápověda nad hotbarem; Shift zobrazí podrobnosti. Časomíra nepřekrývá banner triku. HUD se nekreslí pod otevřeným menu.
-- Kreativní inventář rozdělený na kola, stavění tratí a vybavení; registry předmětů a bloků zůstávají zachované.
-- README odpovídá aktuálním klávesám a funkcím. Staré plány a kontrolní obrázky jsou archivované, nikoli smazané.
+- Jedna kreativní záložka Descent MTB. Boombox, sluchátka a trhací fólie kompletně odstraněné z aktivního buildu; výhled se nešpiní. Bláto na kole, ukládání jeho stavu a mytí zachované.
+- Skoky a propojené rampy nemají staré malé rozměrové stropy ani limit počtu bloků. Zachované světové hranice, výška dimenze, načtené chunky, práva, ochrany, survival materiál a undo.
+- Přímé zadání čísel v generátoru skoků; omezený počet bodů náhledu a přesná maximální strmost bez délkového skenování.
+- Vyšší uložené rohy strmých profilů se neřežou na +/-16 bloků. Ostatní terénní editory a klonování mají původní konfigurovatelné limity.
+- Síťový protokol 11: stejná verze na serveru i klientovi. Staré odstraněné předměty/zařízení již nejsou registrované.
 
-Podrobnosti: [milník 25](docs/milestone-25-clean-ui.md). Starší aktuální změny: [milníky 20–24](releases/README.md). Historické předání do milníku 17: [archiv](docs/archive/handoff-through-m17.md).
+Podrobnosti: [milník 26](docs/milestone-26-construction-freedom.md); historie: [releases](releases/README.md).
 
 ## Pravidla práce
 
 - Pouze build; nespouštět hru, autopilota, screenshoty ani herní testy.
 - Nikdy `git add -A`; přidávat explicitně jen soubory dané práce.
 - Zachovat JAR každého milníku a aktualizovat `dist/descentmtb-latest.jar`.
-- Nepoužívat AgentBridge. Ostatní rozpracované projekty neměnit.
-- Rozpracovaný addon `addons/mtb-ropeways` je samostatný a nebyl součástí tohoto úklidu.
-
-Build v PowerShellu:
+- Nepoužívat AgentBridge. Samostatný rozpracovaný addon `addons/mtb-ropeways` neměnit.
 
 ```powershell
 $env:JAVA_HOME='C:/Users/jakub/AppData/Local/Programs/Eclipse Adoptium/jdk-21.0.11.10-hotspot'
 .\gradlew.bat assemble --console=plain
 ```
 
-Ověření milníku 25: `assemble` úspěšný; bez herního, vizuálního, poslechového či multiplayer ověření a bez nezávislé agentové review. Jde o úklid rozhraní a projektu, nikoli potvrzení, že všechny zbývající chyby fyziky či vzhledu jsou odstraněné.
+Ověření milníku 26: úspěšný `assemble`, kontrola obsahu JARu a shodných kopií. Žádná hra, vizuální/poslechové/multiplayer ověření, unit testy ani nezávislá agentová review. Změněny jen očekávané hodnoty existujícího testu nastavení skoků, test nebyl spuštěn.

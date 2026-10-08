@@ -41,6 +41,14 @@ public final class SurfacePlans {
   return surface(l,x0,z0,x1,z1,columnTop,height,contains,false,false,headroom,material,payMaterial);
  }
  private static Map<BlockPos,TrailEdit.Change> surface(Level l,int x0,int z0,int x1,int z1,DoubleBinaryOperator columnTop,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,boolean wood,boolean preserve,int headroom,net.minecraft.world.level.block.state.BlockState custom,boolean payMaterial){
+  return surface(l,x0,z0,x1,z1,columnTop,height,contains,wood,preserve,headroom,custom,payMaterial,true);
+ }
+ /** A ramp/jump footprint without the trail-area or edit-size caps. */
+ public static Map<BlockPos,TrailEdit.Change> construction(Level l,int x0,int z0,int x1,int z1,DoubleBinaryOperator columnTop,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,int headroom,net.minecraft.world.level.block.state.BlockState custom,boolean payMaterial){
+  return surface(l,x0,z0,x1,z1,columnTop,height,contains,false,false,headroom,custom,payMaterial,false);
+ }
+ private static Map<BlockPos,TrailEdit.Change> surface(Level l,int x0,int z0,int x1,int z1,DoubleBinaryOperator columnTop,DoubleBinaryOperator height,java.util.function.BiPredicate<Double,Double> contains,boolean wood,boolean preserve,int headroom,net.minecraft.world.level.block.state.BlockState custom,boolean payMaterial,boolean bounded){
+  if(!bounded && (!l.getWorldBorder().isWithinBounds(new BlockPos(x0,l.getMinBuildHeight(),z0)) || !l.getWorldBorder().isWithinBounds(new BlockPos(x1,l.getMinBuildHeight(),z1))))throw new TrailEdit.Rejected("descentmtb.edit.not_allowed");
   var samples=new HashMap<Long,Double>();DoubleBinaryOperator sampled=(x,z)->samples.computeIfAbsent(BlockPos.asLong((int)x,0,(int)z),k->height.applyAsDouble(x,z));
   var out=new LinkedHashMap<BlockPos,TrailEdit.Change>();
   for(int x=x0;x<=x1;x++)for(int z=z0;z<=z1;z++){
@@ -52,8 +60,10 @@ public final class SurfacePlans {
    if(preserve && l.getBlockEntity(new BlockPos(x,(int)Math.floor(old-.0001),z)) instanceof com.descentmtb.ramp.RampBlockEntity be){material=be.getMaterial();deck=be instanceof TrailSurfaceEntity shaped&&shaped.deck();decoration=be.saveWithoutMetadata(l.registryAccess());}
    double[] h={sampled.applyAsDouble(x,z),sampled.applyAsDouble(x+1,z),sampled.applyAsDouble(x,z+1),sampled.applyAsDouble(x+1,z+1)};
    double[] occupied=h.clone();double amplitude=decoration==null?0:OverlayMath.amplitude(decoration.getInt("Overlay"));for(int i=0;i<4;i++)occupied[i]+=amplitude;
-   var stack=ColumnShaper.layers(occupied,deck);
-   int bottom=ColumnShaper.layers(h,deck).bottom(),top=stack.top();
+   for(double v:occupied)if(!Double.isFinite(v)||v<l.getMinBuildHeight()+.001||v>l.getMaxBuildHeight())throw new TrailEdit.Rejected("descentmtb.edit.not_loaded");
+   int maxLayers=bounded?ColumnShaper.MAX_LAYERS:l.getHeight();
+   var stack=ColumnShaper.layers(occupied,deck,maxLayers);
+   int bottom=ColumnShaper.layers(h,deck,maxLayers).bottom(),top=stack.top();
    for(int y=bottom;y<=top;y++){double[] local=h.clone();for(int i=0;i<4;i++)local[i]-=y;var change=new TrailEdit.Change(ModBlocks.TRAIL_SURFACE.get().defaultBlockState(),decoration==null?null:decoration.copy(),local,material,deck);out.put(new BlockPos(x,y,z),payMaterial&&y==top?change.paid():change);}
    if(deck){
     // Remove obsolete layers when a wooden wave is moved up/down, retaining the empty underside.
@@ -64,7 +74,7 @@ public final class SurfacePlans {
     for(int y=top+1;y<=Math.max(top+headroom,Math.ceil(old));y++)if(!l.getBlockState(new BlockPos(x,y,z)).isAir())out.put(new BlockPos(x,y,z),TrailEdit.Change.block(Blocks.AIR.defaultBlockState()));
     for(int y=bottom-1;y>=Math.max(bottom-12,Math.floor(old)-1);y--){var p=new BlockPos(x,y,z);if(!l.getBlockState(p).isAir())break;out.put(p,TrailEdit.Change.block(Blocks.DIRT.defaultBlockState()));}
    }
-   if(out.size()>TrailConfig.MAX_BLOCKS.get())throw new TrailEdit.Rejected("descentmtb.edit.too_big",TrailConfig.MAX_BLOCKS.get());
+   if(bounded && out.size()>TrailConfig.MAX_BLOCKS.get())throw new TrailEdit.Rejected("descentmtb.edit.too_big",TrailConfig.MAX_BLOCKS.get());
   }
   return out;
  }

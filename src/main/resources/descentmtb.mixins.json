@@ -8,7 +8,6 @@
     "EntityTurnMixin",
     "PlayerModelMixin",
     "PlayerRendererMixin",
-    "SoundEngineMixin",
     "ItemFrameRendererMixin"
   ],
   "injectors": {

@@ -74,8 +74,6 @@ public final class ModBlocks {
     public static final DeferredBlock<com.descentmtb.custom.BikeStandBlock> BIKE_STAND=BLOCKS.registerBlock("bike_stand",com.descentmtb.custom.BikeStandBlock::new,BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2f).sound(SoundType.METAL).noOcclusion());
     public static final DeferredHolder<BlockEntityType<?>,BlockEntityType<com.descentmtb.custom.BikeStandBlockEntity>> BIKE_STAND_BE=BLOCK_ENTITIES.register("bike_stand",()->BlockEntityType.Builder.of(com.descentmtb.custom.BikeStandBlockEntity::new,BIKE_STAND.get()).build(null));
     public static final DeferredItem<BlockItem> BIKE_STAND_ITEM=ITEMS.registerSimpleBlockItem("bike_stand",BIKE_STAND);
-    public static final DeferredBlock<com.descentmtb.audio.BoomboxBlock> BOOMBOX = BLOCKS.registerBlock("boombox",com.descentmtb.audio.BoomboxBlock::new,BlockBehaviour.Properties.of().strength(1f).sound(SoundType.METAL));
-    public static final DeferredItem<BlockItem> BOOMBOX_ITEM = ITEMS.registerSimpleBlockItem("boombox",BOOMBOX);
     /** Tamped trail dirt with pebbles: the default material of hand-built trail surfaces. */
     public static final DeferredBlock<net.minecraft.world.level.block.Block> PACKED_TRAIL_DIRT = BLOCKS.registerBlock("packed_trail_dirt",
             net.minecraft.world.level.block.Block::new, BlockBehaviour.Properties.of().mapColor(MapColor.DIRT).strength(0.6F).sound(SoundType.ROOTED_DIRT));
@@ -95,7 +93,7 @@ public final class ModBlocks {
         return TRAIL_BOARDS.get().defaultBlockState();
     }
 
-    public static final List<Supplier<? extends ItemLike>> TAB_ITEMS = List.of(TRAIL_SHOVEL, TRAIL_DIRT, TRAIL_DECK, ROOT_ITEM, ROCK_ITEM, SUPPORT_ITEM, AIRBAG_ITEM, BARRIER_ITEM, SIGN_ITEM, BIKE_STAND_ITEM, BOOMBOX_ITEM, PACKED_TRAIL_DIRT_ITEM, TRAIL_BOARDS_ITEM);
+    public static final List<Supplier<? extends ItemLike>> TAB_ITEMS = List.of(TRAIL_SHOVEL, TRAIL_DIRT, TRAIL_DECK, ROOT_ITEM, ROCK_ITEM, SUPPORT_ITEM, AIRBAG_ITEM, BARRIER_ITEM, SIGN_ITEM, BIKE_STAND_ITEM, PACKED_TRAIL_DIRT_ITEM, TRAIL_BOARDS_ITEM);
 
     private ModBlocks() {}
 

@@ -94,7 +94,7 @@ public final class JumpBuilder {
             return false;
         }
         try {
-            int blocks = TrailEdit.apply(level, player, plan(level, layout(pos, facing, params), BlockEditor.offHandMaterial(player, pos)));
+            int blocks = TrailEdit.applyConstruction(level, player, plan(level, layout(pos, facing, params), BlockEditor.offHandMaterial(player, pos)));
             level.playSound(null, pos, SoundEvents.GRAVEL_PLACE, SoundSource.BLOCKS, .8f, .9f);
             player.displayClientMessage(summary(params), true);
             return blocks > 0;
@@ -113,7 +113,7 @@ public final class JumpBuilder {
     public static Map<BlockPos, TrailEdit.Change> plan(Level level, JumpProfiles.Layout layout, BlockState material) {
         int[] box = layout.bounds();
         double reference = layout.y() + 1;
-        return SurfacePlans.hillside(level, box[0], box[1], box[2], box[3],
+        return SurfacePlans.construction(level, box[0], box[1], box[2], box[3],
                 (x, z) -> SurfacePlans.terrain(level, x, z, reference), layout::height, layout::contains, HEADROOM, material, material != null);
     }
 

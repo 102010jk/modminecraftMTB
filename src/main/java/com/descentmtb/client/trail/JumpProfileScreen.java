@@ -8,6 +8,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import com.descentmtb.client.ui.DescentScreen;
 import net.minecraft.core.BlockPos;
@@ -21,6 +22,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.function.IntSupplier;
+import java.util.function.DoubleSupplier;
+import java.util.function.DoubleConsumer;
 
 /**
  * The jump screen of the Trail Shaper's jump builder: the kind of jump and its numbers on the left, a live side profile
@@ -46,8 +49,12 @@ public final class JumpProfileScreen extends DescentScreen {
 
     /** The rows of numbers, rebuilt with the widgets. */
     private final List<Row> rows = new ArrayList<>();
+    private final List<NumberInput> numbers = new ArrayList<>();
+    private record NumberInput(EditBox box, DoubleSupplier value) {}
+    private boolean refreshingNumbers;
     private int left, panelWidth, previewX, previewY, previewWidth, previewHeight;
     private Button loadButton, deleteButton, saveButton, buildButton;
+    private EditBox nameField;
 
     /** One line of the controls: a label, the value and the minus / plus buttons. */
     private record Row(int y, Component label, java.util.function.Supplier<String> value, boolean active) {}
@@ -75,28 +82,29 @@ public final class JumpProfileScreen extends DescentScreen {
         panelWidth = Math.min(width - 16, 440);
         left = (width - panelWidth) / 2;
         rows.clear();
+        numbers.clear();
 
         int y = TOP;
         addRow(y, "descentmtb.jump.field.type", () -> Component.translatable(params.type().key()).getString(), true,
                 step -> params = params.withType(params.type().cycled(step)), () -> 1);
         y += ROW;
-        addRow(y, "descentmtb.jump.field.length", () -> blocks(params.length()), true,
-                step -> params = params.withLength(params.length() + step), () -> Screen.hasShiftDown() ? 3 : 1);
+        addNumberRow(y, "descentmtb.jump.field.length", true, () -> params.length(),
+                value -> params = params.withLength((int) value), 1, () -> Screen.hasShiftDown() ? 3 : 1, false);
         y += ROW;
-        addRow(y, "descentmtb.jump.field.width", () -> blocks(params.width()), true,
-                step -> params = params.withWidth(params.width() + step), () -> Screen.hasShiftDown() ? 2 : 1);
+        addNumberRow(y, "descentmtb.jump.field.width", true, () -> params.width(),
+                value -> params = params.withWidth((int) value), 1, () -> Screen.hasShiftDown() ? 2 : 1, false);
         y += ROW;
-        addRow(y, "descentmtb.jump.field.height", () -> metres(params.height()), true,
-                step -> params = params.withHeight(params.height() + step * JumpProfiles.HEIGHT_STEP), () -> Screen.hasShiftDown() ? 4 : 1);
+        addNumberRow(y, "descentmtb.jump.field.height", true, () -> params.height(),
+                value -> params = params.withHeight(value), JumpProfiles.HEIGHT_STEP, () -> Screen.hasShiftDown() ? 4 : 1, true);
         y += ROW;
-        addRow(y, "descentmtb.jump.field.lip", () -> params.lip() + "°", params.type().hasLip(),
-                step -> params = params.withLip(params.lip() + step), () -> Screen.hasShiftDown() ? 5 : 1);
+        addNumberRow(y, "descentmtb.jump.field.lip", params.type().hasLip(), () -> params.lip(),
+                value -> params = params.withLip((int) value), 1, () -> Screen.hasShiftDown() ? 5 : 1, false);
         y += ROW;
-        addRow(y, "descentmtb.jump.field.deck", () -> blocks(params.deck()), params.type().hasDeck(),
-                step -> params = params.withDeck(params.deck() + step), () -> Screen.hasShiftDown() ? 3 : 1);
+        addNumberRow(y, "descentmtb.jump.field.deck", params.type().hasDeck(), () -> params.deck(),
+                value -> params = params.withDeck((int) value), 1, () -> Screen.hasShiftDown() ? 3 : 1, false);
         y += ROW;
-        addRow(y, "descentmtb.jump.field.landing", () -> blocks(params.landing()), params.type().hasLanding(),
-                step -> params = params.withLanding(params.landing() + step), () -> Screen.hasShiftDown() ? 3 : 1);
+        addNumberRow(y, "descentmtb.jump.field.landing", params.type().hasLanding(), () -> params.landing(),
+                value -> params = params.withLanding((int) value), 1, () -> Screen.hasShiftDown() ? 3 : 1, false);
         y += ROW;
 
         previewX = left + CONTROLS_WIDTH + 10;
@@ -116,6 +124,7 @@ public final class JumpProfileScreen extends DescentScreen {
                 .bounds(x + 186 + buttonWidth, profileY, buttonWidth, 18).build());
 
         EditBox name = new EditBox(font, x + 1, profileY + 23, 174, 16, Component.translatable("descentmtb.jump.name"));
+        nameField = name;
         name.setMaxLength(32);
         name.setHint(Component.translatable("descentmtb.jump.name_hint"));
         name.setValue(typedName);
@@ -154,7 +163,63 @@ public final class JumpProfileScreen extends DescentScreen {
         params = params.clamped();
         if (params.type() != before) {
             rebuildWidgets();   // other rows apply to the new kind of jump
+        } else {
+            syncNumbers();
         }
+    }
+
+    /** Direct entry makes large constructions practical without thousands of button presses. */
+    private void addNumberRow(int y, String key, boolean active, DoubleSupplier value,
+                              DoubleConsumer set, double step, IntSupplier amount, boolean decimal) {
+        addRow(y, key, () -> "", active, direction -> set.accept(value.getAsDouble() + direction * step), amount);
+        EditBox box = new EditBox(font, left + 110, y + 1, CONTROLS_WIDTH - 128, 14, Component.translatable(key));
+        box.setMaxLength(12);
+        box.setFilter(text -> text.matches(decimal ? "[0-9]*\\.?[0-9]*" : "[0-9]*"));
+        box.setValue(number(value.getAsDouble()));
+        box.setEditable(active);
+        box.active = active;
+        box.setTooltip(Tooltip.create(Component.translatable("descentmtb.jump.value_hint", Component.translatable(key),
+                key.endsWith(".lip") ? "°" : "m")));
+        numbers.add(new NumberInput(box, value));
+        box.setResponder(text -> {
+            if (refreshingNumbers) return;
+            try {
+                double typed = Double.parseDouble(text);
+                if (!Double.isFinite(typed) || typed > Integer.MAX_VALUE) throw new NumberFormatException();
+                set.accept(typed);
+                params = params.clamped();
+                box.setTextColor(VALUE);
+            } catch (NumberFormatException ignored) {
+                box.setTextColor(0xffff8b76);
+            }
+            refreshButtons();
+        });
+        addRenderableWidget(box);
+    }
+
+    private void syncNumbers() {
+        refreshingNumbers = true;
+        for (NumberInput input : numbers) {
+            input.box().setValue(number(input.value().getAsDouble()));
+            input.box().setTextColor(VALUE);
+        }
+        refreshingNumbers = false;
+        refreshButtons();
+    }
+
+    private boolean validNumbers() {
+        for (NumberInput input : numbers) {
+            if (!input.box().active) continue;
+            try {
+                double typed = Double.parseDouble(input.box().getValue());
+                if (!Double.isFinite(typed) || typed <= 0 || typed > Integer.MAX_VALUE) return false;
+            } catch (NumberFormatException ignored) { return false; }
+        }
+        return true;
+    }
+
+    private static String number(double value) {
+        return String.format(Locale.ROOT, "%.4f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
     }
 
     private void refreshButtons() {
@@ -162,8 +227,8 @@ public final class JumpProfileScreen extends DescentScreen {
             return;
         }
         deleteButton.active = !profiles.get(selected).builtIn();
-        saveButton.active = !typedName.isBlank();
-        buildButton.active = pos != null;
+        saveButton.active = !typedName.isBlank() && validNumbers();
+        buildButton.active = pos != null && validNumbers();
     }
 
     private void pick(int step) {
@@ -185,6 +250,8 @@ public final class JumpProfileScreen extends DescentScreen {
     }
 
     private void save() {
+        if (!validNumbers()) return;
+        syncNumbers();
         String name = typedName.trim();
         if (name.isEmpty()) {
             return;
@@ -201,9 +268,10 @@ public final class JumpProfileScreen extends DescentScreen {
     }
 
     private void build() {
-        if (pos == null) {
+        if (pos == null || !validNumbers()) {
             return;
         }
+        syncNumbers();
         remember();
         PacketDistributor.sendToServer(new JumpBuildPayload(true, pos, facing, params));
         sent = true;
@@ -231,7 +299,8 @@ public final class JumpProfileScreen extends DescentScreen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if ((keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) && getFocused() instanceof EditBox) {
-            save();
+            if (getFocused() == nameField) save();
+            else if (validNumbers()) syncNumbers();
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
@@ -246,7 +315,8 @@ public final class JumpProfileScreen extends DescentScreen {
         for (Row row : rows) {
             g.drawString(font, row.label(), left, row.y() + 4, row.active() ? LABEL : DIM);
             int centre = (left + 108 + left + CONTROLS_WIDTH - 16) / 2;
-            g.drawCenteredString(font, row.active() ? row.value().get() : "-", centre, row.y() + 4, row.active() ? VALUE : DIM);
+            String value = row.value().get();
+            if (!value.isEmpty()) g.drawCenteredString(font, value, centre, row.y() + 4, row.active() ? VALUE : DIM);
         }
         drawProfile(g);
 
@@ -273,14 +343,15 @@ public final class JumpProfileScreen extends DescentScreen {
         double scale = Math.min((w - 8) / (total + 2.0), (ground - y0 - 6) / top);
         int startX = x0 + 4 + (int) Math.round(scale);   // one block of run-in on the left
 
-        // grid: one line per block along and per block of height
-        for (int i = -1; i <= total + 1; i++) {
+        // Keep grid and labels readable for arbitrarily long profiles; rendering scales with the screen.
+        int gridStep = Math.max(1, (int) Math.ceil(6 / scale));
+        for (int i = -gridStep; i <= total + 1; i += gridStep) {
             int gx = startX + (int) Math.round(i * scale);
             if (gx >= x0 && gx < x0 + w) {
                 g.fill(gx, y0 + 2, gx + 1, ground, 0xff2c3d45);
             }
         }
-        for (int k = 1; k <= (int) Math.floor(top); k++) {
+        for (int k = gridStep; k <= (int) Math.floor(top); k += gridStep) {
             int gy = ground - (int) Math.round(k * scale);
             g.fill(x0 + 2, gy, x0 + w - 2, gy + 1, 0xff2c3d45);
         }
@@ -295,11 +366,10 @@ public final class JumpProfileScreen extends DescentScreen {
             g.fill(px, surface - 1, px + 1, surface + 1, px >= startX && px < endX ? 0xff7fb24b : 0xff4f6e3a);
         }
         // block numbers under the ground line
-        for (int i = 0; i < total; i++) {
+        int labelStep = Math.max(1, (int) Math.ceil(24 / scale));
+        for (int i = 0; i < total; i += labelStep) {
             int cx = startX + (int) Math.round((i + .5) * scale);
-            if (scale >= 9 || i % 2 == 0) {
-                g.drawCenteredString(font, String.valueOf(i + 1), cx, ground + 3, LABEL);
-            }
+            g.drawCenteredString(font, String.valueOf(i + 1), cx, ground + 3, LABEL);
         }
 
         String lip = params.type().hasLip() || params.type() == JumpProfiles.Type.RAMP
@@ -310,8 +380,8 @@ public final class JumpProfileScreen extends DescentScreen {
             maxSlope = params.maxSlope();
         }
         Component second = Component.translatable("descentmtb.jump.preview.angles", lip, Math.round(maxSlope) + "°");
-        g.drawString(font, first, x0 + 4, y0 + h - 22, VALUE);
-        g.drawString(font, second, x0 + 4, y0 + h - 11, VALUE);
+        g.drawString(font, com.descentmtb.client.ui.UiTheme.fit(font, first.getString(), w - 8), x0 + 4, y0 + h - 22, VALUE);
+        g.drawString(font, com.descentmtb.client.ui.UiTheme.fit(font, second.getString(), w - 8), x0 + 4, y0 + h - 11, VALUE);
     }
 
     private static String blocks(int count) {

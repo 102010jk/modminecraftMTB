@@ -11,12 +11,14 @@ import java.util.Locale;
  * <p>Distances are in blocks from the start edge of the clicked block, heights in blocks above the start.
  */
 public final class JumpProfiles {
-    public static final int MIN_LENGTH = 2, MAX_LENGTH = 12;
-    public static final int MIN_WIDTH = 1, MAX_WIDTH = 7;
-    public static final double MIN_HEIGHT = .25, MAX_HEIGHT = 4, HEIGHT_STEP = 1.0 / 16;
-    public static final int MIN_LIP = 10, MAX_LIP = 60;
-    public static final int MIN_DECK = 1, MAX_DECK = 8;
-    public static final int MIN_LANDING = 2, MAX_LANDING = 12;
+    // Only Minecraft's representable world dimensions remain; no bikepark size presets are enforced.
+    public static final int MIN_LENGTH = 1, MAX_LENGTH = 60_000_000;
+    public static final int MIN_WIDTH = 1, MAX_WIDTH = 60_000_000;
+    public static final double MIN_HEIGHT = 1.0 / 16, MAX_HEIGHT = 4064, HEIGHT_STEP = 1.0 / 16;
+    // A height-function take-off must stay below vertical to keep its slope finite.
+    public static final int MIN_LIP = 1, MAX_LIP = 89;
+    public static final int MIN_DECK = 1, MAX_DECK = MAX_LENGTH;
+    public static final int MIN_LANDING = 1, MAX_LANDING = MAX_LENGTH;
     /** Length (blocks) of the face that climbs from the lip of a step-up to its platform. */
     public static final int STEP_UP_FACE = 1;
     /** The lip of a step-up sits at this share of the platform height. */
@@ -185,13 +187,17 @@ public final class JumpProfiles {
             };
         }
 
-        /** The steepest slope (degrees) anywhere along the jump, from finely spaced samples. */
+        /** Exact maximum slope of each curve, independent of the jump's length. */
         public double maxSlope() {
-            double steepest = 0;
-            double step = 1.0 / 256;
-            for (double u = 0; u + step <= total() + 1e-9; u += step) {
-                steepest = Math.max(steepest, Math.abs(heightAt(u + step) - heightAt(u)) / step);
-            }
+            double steepest = switch (type) {
+                case KICKER -> kickerSlope(length, height, lip);
+                case RAMP -> height / length;
+                case LANDING -> 1.5 * height / length;
+                case ROLLER -> Math.PI * height / length;
+                case TABLE -> Math.max(kickerSlope(length, height, lip), 1.5 * height / landing);
+                case STEP_UP -> Math.max(kickerSlope(length, lipHeight(), lip),
+                        1.5 * (height - lipHeight()) / STEP_UP_FACE);
+            };
             return Math.toDegrees(Math.atan(steepest));
         }
     }

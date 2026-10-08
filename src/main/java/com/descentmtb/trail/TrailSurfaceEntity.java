@@ -17,7 +17,7 @@ public final class TrailSurfaceEntity extends RampBlockEntity {
     private VoxelShape shape;
     public TrailSurfaceEntity(BlockPos pos, BlockState state) { super(ModBlocks.TRAIL_BE.get(), pos, state); }
     public void setShape(double[] heights, boolean deck) {
-        for (int i = 0; i < 4; i++) h[i] = Double.isFinite(heights[i])?Math.max(-16,Math.min(16,heights[i])):0;
+        for (int i = 0; i < 4; i++) h[i] = storedCorner(heights[i]);
         this.deck = deck; shape = null; shapeChanged(); setChanged();
         if (level != null) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
     }
@@ -55,7 +55,12 @@ public final class TrailSurfaceEntity extends RampBlockEntity {
     }
     @Override protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        for (int i = 0; i < 4; i++) h[i] = Math.max(-16, Math.min(16, tag.getDouble("Corner" + i)));
+        for (int i = 0; i < 4; i++) h[i] = storedCorner(tag.getDouble("Corner" + i));
         deck = tag.getBoolean("Deck"); beam=tag.getBoolean("Beam");overlay=Math.max(0,Math.min(2,tag.getInt("Overlay"))); shape = null;shapeChanged();
+    }
+
+    // Keep the original plane intact even when a steep jump spans many vertical layers.
+    private static double storedCorner(double value) {
+        return Double.isFinite(value) ? Math.max(-JumpProfiles.MAX_HEIGHT, Math.min(JumpProfiles.MAX_HEIGHT, value)) : 0;
     }
 }

@@ -5,7 +5,7 @@
 * New trail materials, drawn from scratch, tileable:
     packed_trail_dirt_top / _side   - tamped trail dirt: tyre-polished lanes, embedded pebbles, crumbs, cracks
     trail_boards                    - nailed deck boards: grain, knots, gaps with ambient occlusion, nail heads
-* Re-shading of the older flat-filled textures (airbag, barrier post, cloth barrier, stand materials, boombox):
+* Re-shading of the older flat-filled textures (airbag, barrier post, cloth barrier, stand materials):
   every flat colour region gets light from the top left (warm 1 px rim highlight, cool shadow on the bottom/right
   edges), a soft occlusion where it meets another region, and a fine material grain - the drawn design stays.
 
@@ -169,7 +169,7 @@ def reshade(name, grain=0.06, strength=1.0):
 
 if __name__ == "__main__":
     packed_dirt_top(); packed_dirt_side(); trail_boards()
-    # only the truly flat fills; the stand materials and the boombox already carry their own shading
+    # only the truly flat fills; the stand materials already carry their own shading
     for name, g in (("airbag", 0.10), ("barrier_post", 0.06), ("cloth_barrier", 0.05)):
         reshade(name, g)
     print("textures written to", os.path.relpath(BLOCK, ROOT))

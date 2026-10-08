@@ -162,9 +162,10 @@ public final class ShapingHighlight {
             JumpProfiles.Layout layout = JumpBuilder.layout(start, facing, jump);
             jumpBounds = layout.bounds();
             jumpTop = 0;
-            jumpPoints = new double[jump.total() * 8 + 1][];
+            int segments = (int) Math.min(2048L, jump.total() * 8L);
+            jumpPoints = new double[segments + 1][];
             for (int i = 0; i < jumpPoints.length; i++) {
-                double u = i / 8.0;
+                double u = jump.total() * (i / (double) segments);
                 double[] point = layout.point(u);
                 double height = jump.heightAt(u);
                 jumpTop = Math.max(jumpTop, height);
