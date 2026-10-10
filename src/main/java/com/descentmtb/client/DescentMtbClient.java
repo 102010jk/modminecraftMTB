@@ -45,6 +45,7 @@ public final class DescentMtbClient {
         modBus.addListener(com.descentmtb.client.shaped.ShapedGeometry::register);
         modBus.addListener(com.descentmtb.client.shaped.ShapedGeometry::registerColors);
         modBus.addListener(this::registerLayers);
+        modBus.addListener(com.descentmtb.client.ski.SkiPoleLayer::register);   // ski poles in the skier's hands
         modBus.addListener(this::registerKeyMappings);
         modBus.addListener(this::registerGuiLayers);
 
@@ -124,6 +125,7 @@ public final class DescentMtbClient {
         event.registerLayerDefinition(HardtailBikeModel.LAYER, HardtailBikeModel::createLayer);
         event.registerLayerDefinition(com.descentmtb.client.model.DirtBikeModel.LAYER, com.descentmtb.client.model.DirtBikeModel::createLayer);
         event.registerLayerDefinition(com.descentmtb.client.model.PitBikeModel.LAYER, com.descentmtb.client.model.PitBikeModel::createLayer);
+        event.registerLayerDefinition(com.descentmtb.client.model.SkiModel.LAYER, com.descentmtb.client.model.SkiModel::createLayer);
     }
 
     private void registerKeyMappings(RegisterKeyMappingsEvent event) {

@@ -30,6 +30,17 @@ public final class TrickScore {
         DIFFICULTY.put(Trick.HEELCLICKER, 2.2);
         DIFFICULTY.put(Trick.BARSPIN, 2.4);
         DIFFICULTY.put(Trick.TAILWHIP, 2.6);
+        // skis: race (old-school aerials) and freestyle (grabs); spins and flips score on top as on the bikes
+        DIFFICULTY.put(Trick.SPREAD_EAGLE, 1.0);
+        DIFFICULTY.put(Trick.DAFFY, 1.3);
+        DIFFICULTY.put(Trick.IRON_CROSS, 1.8);
+        DIFFICULTY.put(Trick.BACK_SCRATCHER, 1.9);
+        DIFFICULTY.put(Trick.TIP_GRAB, 1.5);
+        DIFFICULTY.put(Trick.SAFETY_GRAB, 1.0);
+        DIFFICULTY.put(Trick.MUTE_GRAB, 1.3);
+        DIFFICULTY.put(Trick.TAIL_GRAB, 1.6);
+        DIFFICULTY.put(Trick.TRUCK_DRIVER, 1.9);
+        DIFFICULTY.put(Trick.JAPAN_GRAB, 2.2);
     }
 
     /** One graded landing. {@code combo} = two or more tricks. */

@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0-alpha-m26",
-  "sha256": "c11894186facfab27d274c7debdde204cae110fc73e04cad78f77d126aadd93b",
-  "size": 4633021,
-  "notes": "Volne rozmery ramp a skoku, jeden inventar; bez boomboxu, sluchatek a spineni vyhledu"
+  "version": "1.0.0-alpha-m27",
+  "sha256": "460c7c5bd5c126a3c47e2c1147172a651f67f4eb33980151320cb9b49eb16c58",
+  "size": 4770709,
+  "notes": "Lyze: zavodni a freestylove (6 paru), fyzika skluzu, drhnuti a pad na kamenech"
 }

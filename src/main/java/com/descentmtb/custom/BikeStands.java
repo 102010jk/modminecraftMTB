@@ -36,8 +36,8 @@ public final class BikeStands {
     /** Moves one bike from the stack onto an empty stand. Returns whether it was mounted. */
     public static boolean mount(Player player, BlockPos pos, ItemStack held) {
         BikeStandBlockEntity stand = usable(player, pos);
-        if (stand == null || stand.hasBike() || !(held.getItem() instanceof MountainBikeItem)) {
-            return false;
+        if (stand == null || stand.hasBike() || !(held.getItem() instanceof MountainBikeItem bike) || bike.bikeType().ski()) {
+            return false;   // skis never go on the bike stand
         }
         stand.setBike(held.copyWithCount(1));
         held.shrink(1);

@@ -110,6 +110,13 @@ public final class McColumns implements BlockTerrain.Columns {
         return false;
     }
 
+    /** The block at {@link #mpos} lies under a snow layer (or is a grass / podzol / mycelium block marked snowy). */
+    private boolean snowCovered(BlockState s) {
+        if (s.hasProperty(net.minecraft.world.level.block.state.properties.BlockStateProperties.SNOWY)
+                && s.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.SNOWY)) return true;
+        return level.getBlockState(mpos.above()).is(Blocks.SNOW);
+    }
+
     @Override
     public Terrain.Surface surface(int x, int z, double topY) {
         mpos.set(x, (int) Math.floor(topY - 0.01), z);
@@ -119,11 +126,19 @@ public final class McColumns implements BlockTerrain.Columns {
         if (RampBlock.isRamp(s)) {
             if(level.getBlockEntity(mpos) instanceof com.descentmtb.trail.TrailSurfaceEntity shaped && shaped.overlay()!=0)
                 return shaped.overlay()==1?Terrain.Surface.WOOD:Terrain.Surface.ROCK;
-            if(level.getBlockEntity(mpos) instanceof com.descentmtb.ramp.RampBlockEntity be && be.getMaterial().is(BlockTags.PLANKS))return Terrain.Surface.WOOD;
+            if(level.getBlockEntity(mpos) instanceof com.descentmtb.ramp.RampBlockEntity be) {
+                if(be.getMaterial().is(BlockTags.PLANKS))return Terrain.Surface.WOOD;
+                // snow / ice kickers for the skis
+                if(be.getMaterial().is(Blocks.SNOW_BLOCK) || be.getMaterial().is(Blocks.SNOW) || be.getMaterial().is(Blocks.POWDER_SNOW))return Terrain.Surface.SNOW;
+                if(be.getMaterial().is(BlockTags.ICE))return Terrain.Surface.ICE;
+            }
+            if(snowCovered(s))return Terrain.Surface.SNOW;
             return Terrain.Surface.TRAIL;
         }
         if(s.is(com.descentmtb.registry.ModBlocks.TRAIL_ROOTS.get()))return Terrain.Surface.WOOD;
-        // snow layer on top of something
+        // snow layer on top of something: a single layer has no collision height, so the column top is the block
+        // under it (grass, dirt, stone ...); the surface is still snow
+        if (snowCovered(s)) return Terrain.Surface.SNOW;
         if (s.is(Blocks.SNOW) || s.is(Blocks.SNOW_BLOCK) || s.is(Blocks.POWDER_SNOW)) return Terrain.Surface.SNOW;
         if (s.is(BlockTags.ICE) || s.getBlock().getFriction() > 0.9f) return Terrain.Surface.ICE;
         if (s.is(Blocks.DIRT_PATH) || s.is(Blocks.PACKED_MUD)) return Terrain.Surface.TRAIL;

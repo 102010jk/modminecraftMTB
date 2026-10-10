@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "descentmtb:item/ski_armada_arv_96"
+  }
+}

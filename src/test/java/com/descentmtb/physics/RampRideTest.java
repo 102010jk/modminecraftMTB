@@ -62,6 +62,7 @@ class RampRideTest {
 
     @Test void bothBikesRideRampsInEveryDirection() {
         for (BikeType type : BikeType.values()) for (int direction = 0; direction < 4; direction++) {
+            if (type.ski()) continue;     // a grass kicker is bare ground for skis (they grind and fall: SkiPhysicsTest)
             double yaw = direction * Math.PI / 2;
             V3 f = new V3(-Math.sin(yaw), 0, Math.cos(yaw));
             Terrain base = kicker();

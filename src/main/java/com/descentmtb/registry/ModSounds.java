@@ -108,6 +108,17 @@ public final class ModSounds {
     // Suspension hitting its bump stop
     public static final DeferredHolder<SoundEvent, SoundEvent> BOTTOM_OUT = event("bike.suspension.bottom_out");
 
+    // Skis: the glide hiss on snow (four speed samples), the snowplough / hockey-stop spray, and rock knocks while
+    // the bases grind over stone (the events and samples were already in sounds.json)
+    public static final DeferredHolder<SoundEvent, SoundEvent> ROLL_SNOW_1 = event("bike.roll.snow.1");
+    public static final DeferredHolder<SoundEvent, SoundEvent> ROLL_SNOW_2 = event("bike.roll.snow.2");
+    public static final DeferredHolder<SoundEvent, SoundEvent> ROLL_SNOW_3 = event("bike.roll.snow.3");
+    public static final DeferredHolder<SoundEvent, SoundEvent> ROLL_SNOW_4 = event("bike.roll.snow.4");
+    public static final DeferredHolder<SoundEvent, SoundEvent> SLIDE_SNOW = event("bike.slide.snow");
+    public static final DeferredHolder<SoundEvent, SoundEvent> CRASH_STONE_SMALL = event("bike.crash.stone.small");
+    public static final DeferredHolder<SoundEvent, SoundEvent> CRASH_STONE_MED = event("bike.crash.stone.med");
+    public static final DeferredHolder<SoundEvent, SoundEvent> CRASH_STONE_HARD = event("bike.crash.stone.hard");
+
     // Misc
     public static final DeferredHolder<SoundEvent, SoundEvent> TAPE_BREAK = event("tape.break");
 
@@ -167,6 +178,16 @@ public final class ModSounds {
 
     public static SoundEvent rollEvent(RollFamily family) {
         return rollEvent(family, 2);
+    }
+
+    /** Skis gliding over snow, by speed level (1..4, see {@code BikeSoundMath.rollLevel}). */
+    public static SoundEvent glideEvent(int level) {
+        return switch (level) {
+            case 1 -> ROLL_SNOW_1.get();
+            case 2 -> ROLL_SNOW_2.get();
+            case 3 -> ROLL_SNOW_3.get();
+            default -> ROLL_SNOW_4.get();
+        };
     }
 
     private ModSounds() {}

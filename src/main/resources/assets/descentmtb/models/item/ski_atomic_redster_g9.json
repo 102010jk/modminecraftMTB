@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "descentmtb:item/ski_atomic_redster_g9"
+  }
+}

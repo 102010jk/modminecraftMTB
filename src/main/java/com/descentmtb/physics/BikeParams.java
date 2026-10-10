@@ -26,6 +26,8 @@ public final class BikeParams {
     // ---------------- engine (dirt bike only) ----------------
     /** True for a motorbike: the throttle drives the rear wheel through {@link Engine} instead of pedalling. */
     public boolean motor = false;
+    /** True for skis: the "wheels" are ski contact points gliding on snow (see com.descentmtb.ski.SkiPhysics). */
+    public boolean ski = false;
     /** Crank torque peak (N m) and where it peaks (rpm); idle, launch (extra rpm the auto clutch holds at full
      *  throttle), shift points, limiter and the revs above which snapping the throttle shut pops the exhaust. */
     public double peakTorque = 24, peakTorqueRpm = 8500, idleRpm = 1500, launchRpm = 4200,
@@ -158,6 +160,34 @@ public final class BikeParams {
     public double overBarsAngle = Math.toRadians(65);
     /** Landing mid-trick (risk &amp; reward) only bails above this speed into the ground (m/s); 0 = any landing. */
     public double midTrickBailImpact = 0;
+
+    // ---------------- skis (only read when ski = true; see com.descentmtb.ski.SkiPhysics) ----------------
+    /** Sidecut radius of the ski (m): the carve radius at a small edge angle; it shrinks to R·cos(edge) when edged. */
+    public double skiSidecut = 17;
+    /** Largest edge angle the skier holds in a carve (rad); tan of it is the most lateral g a carve can pull. */
+    public double skiMaxEdge = Math.toRadians(64);
+    /** Multipliers of the surface's glide resistance (wax, base) and edge hold (tune, stiffness). */
+    public double skiGlide = 1, skiEdgeGrip = 1;
+    /** Lateral acceleration (in g, × surface edge hold) of a skidded turn, and the tightest pivot radius (m). */
+    public double skiSkidAccel = 1.1, skiPivotRadius = 1.2;
+    /** Extra glide resistance (μ) of a fully skidded turn: skidding scrubs speed, carving does not. */
+    public double skiSkidScrub = 0.35;
+    /** Turning on the spot at a standstill (side steps / kick turn), rad/s at full stick. */
+    public double skiStepTurnRate = 1.8;
+    /** Pole push / skating force (N); full up to the first speed, gone by the second (m/s). */
+    public double skiPoleForce = 230, skiPushFull = 3.0, skiPushZero = 6.5;
+    /** Walking on the skis over bare ground: target speed (m/s) and the glide resistance of stepping (μ). */
+    public double skiWalkSpeed = 1.3, skiWalkGlide = 0.08;
+    /** CdA (m²) in a full tuck (crouched + leaning forward); {@link #dragArea} is the upright stance. */
+    public double skiTuckDragArea = 0.18;
+    /** Seconds of full-speed grinding on bare ground that fill the scrape meter (a bail), and its drain rate (1/s) on snow. */
+    public double skiScrapeTime = 0.85, skiScrapeDrain = 1.2;
+    /** Landing on bare ground: the landing impact limit is multiplied by this. */
+    public double skiRockImpactFactor = 0.55;
+    /** Riderless skis: the ski brakes stick out and drag in the snow (glide μ). */
+    public double skiBrakeGlide = 0.25;
+    /** Twin tips: landing switch (180°) rides away backwards instead of bailing. */
+    public boolean skiSwitch = false;
 
     // ---------------- assists (0 = sim, 1 = full arcade help) ----------------
     public double balanceAssist = 1.0;        // reserved: roll is kinematic today

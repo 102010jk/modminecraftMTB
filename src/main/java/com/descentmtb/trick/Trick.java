@@ -26,7 +26,28 @@ public enum Trick {
     BARSPIN("Barspin", Kind.SPIN, 0.42f, 0),
     TAILWHIP("Tailwhip", Kind.SPIN, 0.58f, 0),
     /** Both legs thrown forward over the bars, heels together. On every bike (extra mapping, not a stick direction). */
-    HEELCLICKER("Heelclicker", Kind.HOLD, 0.18f, 0.16f);
+    HEELCLICKER("Heelclicker", Kind.HOLD, 0.18f, 0.16f),
+    // ---- skis (appended: tricks are synced by ordinal) ----
+    /** Race skis, old-school aerials: arms and legs thrown wide, skis spread in a V. */
+    SPREAD_EAGLE("Spread Eagle", Kind.HOLD, 0.18f, 0.15f),
+    /** One ski kicked forward, the other back: a running split in the air. */
+    DAFFY("Daffy", Kind.HOLD, 0.18f, 0.15f),
+    /** Ski tails together, tips crossed in an X in front of the body. */
+    IRON_CROSS("Iron Cross", Kind.HOLD, 0.20f, 0.16f),
+    /** Knees bent hard, both ski tails kicked up behind until they nearly touch the back. */
+    BACK_SCRATCHER("Back Scratcher", Kind.HOLD, 0.20f, 0.16f),
+    /** Folded forward, one hand grabbing a ski tip. */
+    TIP_GRAB("Tip Grab", Kind.HOLD, 0.20f, 0.16f),
+    /** Freestyle: leading hand grabs the toe edge of the opposite ski between the feet. */
+    MUTE_GRAB("Mute Grab", Kind.HOLD, 0.18f, 0.15f),
+    /** Freestyle: mute grab with the ski tucked behind and tweaked up, knees driven forward. */
+    JAPAN_GRAB("Japan Grab", Kind.HOLD, 0.22f, 0.17f),
+    /** Freestyle: the hand grabs the outside edge of the same-side ski under the boot. */
+    SAFETY_GRAB("Safety Grab", Kind.HOLD, 0.16f, 0.14f),
+    /** Freestyle: reaching back to grab a ski's tail. */
+    TAIL_GRAB("Tail Grab", Kind.HOLD, 0.20f, 0.16f),
+    /** Freestyle: both hands grab both tips in front, like holding a steering wheel. */
+    TRUCK_DRIVER("Truck Driver", Kind.HOLD, 0.22f, 0.17f);
 
     public enum Kind { HOLD, SPIN }
 

@@ -283,7 +283,7 @@
     ]
   },
   "bike.roll.snow.1": {
-    "subtitle": "descentmtb.subtitle.roll",
+    "subtitle": "descentmtb.subtitle.ski_glide",
     "sounds": [
       {
         "name": "descentmtb:ride/roll_snow_1",
@@ -293,7 +293,7 @@
     ]
   },
   "bike.roll.snow.2": {
-    "subtitle": "descentmtb.subtitle.roll",
+    "subtitle": "descentmtb.subtitle.ski_glide",
     "sounds": [
       {
         "name": "descentmtb:ride/roll_snow_2",
@@ -303,7 +303,7 @@
     ]
   },
   "bike.roll.snow.3": {
-    "subtitle": "descentmtb.subtitle.roll",
+    "subtitle": "descentmtb.subtitle.ski_glide",
     "sounds": [
       {
         "name": "descentmtb:ride/roll_snow_3",
@@ -313,7 +313,7 @@
     ]
   },
   "bike.roll.snow.4": {
-    "subtitle": "descentmtb.subtitle.roll",
+    "subtitle": "descentmtb.subtitle.ski_glide",
     "sounds": [
       {
         "name": "descentmtb:ride/roll_snow_4",

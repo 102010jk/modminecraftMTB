@@ -2,6 +2,18 @@
 
 Hotové buildy módu pro **Minecraft 1.21.1 + NeoForge 21.1.x** (Java 21). JAR stačí vložit do složky `mods`.
 
+## 1.0.0-alpha-m27 (milník 27)
+
+Soubor: `descentmtb-1.0.0-alpha-m27.jar`
+SHA-256: `460c7c5bd5c126a3c47e2c1147172a651f67f4eb33980151320cb9b49eb16c58`
+
+- Lyže: tři závodní páry (Atomic Redster G9 FIS, Rossignol Hero Elite ST Ti, Fischer RC4 Worldcup RC) a tři freestylové twin tipy (Armada ARV 96, Line Chronic 101, Faction Prodigy 2) s vlastním modelem, texturou, botami a hůlkami.
+- Fyzika skluzu: po sněhu a ledu, schody z bloků jako plynulý svah, krojení podle poloměru boční křivky, pluh / hockey stop, odpich hůlkami, sjezdový posed. Na kameni a holé zemi lyže drhnou a po chvíli následuje pád.
+- Lyžařské triky, víření sněhu, zvuky skluzu a drhnutí, ukazatel „Kameny!“.
+- Síťový protokol 12.
+
+Ověřeno `assemble` a celou sadou unit testů. Bez spuštění hry, poslechu a multiplayer ověření. Podrobnosti: [milník 27](../docs/milestone-27-skis.md).
+
 ## 1.0.0-alpha-m26 (milník 26)
 
 Soubor: `descentmtb-1.0.0-alpha-m26.jar`

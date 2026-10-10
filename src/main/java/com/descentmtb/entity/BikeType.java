@@ -34,15 +34,41 @@ public enum BikeType {
     PIT_BIKE("pit_bike",
             new float[]{-0.21f, -0.04f},             // footpegs from the bike COM: up, forward (m)
             new float[]{0.32f, 0.59f, 0.33f},        // grips from the pegs: forward, up, half-width (660 mm bars)
-            new Trick[]{Trick.NO_HANDER, Trick.TABLETOP, Trick.NAC_NAC, Trick.CAN_CAN, Trick.SUPERMAN});
+            new Trick[]{Trick.NO_HANDER, Trick.TABLETOP, Trick.NAC_NAC, Trick.CAN_CAN, Trick.SUPERMAN}),
+    /**
+     * Alpine race skis (slalom / giant slalom): long, stiff, narrow-waisted, a sidecut made for carving at speed. The
+     * two "wheels" of the simulation are the ski's front and rear contact points, the steering is the carve. The brand
+     * and model (length, sidecut radius) come from {@link com.descentmtb.ski.SkiBrand}. Appended after the motorbikes:
+     * the type is saved by ordinal. Old-school aerials as the trick set.
+     */
+    SKI_RACE("ski_race",
+            new float[]{-0.48f, 0.0f},              // boot soles from the "frame" COM (shins): up, forward (m)
+            new float[]{0.30f, 0.62f, 0.30f},       // pole grips from the boots: forward, up, half-width (m)
+            new Trick[]{Trick.SPREAD_EAGLE, Trick.DAFFY, Trick.IRON_CROSS, Trick.BACK_SCRATCHER, Trick.TIP_GRAB},
+            Trick.DAFFY),
+    /**
+     * Freestyle twin-tip skis (park and big air): softer, wider, turned-up tails so they ride switch (fakie) as well
+     * as forwards, a mid-radius sidecut. Brand and model from {@link com.descentmtb.ski.SkiBrand}. Grab tricks.
+     */
+    SKI_FREESTYLE("ski_freestyle",
+            new float[]{-0.48f, 0.0f},
+            new float[]{0.28f, 0.60f, 0.30f},
+            new Trick[]{Trick.MUTE_GRAB, Trick.JAPAN_GRAB, Trick.SAFETY_GRAB, Trick.TAIL_GRAB, Trick.TRUCK_DRIVER},
+            Trick.IRON_CROSS);
 
     public final String id;
     public final float feetUp, feetFwd;
     public final float gripFwd, gripUp, gripHalf;
     /** Tricks by stick direction: up, up+side, side, down+side, down. */
     private final Trick[] tricks;
+    /** The extra (sixth) slot: the Heelclicker on the bikes, a ski trick on the skis. */
+    private final Trick heel;
 
     BikeType(String id, float[] feet, float[] grip, Trick[] tricks) {
+        this(id, feet, grip, tricks, Trick.HEELCLICKER);
+    }
+
+    BikeType(String id, float[] feet, float[] grip, Trick[] tricks, Trick heel) {
         this.id = id;
         this.feetUp = feet[0];
         this.feetFwd = feet[1];
@@ -50,6 +76,7 @@ public enum BikeType {
         this.gripUp = grip[1];
         this.gripHalf = grip[2];
         this.tricks = tricks;
+        this.heel = heel;
     }
 
     public static BikeType byId(int ordinal) {
@@ -69,7 +96,7 @@ public enum BikeType {
     /** Trick in a slot: 0 up, 1 up+side, 2 side, 3 down+side, 4 down, 5 Heelclicker. */
     public Trick trickAt(int slot) {
         if (slot >= 0 && slot < tricks.length) return tricks[slot];
-        return slot == HEEL_SLOT ? Trick.HEELCLICKER : Trick.NONE;
+        return slot == HEEL_SLOT ? heel : Trick.NONE;
     }
 
     /**
@@ -91,7 +118,7 @@ public enum BikeType {
 
     /** Trick for a right-stick direction (LB held), Descenders layout. */
     public Trick trickFor(float x, float y) {
-        if (y >= 0.999f && Math.abs(Math.abs(x) - HEEL_X) < 0.002f) return Trick.HEELCLICKER;
+        if (y >= 0.999f && Math.abs(Math.abs(x) - HEEL_X) < 0.002f) return heel;
         if (Math.abs(x) < 0.35f && Math.abs(y) < 0.35f) return Trick.NONE;
         boolean side = Math.abs(x) >= 0.35f;
         if (y > 0.35f) return side ? tricks[1] : tricks[0];
@@ -102,6 +129,11 @@ public enum BikeType {
     /** A motorbike: engine instead of pedals, footpegs instead of cranks. */
     public boolean motor() {
         return this == DIRT_BIKE || this == PIT_BIKE;
+    }
+
+    /** Skis (race or freestyle): no wheels, pedals, tyres or suspension; they glide on snow and ice. */
+    public boolean ski() {
+        return this == SKI_RACE || this == SKI_FREESTYLE;
     }
 
     /**
@@ -124,6 +156,10 @@ public enum BikeType {
     /** Physics preset (fresh copy). */
     public BikeParams params() {
         BikeParams p = new BikeParams();
+        if (ski()) {
+            com.descentmtb.ski.SkiPhysics.defaults(p, this == SKI_FREESTYLE);
+            return p;
+        }
         if (this == DIRT_BIKE) {
             p.motor = true;
             p.bikeMass = 105.0;

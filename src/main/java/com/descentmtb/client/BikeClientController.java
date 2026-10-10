@@ -243,8 +243,9 @@ public final class BikeClientController {
         if (bottomed && !wasBottomed && bottomCooldown == 0) {
             BikeCamera.addTrauma(0.35);
             double master = ClientConfig.SPEC.isLoaded() ? ClientConfig.BIKE_SOUND_VOLUME.get() : 0.6;
-            com.descentmtb.client.sound.Sfx.play(com.descentmtb.registry.ModSounds.BOTTOM_OUT.get(), null, 0.9 * master,
-                    0.95 + 0.1 * Math.random());
+            // skis have knees, not a damper: no metallic clunk (the landing thump is in the ski sounds)
+            if (!sim.bikeType.ski()) com.descentmtb.client.sound.Sfx.play(com.descentmtb.registry.ModSounds.BOTTOM_OUT.get(), null,
+                    0.9 * master, 0.95 + 0.1 * Math.random());
             bottomCooldown = 6;
         }
         wasBottomed = bottomed;

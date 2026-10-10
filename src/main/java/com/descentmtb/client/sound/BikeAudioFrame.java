@@ -31,6 +31,10 @@ public final class BikeAudioFrame {
     /** Rear tyre scrubbing: 0 gripping … 1 full slide; {@code skidLocked} = the brake has stopped the wheel turning. */
     public double skid;
     public boolean skidLocked;
+    /** A pair of skis instead of a bike: no hub, tyres or engine; the bases glide on snow and grind on rock. */
+    public boolean ski;
+    /** Skis: how hard the bases grind on a surface that is not snow or ice right now (0..1). */
+    public double skiScrape;
     // ---- crash prediction inputs ----
     public V3 vel = V3.ZERO;
     /** Seconds until the wheels touch down (infinity = not within the prediction window). */

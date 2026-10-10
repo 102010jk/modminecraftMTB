@@ -142,6 +142,7 @@ public class MountainBikeEntity extends Entity {
 
     /** Takes the build and the tyre / fork pressures an item carries (placing a bike). */
     public void applyFromItem(ItemStack stack) {
+        if (stack.getItem() instanceof com.descentmtb.ski.SkiItem ski) setSkiBrand(ski.brand());
         setBuild(MountainBikeItem.buildOf(stack));
         setMoto(bikeType().motor() ? MountainBikeItem.motoOf(stack) : MotoBuild.DEFAULT);
         CompoundTag tune = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
@@ -151,7 +152,7 @@ public class MountainBikeEntity extends Entity {
 
     /** The item form of this bike, with its build and pressures: what breaking or picking it up gives back. */
     public ItemStack toItemStack() {
-        ItemStack stack = new ItemStack(ModItems.itemFor(bikeType()));
+        ItemStack stack = new ItemStack(bikeType().ski() ? ModItems.skiItem(skiBrand()) : ModItems.itemFor(bikeType()));
         stack.set(ModComponents.BIKE_BUILD.get(), build());
         if (bikeType().motor()) stack.set(ModComponents.MOTO_BUILD.get(), moto());
         CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
@@ -164,12 +165,27 @@ public class MountainBikeEntity extends Entity {
     public BikeType bikeType() { return BikeType.byId(entityData.get(D_TYPE)); }
     public void setBikeType(BikeType type) { entityData.set(D_TYPE, type.ordinal()); bikeParams = null; }
     public BikeParams params() {
-        if (bikeParams == null) bikeParams = bikeType().params();
+        if (bikeParams == null) bikeParams = defaultParams();
         return bikeParams;
     }
+
+    /** The untuned parameters of this bike: its type's preset, plus the pair's length and sidecut on skis. */
+    public BikeParams defaultParams() {
+        BikeParams p = bikeType().params();
+        if (bikeType().ski()) com.descentmtb.ski.SkiPhysics.tune(p, skiBrand());
+        return p;
+    }
+
+    /** Which pair of skis this is (synced by ordinal); meaningless on a bike. */
+    private static final EntityDataAccessor<Integer> D_SKI = def(EntityDataSerializers.INT);
+    public com.descentmtb.ski.SkiBrand skiBrand() {
+        return com.descentmtb.ski.SkiBrand.forType(com.descentmtb.ski.SkiBrand.byId(entityData.get(D_SKI)), bikeType());
+    }
+    public void setSkiBrand(com.descentmtb.ski.SkiBrand brand) { entityData.set(D_SKI, brand.ordinal()); bikeParams = null; }
+
     public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
         super.onSyncedDataUpdated(key);
-        if (key == D_TYPE) { bikeParams = null; build = null; }
+        if (key == D_TYPE || key == D_SKI) { bikeParams = null; build = null; }
         if (key == D_BUILD) build = null;
         if (key == D_MOTO) moto = null;
     }
@@ -398,6 +414,7 @@ public class MountainBikeEntity extends Entity {
 
     private void updateMud() {
         if(tickCount%5!=0)return;
+        if(bikeType().ski()){if(mud()>0)setMud(0);return;}   // skis glide on snow: nothing to get muddy
         float value=mud();
         if(isInWater()){setMud(value-.035f);return;}
         boolean rain=level().isRainingAt(blockPosition().above());
@@ -427,7 +444,7 @@ public class MountainBikeEntity extends Entity {
         // terrain as when ridden (vanilla box collision let parked bikes sink into blocks)
         if (serverSim == null) {
             if (serverColumns == null) serverColumns = new McColumns(level());
-            com.descentmtb.physics.BikeTuning.apply(params(),bikeType().params(),frontPsi(),rearPsi(),forkPsi(),1);
+            if (!bikeType().ski()) com.descentmtb.physics.BikeTuning.apply(params(),bikeType().params(),frontPsi(),rearPsi(),forkPsi(),1);
             if (bikeType().motor()) MotoTuning.apply(params(), bikeType().params(), moto());
             serverSim = new BikeSim(params(), serverColumns.terrain());
             serverSim.riderless = true;
@@ -474,7 +491,8 @@ public class MountainBikeEntity extends Entity {
         entityData.set(D_FLAGS, s.airborne ? BikeStatePayload.AIRBORNE : 0);
         entityData.set(D_TRICK, 0);
         entityData.set(D_TRICK_AMOUNT, 0f);
-        boolean atRest = s.speed() < 0.05 && s.grounded() && Math.abs(Math.abs(s.lean) - 1.38) < 0.05;
+        // a bike comes to rest lying on its side (lean ≈ 1.38), skis lie flat on their bases
+        boolean atRest = s.speed() < 0.05 && s.grounded() && Math.abs(Math.abs(s.lean) - (s.p.ski ? 0 : 1.38)) < 0.05;
         restTicks = atRest ? Math.min(restTicks + 1, SETTLED_TICKS + 1) : 0;   // moved: awake again
         if (restTicks > SETTLED_TICKS) rememberSupport();
     }
@@ -582,6 +600,10 @@ public class MountainBikeEntity extends Entity {
         }
         if (player.getItemInHand(hand).getItem() instanceof com.descentmtb.item.BikePumpItem) {
             if (isVehicle()) return InteractionResult.FAIL;
+            if (bikeType().ski()) {      // no tyres or air fork on a pair of skis
+                if (!level().isClientSide) player.displayClientMessage(net.minecraft.network.chat.Component.translatable("descentmtb.ski.no_pump"), true);
+                return InteractionResult.sidedSuccess(level().isClientSide);
+            }
             if (!level().isClientSide) {
                 int valve = com.descentmtb.item.BikePumpItem.valve(player.getItemInHand(hand));
                 float step = (player.isShiftKeyDown() ? -1 : 1) * (valve == 2 ? 5 : 2);
@@ -676,12 +698,14 @@ public class MountainBikeEntity extends Entity {
         b.define(D_BUILD, new CompoundTag());
         b.define(D_MOTO, new CompoundTag());
         b.define(D_MUD,0f);
+        b.define(D_SKI, 0);
     }
 
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
         setMud(tag.getFloat("Mud"));
         setBikeType(BikeType.byId(tag.getInt("BikeType")));
+        setSkiBrand(com.descentmtb.ski.SkiBrand.byId(tag.getInt("SkiBrand")));
         if (tag.contains("FrontPsi")) setPressure(tag.getFloat("FrontPsi"), tag.getFloat("RearPsi"), tag.getFloat("ForkPsi"));
         if (tag.contains("Build", Tag.TAG_COMPOUND)) {   // older bikes have none: they keep the stock look
             BikeBuild.CODEC.parse(NbtOps.INSTANCE, tag.getCompound("Build")).result().ifPresent(this::setBuild);
@@ -695,6 +719,7 @@ public class MountainBikeEntity extends Entity {
     protected void addAdditionalSaveData(CompoundTag tag) {
         tag.putFloat("Mud",mud());
         tag.putInt("BikeType", bikeType().ordinal());
+        if (bikeType().ski()) tag.putInt("SkiBrand", skiBrand().ordinal());
             tag.putFloat("FrontPsi", frontPsi()); tag.putFloat("RearPsi", rearPsi()); tag.putFloat("ForkPsi", forkPsi());
         tag.put("Build", BikeBuild.CODEC.encodeStart(NbtOps.INSTANCE, build()).getOrThrow());
         if (bikeType().motor()) tag.put("Moto", MotoBuildCodecs.CODEC.encodeStart(NbtOps.INSTANCE, moto()).getOrThrow());

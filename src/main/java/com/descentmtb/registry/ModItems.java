@@ -4,6 +4,8 @@ import com.descentmtb.DescentMtb;
 import com.descentmtb.custom.BikeBuild;
 import com.descentmtb.item.MountainBikeItem;
 import com.descentmtb.entity.BikeType;
+import com.descentmtb.ski.SkiBrand;
+import com.descentmtb.ski.SkiItem;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
@@ -37,6 +39,10 @@ public final class ModItems {
             ITEMS.registerItem("pit_bike",
                     p -> new MountainBikeItem(p.component(ModComponents.BIKE_BUILD.get(), BikeBuild.HARDTAIL_DEFAULT), BikeType.PIT_BIKE),
                     new Item.Properties().stacksTo(1));
+    /** One item per ski pair (see {@link SkiBrand}), in brand order: {@code ski_<brand id>}. */
+    public static final java.util.List<DeferredItem<SkiItem>> SKIS = java.util.Arrays.stream(SkiBrand.values())
+            .map(brand -> ITEMS.registerItem(brand.itemName(), p -> new SkiItem(p, brand), new Item.Properties().stacksTo(1)))
+            .toList();
     public static final DeferredItem<com.descentmtb.item.BikePumpItem> BIKE_PUMP =
             ITEMS.registerItem("bike_pump", com.descentmtb.item.BikePumpItem::new, new Item.Properties().stacksTo(1));
     /** The GPS unit: records a ride as a trail track, see {@link com.descentmtb.map.TrailMarkerItem}. */
@@ -53,6 +59,7 @@ public final class ModItems {
                         output.accept(HARDTAIL_BIKE.get());
                         output.accept(DIRT_BIKE.get());
                         output.accept(PIT_BIKE.get());
+                        SKIS.forEach(ski -> output.accept(ski.get()));
                         output.accept(BIKE_PUMP.get());
                         output.accept(TRAIL_GPS.get());
                         output.accept(TRAIL_MAP.get());
@@ -60,9 +67,15 @@ public final class ModItems {
                     })
                     .build());
 
-    /** The bike item of a type. */
+    /** The bike item of a type (skis: the type's default pair, see {@link #skiItem}). */
     public static MountainBikeItem itemFor(BikeType type) {
+        if (type.ski()) return skiItem(SkiBrand.defaultFor(type));
         return (switch (type) { case HARDTAIL -> HARDTAIL_BIKE; case DIRT_BIKE -> DIRT_BIKE; case PIT_BIKE -> PIT_BIKE; default -> MOUNTAIN_BIKE; }).get();
+    }
+
+    /** The item of one ski pair. */
+    public static SkiItem skiItem(SkiBrand brand) {
+        return SKIS.get(brand.ordinal()).get();
     }
 
     private ModItems() {}

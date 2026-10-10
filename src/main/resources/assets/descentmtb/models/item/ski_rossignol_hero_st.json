@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "descentmtb:item/ski_rossignol_hero_st"
+  }
+}

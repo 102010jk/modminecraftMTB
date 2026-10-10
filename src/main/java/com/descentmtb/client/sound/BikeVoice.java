@@ -4,11 +4,13 @@ import com.descentmtb.client.ClientConfig;
 import com.descentmtb.client.sound.BikeSoundMath.RollFamily;
 import com.descentmtb.custom.BikeParts.HubType;
 import com.descentmtb.entity.MountainBikeEntity;
+import com.descentmtb.physics.Terrain;
 import com.descentmtb.registry.ModSounds;
 import com.descentmtb.trick.Trick;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.RandomSource;
 
 import java.util.EnumMap;
@@ -32,6 +34,10 @@ final class BikeVoice {
     private final ScreamTrigger screamTrigger = new ScreamTrigger();
     private final RandomSource random = RandomSource.create();
     private LoopSound wind, scream, skid;
+    /** Skis: the glide hiss on snow / ice and the grind of the bases on rock. */
+    private LoopSound glide, scrape;
+    private int glideLevel;
+    private SoundEvent glideEvent;
     /** The dirt bike's engine (null on a bicycle). */
     private MotoSoundController engine;
     private SoundEvent skidEvent;
@@ -53,7 +59,7 @@ final class BikeVoice {
         double master = cfg.master() * (local ? 1.0 : 0.8);
 
         // ---- freehub: only while coasting; the pawls engage the instant you pedal ----
-        boolean hubOn = !f.motor && cfg.hub() && BikeSoundMath.freewheelAudible(hub, f.rearOmega, f.pedalling, f.bailed);
+        boolean hubOn = !f.motor && !f.ski && cfg.hub() && BikeSoundMath.freewheelAudible(hub, f.rearOmega, f.pedalling, f.bailed);
         if (f.motor) {
             if (engine == null) engine = new MotoSoundController(follow);
             engine.update(f, master);
@@ -67,7 +73,7 @@ final class BikeVoice {
         // ---- tyres: only the surface under the wheels is audible, fading out in the air ----
         var surface = BikeSoundMath.dominantSurface(f);
         RollFamily family = BikeSoundMath.family(surface);
-        double rollVol = BikeSoundMath.rollVolume(f.speed, BikeSoundMath.contactFraction(f), surface) * master;
+        double rollVol = f.ski ? 0 : BikeSoundMath.rollVolume(f.speed, BikeSoundMath.contactFraction(f), surface) * master;
         double rollPitch = BikeSoundMath.rollPitch(f.speed);
         for (RollFamily fam : RollFamily.values()) {
             int curLevel = rollLevels.getOrDefault(fam, 0);
@@ -90,9 +96,16 @@ final class BikeVoice {
             }
         }
 
-        // ---- skid: rear tyre scrubbing in a power slide or locked under the brake ----
+        // ---- skis: glide on snow, grind on rock ----
+        updateSki(manager, f, surface, master);
+
+        // ---- skid: rear tyre scrubbing in a power slide or locked under the brake; skis spraying snow ----
         double skidVol = f.skid * master * 0.85;
         SoundEvent wantedSkid = ModSounds.slideEvent(family, f.skidLocked);
+        if (f.ski) {
+            wantedSkid = ModSounds.SLIDE_SNOW.get();
+            if (!BikeSoundMath.skiGlides(surface)) skidVol = 0;      // on rock the grind says it all, a box slides
+        }
         if (skid != null && skidEvent != wantedSkid && skidVol > 0.012) {
             skid.fadeOutFast();
             skid = null;
@@ -102,7 +115,8 @@ final class BikeVoice {
 
         // ---- landings ----
         if (prevAirborne && !f.airborne && !f.bailed && airTicks >= 4) {
-            playLanding(f, master, f.ridden ? cfg.voice() : ClientConfig.RiderVoice.OFF);
+            if (f.ski) playSkiLanding(f, surface, master, f.ridden ? cfg.voice() : ClientConfig.RiderVoice.OFF);
+            else playLanding(f, master, f.ridden ? cfg.voice() : ClientConfig.RiderVoice.OFF);
         }
 
         // ---- crash / bail ----
@@ -171,8 +185,11 @@ final class BikeVoice {
             landSound = hard ? ModSounds.LAND_BACK_HARD.get() : (med ? ModSounds.LAND_BACK_MED.get() : ModSounds.LAND_BACK_SOFT.get());
         }
         Sfx.play(landSound, follow, 0.9 * master, 0.95 + 0.1 * random.nextDouble());
+        playCheer(f, master, voice);
+    }
 
-        // rider landing cheer for big air or landed trick
+    /** The rider's cheer after big air or a landed trick. */
+    private void playCheer(BikeAudioFrame f, double master, ClientConfig.RiderVoice voice) {
         if (voice != ClientConfig.RiderVoice.OFF) {
             SoundEvent cheer = null;
             if (airTicks > 35 || (airTicks > 20 && f.speed > 14)) {
@@ -202,10 +219,75 @@ final class BikeVoice {
                     : ModSounds.RIDER_MALE_BAIL.get();
             Sfx.play(bailVoice, follow, 0.95 * master, 0.95 + 0.1 * random.nextDouble());
         }
+        if (f.ski) {
+            playSkiCrash(f, master);
+            return;
+        }
         SoundEvent crashBike = f.speed > 10
                 ? ModSounds.CRASH_BIKE_HARD.get()
                 : (f.speed > 5 ? ModSounds.CRASH_BIKE_MED.get() : ModSounds.CRASH_BIKE_SOFT.get());
         Sfx.play(crashBike, follow, 0.9 * master, 0.95 + 0.1 * random.nextDouble());
+    }
+
+    /**
+     * Skis on the ground: the glide hiss on snow (four speed samples like the tyres, pitched up and thinner on ice)
+     * and, where the bases scrape over rock, a low harsh grind with the odd knock of a stone.
+     */
+    private void updateSki(SoundManager manager, BikeAudioFrame f, Terrain.Surface surface, double master) {
+        if (!f.ski) return;
+        boolean onGround = !f.airborne && !f.bailed;
+        double contact = onGround ? BikeSoundMath.contactFraction(f) : 0;
+
+        // glide: the speed sample ladder with the tyres' hysteresis, crossfaded on a change of level
+        int level = BikeSoundMath.rollLevel(f.speed, glideLevel);
+        double glideVol = BikeSoundMath.glideVolume(f.speed, contact, surface) * master;
+        SoundEvent wanted = surface == Terrain.Surface.WOOD ? ModSounds.SLIDE_WOOD.get() : ModSounds.glideEvent(level);
+        if (glide != null && glideEvent != wanted && glideVol > 0.012) {
+            glide.fadeOutFast();
+            glide = null;
+        }
+        glide = drive(manager, glide, wanted, glideVol, BikeSoundMath.glidePitch(f.speed, surface), 0.2f);
+        if (glide != null) glideEvent = wanted;
+        glideLevel = level;
+
+        // grind: bases over stone, harsh and low, with a stone knocking against the edges now and then
+        double scrapeAmount = onGround ? f.skiScrape : 0;
+        double scrapeVol = BikeSoundMath.scrapeVolume(scrapeAmount) * master;
+        double jitter = 0.94 + 0.12 * random.nextDouble();
+        scrape = drive(manager, scrape, ModSounds.SLIDE_HARD.get(), scrapeVol, BikeSoundMath.scrapePitch(f.speed) * jitter, 0.35f);
+        if (scrapeAmount > 0.1 && random.nextDouble() < 0.10 * scrapeAmount) {
+            Sfx.play(ModSounds.CRASH_STONE_SMALL.get(), follow, (0.25 + 0.35 * scrapeAmount) * master, 1.1 + 0.3 * random.nextDouble());
+        }
+    }
+
+    /** Skis touching down: a soft thump into snow (a hard crack on ice / rock), the big-drop slam, then the cheer. */
+    private void playSkiLanding(BikeAudioFrame f, Terrain.Surface surface, double master, ClientConfig.RiderVoice voice) {
+        if (master <= 0.004) return;
+        double hit = BikeSoundMath.clamp(-f.vel.y / 10.0, 0.25, 1.0);
+        if (f.vel.y < -12 || airTicks > 30) Sfx.play(ModSounds.LAND_BIGDROP.get(), follow, 0.8 * master, 0.9 + 0.1 * random.nextDouble());
+        if (surface == Terrain.Surface.SNOW || surface == Terrain.Surface.AIRBAG) {
+            Sfx.play(SoundEvents.POWDER_SNOW_FALL, follow, (0.5 + 0.5 * hit) * master, 0.8 + 0.15 * random.nextDouble());
+            Sfx.play(SoundEvents.SNOW_BREAK, follow, 0.6 * hit * master, 0.7 + 0.1 * random.nextDouble());
+            Sfx.play(ModSounds.LAND_BACK_SOFT.get(), follow, 0.35 * hit * master, 0.75 + 0.1 * random.nextDouble());
+        } else {
+            // ice or rock: the edges and bases clack down hard
+            Sfx.play(hit > 0.6 ? ModSounds.CRASH_STONE_MED.get() : ModSounds.CRASH_STONE_SMALL.get(), follow,
+                    (0.45 + 0.4 * hit) * master, 1.0 + 0.15 * random.nextDouble());
+        }
+        playCheer(f, master, voice);
+    }
+
+    /** Skis bailing: the body into the snow (powder thump) or onto rock (stone impacts), skis clattering away. */
+    private void playSkiCrash(BikeAudioFrame f, double master) {
+        Terrain.Surface surface = BikeSoundMath.dominantSurface(f);
+        if (surface == Terrain.Surface.SNOW || surface == Terrain.Surface.AIRBAG) {
+            Sfx.play(SoundEvents.POWDER_SNOW_FALL, follow, 0.9 * master, 0.75 + 0.1 * random.nextDouble());
+            Sfx.play(SoundEvents.SNOW_BREAK, follow, 0.8 * master, 0.6 + 0.1 * random.nextDouble());
+        }
+        SoundEvent impact = f.speed > 10 ? ModSounds.CRASH_STONE_HARD.get()
+                : f.speed > 5 ? ModSounds.CRASH_STONE_MED.get() : ModSounds.CRASH_STONE_SMALL.get();
+        boolean soft = surface == Terrain.Surface.SNOW || surface == Terrain.Surface.AIRBAG;
+        Sfx.play(impact, follow, (soft ? 0.35 : 0.9) * master, 0.95 + 0.1 * random.nextDouble());
     }
 
     private void playTrick(Trick trick, double master) {
@@ -242,6 +324,11 @@ final class BikeVoice {
         wind = null;
         if (skid != null) skid.fadeOut();
         skid = null;
+        if (glide != null) glide.fadeOut();
+        glide = null;
+        glideLevel = 0;
+        if (scrape != null) scrape.fadeOut();
+        scrape = null;
         if (engine != null) engine.shutdown();
         engine = null;
         roll.values().forEach(LoopSound::fadeOut);

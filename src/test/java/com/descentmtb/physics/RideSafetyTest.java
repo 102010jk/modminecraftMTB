@@ -8,6 +8,7 @@ class RideSafetyTest {
     @Test void acceleratesToUsefulTrailSpeedFromRest() {
         for (BikeType type : BikeType.values()) {
             if (type.motor()) continue;   // pedal power only; the dirt bike has its own engine tests (DirtBikeTest)
+            if (type.ski()) continue;     // skis grind on dirt and only pole-push at low speed (SkiPhysicsTest)
             BikeSim s = new BikeSim(type.params(), TestTerrains.flat(64, Terrain.Surface.DIRT));
             s.place(0, 64, 0, 0);
             for (int i = 0; i < 100; i++) s.tick(new Controls(0, 0, 1, 0, 0, 0, false, 0, 0), .05);

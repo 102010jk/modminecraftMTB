@@ -1,6 +1,6 @@
 # Descent MTB
 
-Kola, motorky a stavění tratí pro **Minecraft 1.21.1 / NeoForge 21.1.250 / Java 21**.
+Kola, motorky, lyže a stavění tratí pro **Minecraft 1.21.1 / NeoForge 21.1.250 / Java 21**.
 
 ## Stažení
 
@@ -12,7 +12,7 @@ JAR vlož do složky `mods` profilu s NeoForge. Při aktualizaci nahraď původn
 
 ## Jak začít
 
-V jedné záložce **Descent MTB** najdeš kola, motorky, servisní stojan, pumpu, GPS, mapu i všechny stavební nástroje a bloky.
+V jedné záložce **Descent MTB** najdeš kola, motorky, lyže, servisní stojan, pumpu, GPS, mapu i všechny stavební nástroje a bloky.
 
 Pravým klikem na blok polož kolo, pravým klikem na kolo nasedni. Shift slouží k sesednutí; **Shift + pravý klik na prázdné zaparkované kolo** ho vrátí do inventáře s jeho úpravami. Ve stojanu upravíš komponenty, barvy a samolepky; obrazovka ukazuje náhled a stav neuložených změn.
 
@@ -36,6 +36,27 @@ Výchozí klávesy odpovídají současnému kódu. Modové vazby lze změnit v 
 | Vrácení změny trati | Ctrl + Z |
 
 Triky závisí na typu kola. Nastavení tricks.trickKeyScheme = CLASSIC používá C + šipky místo samostatných trikových kláves. Ovladač používá RT/LT pro plyn/brzdu, páčky pro náklon a pumpování a LB + pravou páčku pro triky.
+
+## Lyže
+
+V záložce **Descent MTB** je za pit bikem šest skutečných párů lyží. Závodní: Atomic Redster G9 FIS (obří slalom), Rossignol Hero Elite ST Ti (slalom) a Fischer RC4 Worldcup RC. Freestylové twin tipy: Armada ARV 96, Line Chronic 101 a Faction Prodigy 2. Popisek předmětu ukazuje délku, poloměr krojení a šířku pasu; podle nich se pár i chová. Dlouhá obřačka drží rychlost a široký oblouk, slalomka zatáčí ostře, freestylové lyže jsou hravější, rychleji se točí ve vzduchu a dají se odjet i pozpátku (switch). Lyže se pokládají, nasedá se na ně a vrací do inventáře stejně jako kolo.
+
+Ovládání používá stejné klávesy jako kolo:
+
+| Akce na lyžích | Klávesa |
+|---|---|
+| Odpich hůlkami (jen v pomalé jízdě); na holé zemi chůze | Z |
+| Brzda: pluh / smyk napříč (hockey stop) | Space |
+| Oblouky: krojení, pomalu smýkaný oblouk | ← / → |
+| Náklon dopředu / dozadu | ↑ / ↓ |
+| Podřep; s náklonem dopředu sjezdový posed (tuck) | S |
+| Protažení | D |
+| Odraz | podrž X, pak pusť |
+| Triky (závodní: Spread Eagle, Daffy, Iron Cross…; freestyle: grab triky) | I, O, J, L, K, U |
+
+Lyže jedou jen po sněhu (sněhový blok, vrstva sněhu, prašan) a po ledu, kde kloužou rychle, ale hrany skoro nedrží. Po dřevě (box, rail) se klouže. Na kameni, hlíně, trávě, štěrku a jiné holé zemi skluznice **drhnou**: lyže prudce brzdí, letí prach a jiskry, ozve se skřípění a na HUD se plní ukazatel „Kameny!“. Krátký přejezd se dá ustát, ale když se ukazatel naplní, lyže se o kameny zaseknou a jezdec spadne. Na sněhu se ukazatel zase vyprázdní. Na sněhu lyže při ostrém oblouku, brzdění a dopadu víří sníh.
+
+Pumpa ani servisní stojan s lyžemi nepracují a lyže se nešpiní blátem.
 
 ## Stavění a orientace
 

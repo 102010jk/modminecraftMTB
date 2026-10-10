@@ -46,6 +46,8 @@ public final class GripGeometry {
 
     /** Same as {@link #gripOffset(BikeType, boolean, float)} but writes the result into {@code out} (no allocation). */
     public static Vector3f gripOffset(BikeType type, boolean left, float steer, Vector3f out) {
+        // skis: the pole grips are in the skier's hands (SkierPose), nothing turns them
+        if (type.ski()) return out.set(0, 0, 0);
         Steering s = switch (type) { case HARDTAIL -> HARDTAIL; case DIRT_BIKE -> DIRT_BIKE; case PIT_BIKE -> PIT_BIKE; default -> ENDURO; };
         // r = grip - pivot, with the right grip mirrored from the left one
         float rx = (left ? s.gripLeft().x : -s.gripLeft().x) - s.pivot().x;

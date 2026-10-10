@@ -1,9 +1,20 @@
-# Descent MTB — aktuální předání (2026-10-08)
+# Descent MTB — aktuální předání (2026-10-10)
 
 Repozitář `C:/MTBMod`; GitHub `102010jk/modminecraftMTB`; publikovaná větev `master`.
 Minecraft 1.21.1, NeoForge 21.1.250, Java 21.
 
-## Milník 26
+## Milník 27 — lyže
+
+JAR: `dist/descentmtb-milestone-27-skis.jar`, kopie `dist/descentmtb-latest.jar` a `releases/descentmtb-1.0.0-alpha-m27.jar` (SHA-256 `460c7c5bd5c126a3…`).
+
+- Lyže jako nové typy `SKI_RACE` / `SKI_FREESTYLE` na entitě kola; šest párů v `ski/SkiBrand.java` (jen přidávat na konec). Fyzika v `ski/SkiPhysics.java`, `ski/SkiSurface.java` a větvích `p.ski` v `BikeSim`; kola beze změny.
+- Na holé zemi drhnutí → měřič → pád; sníh rozpoznán i pod vrstvou sněhu (`McColumns`).
+- Model / textury z `tools/gen_ski_assets.py`; póza `client/ski/SkierPose`, `SkiStance`, hůlky `SkiPoleLayer`.
+- Síťový protokol 12.
+
+Ověření: `assemble` + celá sada unit testů prošla. Hra nespuštěna; vzhled a chování ve hře čeká na test uživatele. Podrobnosti: [milník 27](docs/milestone-27-skis.md).
+
+## Milník 26 (předchozí)
 
 JAR: `dist/descentmtb-milestone-26-construction-freedom.jar`, kopie `dist/descentmtb-latest.jar` a `releases/descentmtb-1.0.0-alpha-m26.jar`.
 
@@ -11,7 +22,7 @@ JAR: `dist/descentmtb-milestone-26-construction-freedom.jar`, kopie `dist/descen
 - Skoky a propojené rampy nemají staré malé rozměrové stropy ani limit počtu bloků. Zachované světové hranice, výška dimenze, načtené chunky, práva, ochrany, survival materiál a undo.
 - Přímé zadání čísel v generátoru skoků; omezený počet bodů náhledu a přesná maximální strmost bez délkového skenování.
 - Vyšší uložené rohy strmých profilů se neřežou na +/-16 bloků. Ostatní terénní editory a klonování mají původní konfigurovatelné limity.
-- Síťový protokol 11: stejná verze na serveru i klientovi. Staré odstraněné předměty/zařízení již nejsou registrované.
+- Síťový protokol 11 (v m27 zvýšen na 12). Staré odstraněné předměty/zařízení již nejsou registrované.
 
 Podrobnosti: [milník 26](docs/milestone-26-construction-freedom.md); historie: [releases](releases/README.md).
 

@@ -6,6 +6,7 @@ import com.descentmtb.client.model.EnduroBikeModel;
 import com.descentmtb.client.model.HardtailBikeModel;
 import com.descentmtb.client.model.MotoModel;
 import com.descentmtb.client.model.PitBikeModel;
+import com.descentmtb.client.model.SkiModel;
 import com.descentmtb.client.model.PartTable;
 import com.descentmtb.entity.BikeType;
 import com.descentmtb.trick.Trick;
@@ -38,6 +39,8 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
     private final HardtailBikeModel hardtail;
     /** The motorbike models by {@link BikeType#ordinal()}; null for the bicycles. */
     private final MotoModel[] motos = new MotoModel[BikeType.values().length];
+    /** Both ski types, every brand (one layer, a subtree per brand). */
+    private final SkiModel skis;
     private static final ResourceLocation HARDTAIL_TEXTURE =
             ResourceLocation.fromNamespaceAndPath(DescentMtb.MODID, "textures/entity/hardtail_bike.png");
 
@@ -47,6 +50,7 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
         this.hardtail = new HardtailBikeModel(ctx.bakeLayer(HardtailBikeModel.LAYER));
         motos[BikeType.DIRT_BIKE.ordinal()] = new DirtBikeModel(ctx.bakeLayer(DirtBikeModel.LAYER));
         motos[BikeType.PIT_BIKE.ordinal()] = new PitBikeModel(ctx.bakeLayer(PitBikeModel.LAYER));
+        this.skis = new SkiModel(ctx.bakeLayer(SkiModel.LAYER));
         this.shadowRadius = 0.6f;
     }
 
@@ -87,7 +91,11 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
                 ? (float) OneHand.squeeze(a.oneHand ? BikeRenderState.lerp(t, a.oneHandTime, b.oneHandTime) : b.oneHandTime)
                 : 0f;
         MotoModel moto = motos[bike.bikeType().ordinal()];
-        if (moto != null) {
+        if (bike.bikeType().ski()) {
+            // each ski (binding, boot) where SkiStance puts that foot this frame
+            skis.renderPair(pose, buffers.getBuffer(SkiModel.renderType(bike.skiBrand())), light,
+                    OverlayTexture.NO_OVERLAY, bike, partialTick);
+        } else if (moto != null) {
             moto.setupPose(steer, compF, compR, spinF, spinR);
             moto.renderPainted(pose, buffers.getBuffer(moto.renderType(moto.texture())),
                     light, OverlayTexture.NO_OVERLAY, bike.moto()::colorOf);
@@ -115,6 +123,7 @@ public class MountainBikeRenderer extends EntityRenderer<MountainBikeEntity> {
 
     @Override
     public ResourceLocation getTextureLocation(MountainBikeEntity entity) {
+        if (entity.bikeType().ski()) return SkiModel.texture(entity.skiBrand());
         return switch (entity.bikeType()) {
             case HARDTAIL -> HARDTAIL_TEXTURE;
             case DIRT_BIKE -> DirtBikeModel.TEXTURE;

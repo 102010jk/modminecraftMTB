@@ -3,6 +3,7 @@ package com.descentmtb.physics;
 import java.util.ArrayList;
 import java.util.List;
 import com.descentmtb.entity.BikeType;
+import com.descentmtb.ski.SkiSurface;
 import com.descentmtb.trick.Trick;
 import com.descentmtb.trick.TrickAnimation;
 
@@ -90,6 +91,21 @@ public final class BikeSim {
     private final Terrain.RayHit[] wallHits = {new Terrain.RayHit(), new Terrain.RayHit(),
             new Terrain.RayHit(), new Terrain.RayHit(), new Terrain.RayHit()};
     private final Terrain.RayHit collisionHit = new Terrain.RayHit();
+
+    // ---------------- skis (p.ski only; read by sounds, particles and the rider pose) ----------------
+    /** 0..1: how hard the skis grind over bare ground (rock, dirt, grass ...) right now. */
+    public double skiScrape;
+    /** 0..1: scrape build-up while grinding; full = the skis catch and the skier falls. Drains on snow. */
+    public double skiScrapeMeter;
+    /** 0..1: skidding - a skidded turn, a hockey stop / snowplough (Space) or edges washing out (snow spray). */
+    public double skiSkid;
+    /** 0..1: a clean carve - how far the skis are edged toward their limit without skidding. */
+    public double skiCarve;
+    /** 0..1: aero tuck (crouched and leaning forward). */
+    public double skiTuck;
+    /** True while walking / shuffling over bare ground with the pole key (slow, no scraping). */
+    public boolean skiWalking;
+    private double skiSteerSkid;
 
     public boolean bailed;
     /** Seconds left of the one-handed window after ringing the bell (left hand off the grip); see {@link OneHand}. */
@@ -179,6 +195,8 @@ public final class BikeSim {
         trickMask = 0;
         wallRide = false; wallCooldown = 0;
         wallNormal = wallPoint = wallVelocity = V3.ZERO;
+        skiScrape = skiScrapeMeter = skiSkid = skiSteerSkid = skiCarve = skiTuck = 0;
+        skiWalking = false;
         events.clear();
     }
 
@@ -221,6 +239,9 @@ public final class BikeSim {
         double speed = vel.length();
 
         // ---------- steering: angle limit shrinks with speed (grip-limited carve) ----------
+        if (p.ski) {
+            skiSteer(c, vFwd, h);
+        } else {
         double avgGrip = 0.5 * (front.grip + rear.grip);
         double demand = p.steerGripDemand * p.corneringGrip * g * Math.max(avgGrip, 0.1);
         // rear brake + full lock, or hard braking while leaned over into a corner, asks for more than the tyres
@@ -252,6 +273,7 @@ public final class BikeSim {
         }
         double steerTarget = c.steer * maxSteer;
         steerAngle = p.steerResponse <= 0 ? steerTarget : steerAngle+(steerTarget-steerAngle)*(1-Math.exp(-h/p.steerResponse));
+        }
 
         // ---------- wheel contacts + suspension forces ----------
         contact(front, h);
@@ -275,7 +297,7 @@ public final class BikeSim {
         }
 
         // ---------- aero + soft speed cap (uniform decel on bike & rider) ----------
-        double drag = 0.5 * p.airDensity * p.dragArea * speed * speed;
+        double drag = 0.5 * p.airDensity * (p.ski ? skiDragArea() : p.dragArea) * speed * speed;
         if (speed > p.softSpeedCap) {
             double over = speed - p.softSpeedCap;
             drag += p.softCapDrag * over * over;
@@ -293,6 +315,9 @@ public final class BikeSim {
         // ---------- engine (dirt bike) or pedalling ----------
         if (p.motor) {
             motorDrive(c, grounded, h);
+        } else if (p.ski) {
+            rear.driveForce = 0;
+            skiPush(c, h);
         } else if (rear.contact && c.pedal > 0.01) {
             double vLong = Math.max(pointVel(rear.patch).dot(rear.tF), 0);
             double f = Math.min(p.pedalMaxForce, p.pedalPower / Math.max(vLong, 1.0)) * c.pedal;
@@ -319,12 +344,18 @@ public final class BikeSim {
         // a riderless bike lying on its side just scrapes along the dirt
         double brakeF = (riderless && Math.abs(lean) > 0.9) ? p.brakeForce : c.brake * p.brakeForce;
         for (int it = 0; it < 8; it++) {
-            solveWheel(front, brakeF * p.brakeFrontShare, h);
-            solveWheel(rear, brakeF * (1 - p.brakeFrontShare), h);
+            if (p.ski) {
+                solveSki(front, c, h);
+                solveSki(rear, c, h);
+            } else {
+                solveWheel(front, brakeF * p.brakeFrontShare, h);
+                solveWheel(rear, brakeF * (1 - p.brakeFrontShare), h);
+            }
             if (!riderless) solveRider(h, grounded);
         }
         front.updateSliding();
         rear.updateSliding();
+        if (p.ski) skiGrind(c, grounded, h);
         bodyContacts(h);
         if (grounded || bodyGrounded) wallRide = false;
         if (wallRide) constrainWall();
@@ -379,6 +410,10 @@ public final class BikeSim {
         if (riderless) {
             riderPos = pos.addScaled(up, p.riderHeight);
             riderVel = vel;
+        } else if (p.ski && grounded && !bailed) {
+            // standing still a skier turns by stepping the skis round (the carve needs speed)
+            double stepping = clamp(1 - speed / 1.5, 0, 1);
+            if (stepping > 0 && Math.abs(c.steer) > 0.05) yaw += c.steer * p.skiStepTurnRate * stepping * h;
         }
 
         // ---------- wheel spin / cranks / lean ----------
@@ -453,12 +488,20 @@ public final class BikeSim {
         w.normal = n;
         w.grip = w.hit.grip * p.tyreGrip;
         w.rollRes = w.hit.rollRes * p.tyreRolling;
+        if (p.ski) {
+            // skis: the edges hold sideways, the base glides (see SkiSurface); grip = edge hold, rollRes = glide μ
+            w.grip = SkiSurface.edge(w.hit.surface) * p.skiEdgeGrip;
+            w.rollRes = SkiSurface.glide(w.hit.surface) * p.skiGlide;
+        }
         w.surface = w.hit.surface;
         V3 centre = ext.addScaled(up, cc);
         w.patch = centre.addScaled(n, -p.wheelRadius);
 
         // tyre directions in the contact plane
-        V3 heading = w.isFront
+        V3 heading = p.ski
+                // both ends of the skis steer half the angle, opposite ways: the pair pivots under the boots
+                ? fwd.mul(Math.cos(steerAngle / 2)).addScaled(right, (w.isFront ? 1 : -1) * Math.sin(steerAngle / 2))
+                : w.isFront
                 ? fwd.mul(Math.cos(steerAngle)).addScaled(right, Math.sin(steerAngle))
                 : fwd;
         V3 tF = heading.reject(n).normalize();
@@ -559,6 +602,7 @@ public final class BikeSim {
 
     /** Keep the tyre supported by a lip until its round tread clears the edge. */
     private boolean wheelGround(V3 ext, double travel, Terrain.GroundHit hit) {
+        if (p.ski) return skiGround(ext, travel, hit);
         boolean found = terrain.ground(ext.x, ext.z, ext.y + 1.3,
                 ext.y - p.wheelRadius - travel - 1.5, hit);
         double best = found ? (p.wheelRadius - (ext.y - hit.height) * hit.normal.y)
@@ -585,6 +629,65 @@ public final class BikeSim {
             found = true;
         }
         return found;
+    }
+
+    /** Half the length of ground each ski contact rests on (m): with two contacts this covers the running surface. */
+    private static final double SKI_FOOT = 0.4;
+    private static final int SKI_SAMPLES = 4;
+    private final double[] skiO = new double[2 * SKI_SAMPLES + 1], skiY = new double[2 * SKI_SAMPLES + 1],
+            skiW = new double[2 * SKI_SAMPLES + 1];
+
+    /**
+     * A ski is a long flat plank, not a 4 cm wheel: it bridges the small shelves the block smoother leaves at every
+     * step edge (and pebble-sized bumps). The contact height is a weighted line fit of the ground over
+     * ±{@link #SKI_FOOT} along the heading; samples far off the local plane (a real ledge or wall) are left out, so
+     * cliffs stay cliffs. The surface (snow / rock) is the one right under the contact.
+     */
+    private boolean skiGround(V3 ext, double travel, Terrain.GroundHit hit) {
+        double top = ext.y + 1.3, bottom = ext.y - p.wheelRadius - travel - 1.5;
+        if (!terrain.ground(ext.x, ext.z, top, bottom, hit)) return false;
+        V3 nc = hit.normal;
+        if (nc.y < 0.2) return true;
+        double gx = -nc.x / nc.y, gz = -nc.z / nc.y;          // centre gradient
+        double along = gx * fH.x + gz * fH.z;                  // its slope along the heading
+        int n = 0;
+        for (int i = -SKI_SAMPLES; i <= SKI_SAMPLES; i++) {
+            double o = SKI_FOOT * i / SKI_SAMPLES, y;
+            if (i == 0) {
+                y = hit.height;
+            } else {
+                V3 s = ext.addScaled(fH, o);
+                if (!terrain.ground(s.x, s.z, top, bottom, bodyHit) || bodyHit.normal.y < 0.2) continue;
+                y = bodyHit.height;
+                if (Math.abs(y - (hit.height + o * along)) > 0.35) continue;   // a ledge, not a bump
+            }
+            skiO[n] = o;
+            skiY[n] = y;
+            skiW[n] = 1 - Math.abs(i) / (SKI_SAMPLES + 1.0);
+            n++;
+        }
+        // weighted (triangular) least-squares line through the samples: height at the contact and slope along the ski
+        double sw = 0, so = 0, sh = 0, soo = 0, soh = 0;
+        for (int k = 0; k < n; k++) {
+            double w = skiW[k];
+            sw += w;
+            so += w * skiO[k];
+            sh += w * skiY[k];
+            soo += w * skiO[k] * skiO[k];
+            soh += w * skiO[k] * skiY[k];
+        }
+        double mo = so / sw, mh = sh / sw;
+        double var = soo / sw - mo * mo;
+        double slope = var > 1e-4 ? (soh / sw - mo * mh) / var : along;
+        double height = mh - slope * mo;
+        // the fitted slope along the heading, the centre's slope across it
+        gx += fH.x * (slope - along);
+        gz += fH.z * (slope - along);
+        V3 velocity = hit.velocity;
+        Terrain.Surface surface = hit.surface;
+        hit.set(height, new V3(-gx, 1, -gz).normalize(), surface);
+        hit.velocity = velocity;
+        return true;
     }
 
     private void solveWheel(Wheel w, double brakeF, double h) {
@@ -630,6 +733,172 @@ public final class BikeSim {
         w.latSaturated = Math.abs(w.accS) >= limS * 0.999 && limS > 0;
         js = w.accS - oldS;
         if (js != 0) applyImpulse(P, w.tL.mul(js));
+    }
+
+    // =====================================================================
+    //  Skis (p.ski): the "wheels" are the front and rear contact points of the pair
+    // =====================================================================
+
+    /**
+     * Ski steering is the carve. A carving ski turns on its sidecut: R = R<sub>s</sub>·cos(edge), and holding that
+     * radius at speed v needs tan(edge) = v²/(g·R), so sin(edge) = v²/(g·R<sub>s</sub>): slow, the edge is low and the
+     * carve wide; fast, the edge goes over to {@link BikeParams#skiMaxEdge} (≈0.4·R<sub>s</sub>) and beyond that only
+     * the lateral g limits it. Slower than that a skier skids (pivots) the skis round instead - tighter, but it
+     * scrubs speed ({@link #skiSteerSkid}). Both ends steer half the angle, so curvature = tan(δ/2) / halfWheelbase.
+     */
+    private void skiSteer(Controls c, double vFwd, double h) {
+        leanDrift = false;
+        double g = p.gravity;
+        double v = Math.abs(vFwd);
+        double v2 = Math.max(v * v, 0.04);
+        int n = (front.contact ? 1 : 0) + (rear.contact ? 1 : 0);
+        double edge = n == 0 ? 0.5 * (front.grip + rear.grip)
+                : ((front.contact ? front.grip : 0) + (rear.contact ? rear.grip : 0)) / n;
+        double hold = g * Math.max(edge, 0.1);                  // lateral acceleration the edges hold on this surface
+        double s = v2 / (g * p.skiSidecut);
+        double kCarve = s < Math.sin(p.skiMaxEdge) ? 1 / (p.skiSidecut * Math.sqrt(1 - s * s))
+                : g * Math.tan(p.skiMaxEdge) / v2;
+        kCarve = Math.min(kCarve, hold / v2);
+        double kSkid = Math.min(1 / p.skiPivotRadius, p.skiSkidAccel * Math.min(hold, g) / v2);
+        double kMax = Math.max(kCarve, kSkid);
+        double kWant = Math.abs(c.steer) * kMax;
+        double skid = kWant > kCarve ? (kWant - kCarve) / kWant : 0;
+        skiSteerSkid += (skid - skiSteerSkid) * (1 - Math.exp(-h / 0.08));
+        double maxSteer = Math.min(2 * Math.atan(p.halfWheelbase * kMax), p.maxSteerAngle);
+        // already turning at the limit: ease off instead of winding in further as the speed drops (see the bikes)
+        double cornering = Math.abs(omega.dot(V3.Y)) * v / Math.max(kMax * v2, 1e-6);
+        if (cornering > .85) maxSteer *= clamp((1.2 - cornering) / .35, .25, 1);
+        double steerTarget = c.steer * maxSteer;
+        steerAngle = p.steerResponse <= 0 ? steerTarget : steerAngle + (steerTarget - steerAngle) * (1 - Math.exp(-h / p.steerResponse));
+    }
+
+    /**
+     * One ski contact: the base glides (μ from {@link SkiSurface}, more in a skid, a lot more in a hockey stop), the
+     * edges hold sideways up to {@code grip}·N. Riderless skis drag their ski brakes.
+     */
+    private void solveSki(Wheel w, Controls c, double h) {
+        if (!w.contact) return;
+        V3 P = w.patch;
+        if (w.overshoot > 0) {
+            double vn = pointVel(P).sub(w.hit.velocity).dot(w.normal);
+            double j = -vn / invMass(P, w.normal);
+            double old = w.accN;
+            w.accN = Math.max(0, old + j);
+            j = w.accN - old;
+            if (j != 0) applyImpulse(P, w.normal.mul(j));
+        }
+        double nLoad = w.load + w.accN / h;
+        double glide = w.rollRes, skid = 0;
+        if (riderless) {
+            glide = Math.max(glide, p.skiBrakeGlide);
+        } else {
+            if (skiWalking && SkiSurface.grinds(w.surface)) glide = p.skiWalkGlide;   // stepping, not sliding
+            skid = skiSteerSkid * p.skiSkidScrub * Math.min(1, w.grip) + c.brake * SkiSurface.brake(w.surface);
+        }
+        double vl = pointVel(P).sub(w.hit.velocity).dot(w.tF);
+        double limL = glide * nLoad * h;
+        double jl = -vl / invMass(P, w.tF);
+        double oldL = w.accL;
+        w.accL = clamp(oldL + jl, -limL, limL);
+        jl = w.accL - oldL;
+        if (jl != 0) applyImpulse(P, w.tF.mul(jl));
+        if (skid > 0) {
+            // A skid / hockey stop has the skis across the direction of travel: the snow pushes on the edges, and
+            // the stance width (not the boot height) is the lever. Applied at the boots so it does not pitch the
+            // skier over the tips the way a straight ski braking that hard would.
+            V3 B = pos.addScaled(fwd, (w.isFront ? 1 : -1) * p.halfWheelbase);
+            double vb = pointVel(B).sub(w.hit.velocity).dot(w.tF);
+            double limB = skid * nLoad * h;
+            double jb = -vb / invMass(B, w.tF);
+            double oldB = w.accB;
+            w.accB = clamp(oldB + jb, -limB, limB);
+            jb = w.accB - oldB;
+            if (jb != 0) applyImpulse(B, w.tF.mul(jb));
+        }
+
+        // edges: a skidding ski holds less (kinetic), a hockey stop is the skis let go sideways on purpose
+        double vs = pointVel(P).sub(w.hit.velocity).dot(w.tL);
+        double hold = w.grip * (w.sliding ? p.slideFriction : 1) * (1 - 0.3 * (riderless ? 0 : c.brake));
+        double limS = hold * nLoad * h;
+        double js = -vs / invMass(P, w.tL) * p.lateralStiffness;
+        double oldS = w.accS;
+        w.accS = clamp(oldS + js, -limS, limS);
+        w.latSaturated = Math.abs(w.accS) >= limS * 0.999 && limS > 0;
+        js = w.accS - oldS;
+        if (js != 0) applyImpulse(P, w.tL.mul(js));
+    }
+
+    /**
+     * Pedal key on skis: a pole push / skating stride, strong from a standstill and useless above
+     * {@link BikeParams#skiPushZero}. On bare ground it is a walk: the skier steps the skis along at walking pace
+     * (lifting them, so the base does not grind and the scrape meter does not fill).
+     */
+    private void skiPush(Controls c, double h) {
+        int n = (front.contact ? 1 : 0) + (rear.contact ? 1 : 0);
+        int bare = (front.contact && SkiSurface.grinds(front.surface) ? 1 : 0)
+                + (rear.contact && SkiSurface.grinds(rear.surface) ? 1 : 0);
+        double v = vel.dot(fH);
+        skiWalking = !riderless && n > 0 && c.pedal > 0.05 && bare * 2 >= n && Math.abs(v) < p.skiWalkSpeed * 1.5;
+        if (riderless || n == 0 || c.pedal < 0.01) return;
+        double f;
+        if (skiWalking) {
+            f = p.skiPoleForce * c.pedal * clamp((p.skiWalkSpeed - v) / p.skiWalkSpeed, 0, 1);
+        } else {
+            double fade = v <= p.skiPushFull ? 1
+                    : clamp(1 - (v - p.skiPushFull) / Math.max(0.1, p.skiPushZero - p.skiPushFull), 0, 1);
+            f = p.skiPoleForce * c.pedal * fade;
+        }
+        if (f <= 0) return;
+        for (Wheel w : new Wheel[]{front, rear}) {
+            if (w.contact) applyImpulse(w.patch, w.tF.mul(f / n * h));
+        }
+    }
+
+    /**
+     * Bare ground under the skis: the base grinds ({@link #skiScrape}) and the scrape meter fills - in
+     * {@link BikeParams#skiScrapeTime} at speed, a few seconds at a jog, never at a shuffle (≤ 1 m/s) so a skier can
+     * walk off a rock. Snow drains it again, so a single rock crossed at speed is survivable. Full: a bail.
+     * Also updates the skid / carve read-outs.
+     */
+    private void skiGrind(Controls c, boolean grounded, double h) {
+        int n = 0, bare = 0;
+        boolean sliding = false;
+        for (Wheel w : new Wheel[]{front, rear}) {
+            if (!w.contact) continue;
+            n++;
+            if (SkiSurface.grinds(w.surface)) bare++;
+            sliding |= w.sliding;
+        }
+        double frac = n == 0 ? 0 : (double) bare / n;
+        double v = vel.length();
+        skiScrape = skiWalking ? 0.15 * frac * clamp(v / p.skiWalkSpeed, 0, 1) : frac * clamp((v - 0.3) / 6, 0, 1);
+        if (!riderless && !bailed && frac > 0 && !skiWalking) {
+            double rate = v <= 1 ? 0 : v < 2 ? 0.25 * (v - 1) : 0.25 + 0.75 * clamp((v - 2) / 8, 0, 1);
+            skiScrapeMeter += frac * rate / p.skiScrapeTime * h;
+        } else {
+            skiScrapeMeter -= (grounded ? p.skiScrapeDrain : 0.4 * p.skiScrapeDrain) * h;
+        }
+        skiScrapeMeter = clamp(skiScrapeMeter, 0, 1);
+        if (skiScrapeMeter >= 1) bail("skis caught on rock");
+
+        double skid = Math.max(skiSteerSkid, c.brake);
+        if (sliding) skid = Math.max(skid, 0.7);
+        skiSkid = grounded && !riderless && v > 0.5 ? clamp(skid, 0, 1) : 0;
+        double aLat = Math.abs(omega.dot(V3.Y)) * vel.horizontalLength();
+        skiCarve = grounded && !riderless
+                ? (1 - skiSkid) * clamp(aLat / (p.gravity * Math.tan(p.skiMaxEdge)), 0, 1) : 0;
+    }
+
+    /** CdA of the skier: upright {@link BikeParams#dragArea}, down to {@link BikeParams#skiTuckDragArea} in a tuck. */
+    private double skiDragArea() {
+        if (riderless) {
+            skiTuck = 0;
+            return p.dragArea * 0.15;      // just the skis
+        }
+        double crouch = p.riderCrouch < 0 ? clamp(riderUp / p.riderCrouch, 0, 1) : 0;
+        double forward = p.riderLeanFwd > 0 ? clamp(riderFwd / p.riderLeanFwd, 0, 1) : 0;
+        skiTuck = crouch * (0.4 + 0.6 * forward);
+        return p.dragArea + (p.skiTuckDragArea - p.dragArea) * skiTuck;
     }
 
     // =====================================================================
@@ -741,6 +1010,8 @@ public final class BikeSim {
         V3 rolledRight = fwd.cross(up).normalize();
         double tyreHeight = riderless ? p.wheelRadius * Math.hypot(fwd.y, up.y)
                 + 0.04 * Math.abs(rolledRight.y) : 0;
+        // a ski's contact sits only 4 cm under its "axle": keep this backstop below the real contact on slopes
+        if (p.ski) tyreHeight = Math.max(0, tyreHeight - 0.03);
         V3[] pts = {
                 pos.addScaled(fwd, -0.19).addScaled(up, -0.30),                    // bottom bracket
                 pos.addScaled(fwd, -0.35).addScaled(up, 0.45),                     // saddle
@@ -959,6 +1230,7 @@ public final class BikeSim {
      * the window mirrors the forward one.
      */
     private boolean fakie(double yawErr) {
+        if (p.ski) return p.skiSwitch && yawErr > Math.PI - p.riskYawLimit;   // only twin tips ride away switch
         return yawErr > Math.PI - p.riskYawLimit * 0.7;
     }
 
@@ -978,13 +1250,19 @@ public final class BikeSim {
         // a whip only counts when the rider kicked it out and brought the bike back straight before the wheels touched
         maxWhip = whipPeak >= 0.6 && whipInput && yawErr < 0.35 ? whipPeak : 0;
         boolean cushioned = airbagTimer > 0;
+        // skis landing on bare ground: no snow to sink into, the bases stop dead
+        double impactLimit = p.ski && SkiSurface.grinds(w.surface) ? p.bailImpactSpeed * p.skiRockImpactFactor
+                : p.bailImpactSpeed;
         if (airTime > 0.25) {
-            if (impact > p.bailImpactSpeed && !cushioned) {
+            if (impact > impactLimit && !cushioned) {
                 bail("landed too hard (" + String.format(java.util.Locale.ROOT, "%.1f", impact) + " m/s into the ground)");
             } else if (pitchErr > p.bailPitchError && !cushioned) {
                 bail("landed with the nose " + (int) Math.toDegrees(pitchErr) + "° off");
-            } else if (p.riskReward && yawErr > p.riskYawLimit && !fakie(yawErr) && !cushioned) {
-                bail("landed sideways (" + (int) Math.toDegrees(yawErr) + "°)");
+            } else if ((p.riskReward || p.ski && !p.skiSwitch && yawErr > Math.toRadians(135))
+                    && yawErr > p.riskYawLimit && !fakie(yawErr) && !cushioned) {
+                // (race skis cannot ride backwards: their tails dig in even in the forgiving mode)
+                bail(p.ski && yawErr > Math.toRadians(135) ? "landed backwards (" + (int) Math.toDegrees(yawErr) + "°)"
+                        : "landed sideways (" + (int) Math.toDegrees(yawErr) + "°)");
             } else if (oneHandTimer > 0 && OneHand.landingBails(airTime, impact, p.bailImpactSpeed) && !cushioned) {
                 bail("rang the bell one-handed");
             } else if (p.riskReward && tricks.unfinished() && impact > p.midTrickBailImpact && !cushioned) {
@@ -1254,6 +1532,7 @@ public final class BikeSim {
             // nobody holding it up: once it slows down it falls over onto its side
             if (Math.abs(lean) > 0.05) restSide = Math.signum(lean);
             leanT = (speed() < 6.0 || crashAge > 0.6) && grounded() ? restSide * 1.38 : lean;
+            if (p.ski) leanT = 0;      // skis lie flat on their bases
             lean += (leanT - lean) * (1 - Math.exp(-h / 0.35));
             return;
         } else if (!airborne) {
@@ -1353,6 +1632,8 @@ public final class BikeSim {
         public V3 ext = V3.ZERO, patch = V3.ZERO, normal = V3.Y, tF = V3.ZERO, tL = V3.ZERO;
         final Terrain.GroundHit hit = new Terrain.GroundHit();
         double accN, accL, accS;
+        /** Skis only: accumulated hockey-stop / skid impulse (applied at boot height, see solveSki). */
+        double accB;
         /** The tyre is using all its sideways grip (scrubbing); read by the skid sound. */
         public boolean latSaturated;
 
@@ -1375,7 +1656,7 @@ public final class BikeSim {
         }
 
         void resetAccum() {
-            accN = accL = accS = 0;
+            accN = accL = accS = accB = 0;
             latSaturated = false;
         }
 

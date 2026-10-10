@@ -142,7 +142,9 @@ public final class ClientConfig {
     static void apply(MountainBikeEntity bike) {
         if (!SPEC.isLoaded()) return;
         BikeParams p = bike.params();
-        BikeParams defaults = bike.bikeType().params();
+        boolean ski = bike.bikeType().ski();
+        // skis: the pair's own length / sidecut / weight are the defaults (SkiPhysics.tune)
+        BikeParams defaults = ski ? bike.defaultParams() : bike.bikeType().params();
         p.manualAssist = MANUAL_ASSIST.get() ? defaults.manualAssist * MANUAL_ASSIST_STRENGTH.get() : 0;
         p.landingAssistRate = LANDING_ASSIST.get() ? defaults.landingAssistRate : 0;
         double tol = BAIL_TOLERANCE.get();
@@ -164,6 +166,14 @@ public final class ClientConfig {
         p.airSpinSensitivity = AIR_ROTATION_SENSITIVITY.get();
         p.airSpinDeadzone = AIR_ROTATION_DEADZONE.get();
         p.riskReward = RISK_REWARD.get();
+        if (ski) {
+            // no tyres, pedals, brakes or wallrides on skis: the pole push, hockey stop and edges are SkiPhysics'
+            p.pedalPower = defaults.pedalPower; p.pedalMaxForce = defaults.pedalMaxForce;
+            p.pedalSpinOut = defaults.pedalSpinOut;
+            p.brakeForce = defaults.brakeForce;
+            p.wallRides = false;
+            return;
+        }
         com.descentmtb.physics.BikeTuning.apply(p, defaults, bike.frontPsi(), bike.rearPsi(), bike.forkPsi(), PRESSURE_EFFECT.get());
         if (bike.bikeType().motor()) com.descentmtb.custom.MotoTuning.apply(p, defaults, bike.moto());
     }

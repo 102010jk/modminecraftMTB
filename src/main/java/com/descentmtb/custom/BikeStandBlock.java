@@ -94,10 +94,19 @@ public final class BikeStandBlock extends BaseEntityBlock {
         };
     }
 
-    /** A bike item in hand: hang it on an empty stand. Anything else falls through to the bare click (workshop). */
+    /**
+     * A bike item in hand: hang it on an empty stand. Anything else falls through to the bare click (workshop). Skis
+     * are refused: there is nothing on them for the bike workshop to change.
+     */
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
                                               InteractionHand hand, BlockHitResult hit) {
+        if (stack.getItem() instanceof MountainBikeItem bike && bike.bikeType().ski()) {
+            if (!level.isClientSide) {
+                player.displayClientMessage(Component.translatable("descentmtb.stand.no_skis"), true);
+            }
+            return ItemInteractionResult.sidedSuccess(level.isClientSide);
+        }
         if (!(stack.getItem() instanceof MountainBikeItem)
                 || !(level.getBlockEntity(pos) instanceof BikeStandBlockEntity stand) || stand.hasBike()) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;

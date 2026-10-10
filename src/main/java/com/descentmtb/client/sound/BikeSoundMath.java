@@ -158,6 +158,60 @@ public final class BikeSoundMath {
         return (f.frontContact ? 0.4 : 0) + (f.rearContact ? 0.6 : 0);
     }
 
+    // ------------------------------------------------------------------ skis
+
+    /** Skis glide on snow and ice (and land on an airbag) with the snow hiss; wood is a park box, see {@link #skiGrinds}. */
+    public static boolean skiGlides(Surface s) {
+        return s == Surface.SNOW || s == Surface.ICE || s == Surface.AIRBAG;
+    }
+
+    /** Bare ground: the bases scrape over it (the same rule as the ski physics). */
+    public static boolean skiGrinds(Surface s) {
+        return com.descentmtb.ski.SkiSurface.grinds(s);
+    }
+
+    /**
+     * The glide loop: a soft whisper at a crawl, a full rush at speed; ice is quieter but sharper (see pitch), a wooden
+     * box slides with the wood sample.
+     */
+    public static double glideVolume(double speed, double contact, Surface s) {
+        if (speed < 0.4 || skiGrinds(s)) return 0;
+        double gain = s == Surface.ICE ? 0.75 : s == Surface.AIRBAG ? 0.35 : s == Surface.WOOD ? 0.6 : 1.0;
+        return Math.pow(clamp(speed / 12.0, 0, 1), 0.7) * 0.7 * clamp(contact, 0, 1) * gain;
+    }
+
+    /** Pitch of the glide loop: rises with speed, a scrape-like edge on hard ice. */
+    public static double glidePitch(double speed, Surface s) {
+        double base = 0.75 + 0.45 * clamp(speed / 20, 0, 1);
+        return s == Surface.ICE ? base * 1.35 : base;
+    }
+
+    /**
+     * How hard skis grind on a surface they do not glide on, for riders whose simulation runs on another client: a
+     * grind needs contact, a surface that is not snow and some speed.
+     */
+    public static double skiScrapeEstimate(double speed, boolean contact, Surface s) {
+        if (!contact || !skiGrinds(s)) return 0;
+        return clamp((speed - 1.0) / 6.0, 0, 1);      // the sim never grinds at a shuffle (<= 1 m/s)
+    }
+
+    /** Volume of the grinding loop for a scrape amount. */
+    public static double scrapeVolume(double scrape) {
+        return clamp(scrape, 0, 1) * 0.9;
+    }
+
+    /** Low and harsh: the stone-on-base grind is pitched down from the tyre slide it reuses. */
+    public static double scrapePitch(double speed) {
+        return 0.6 + 0.25 * clamp(speed / 12, 0, 1);
+    }
+
+    /** Spray noise of a snowplough / hockey stop / skidded turn (0..1): the sideways slip and the brake, both at speed. */
+    public static double skiSkidAmount(double slip, double brake, double speed) {
+        double sideways = clamp((slip - 0.15) * 2.2, 0, 1);
+        double plough = clamp(brake, 0, 1) * 0.7;
+        return Math.max(sideways, plough) * clamp((speed - 1.0) / 5.0, 0, 1);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     public static double clamp(double v, double lo, double hi) {

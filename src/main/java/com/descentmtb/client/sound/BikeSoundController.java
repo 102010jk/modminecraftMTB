@@ -32,7 +32,9 @@ import java.util.Map;
  *   <li>tyre roll per surface family, only while a tyre touches the ground, fading out in the air;</li>
  *   <li>suspension hiss on fork / shock compression spikes (landings) and the snap back on take-off;</li>
  *   <li>the rider's scream 0.5-1 s before a crash that cannot be avoided, cut by a clean landing;</li>
- *   <li>heel click / barspin / tailwhip sounds when the trick starts.</li>
+ *   <li>heel click / barspin / tailwhip sounds when the trick starts;</li>
+ *   <li>skis: no hub or tyres; a glide hiss on snow (sharper on ice), spray in a snowplough or hockey stop and a
+ *       harsh grind with rock knocks while the bases scrape over stone.</li>
  * </ul>
  */
 public final class BikeSoundController {
@@ -184,6 +186,20 @@ public final class BikeSoundController {
             f.pedalling = true;           // no freewheel on a motorbike: keeps the hub silent
         }
         f.shockVel = Double.isFinite(shockVel) ? shockVel : 0;
+
+        // skis: no freehub (counted as pedalling, like the motorbikes), their own spray (snowplough, hockey stop,
+        // skidded turn) and the grind of the bases on rock - the rider's own sim knows it, others are estimated
+        f.ski = bike.bikeType().ski();
+        f.skiScrape = 0;
+        if (f.ski) {
+            f.pedalling = true;
+            boolean contact = (f.frontContact || f.rearContact) && !cur.airborne && !cur.bailed;
+            double brake = sim != null ? sim.brake : cur.brake;
+            f.skid = contact ? BikeSoundMath.skiSkidAmount(slip, brake, f.speed) : 0;
+            f.skidLocked = false;
+            f.skiScrape = sim != null ? sim.skiScrape
+                    : BikeSoundMath.skiScrapeEstimate(f.speed, contact, BikeSoundMath.dominantSurface(f));
+        }
 
         // where and how it will land, while it is in the air
         f.timeToGround = Double.POSITIVE_INFINITY;

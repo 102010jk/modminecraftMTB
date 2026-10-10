@@ -25,6 +25,7 @@ public class SpeedHud implements LayeredDraw.Layer {
         if (!ClientConfig.SPEC.isLoaded() || ClientConfig.SHOW_SPEED_HUD.get()) {
             g.drawCenteredString(mc.font, Component.translatable("descentmtb.hud.speed", kmh), cx, y, 0xFFFFFFFF);
             if (sim.engine != null) tachometer(g, mc, sim, cx, y + 11);
+            if (bike.bikeType().ski()) scrapeMeter(g, mc, sim, cx, y + 11);
         }
         if (sim.airborne && sim.airTime > 0.3 && (!ClientConfig.SPEC.isLoaded() || ClientConfig.SHOW_AIR_TIME.get())) {
             g.drawCenteredString(mc.font, Component.translatable("descentmtb.hud.air", String.format(java.util.Locale.ROOT, "%.1f", sim.airTime)),
@@ -35,6 +36,22 @@ public class SpeedHud implements LayeredDraw.Layer {
             g.drawCenteredString(mc.font, BikeClientController.message, cx, g.guiHeight() / 2 - 40,
                     (alpha << 24) | BikeClientController.messageColor);
         }
+    }
+
+    /**
+     * Skis on rock: a small bar fills while the bases grind (full = the skis catch and the rider falls) with a "Rocks!"
+     * label beside it; hidden while the skis are on snow and the meter has drained.
+     */
+    private static void scrapeMeter(GuiGraphics g, Minecraft mc, BikeSim sim, int cx, int y) {
+        double meter = Math.max(0, Math.min(1, sim.skiScrapeMeter));
+        if (meter < 0.04 || sim.bailed) return;
+        int w = 60, x0 = cx - w / 2;
+        int alpha = (int) (110 + 145 * Math.min(1, meter * 2));
+        g.fill(x0 - 1, y - 1, x0 + w + 1, y + 4, (alpha * 5 / 8) << 24 | 0x101018);
+        int color = meter < 0.5 ? 0xF0B43C : meter < 0.8 ? 0xF07A2A : 0xE5483A;
+        if (meter >= 0.8 && (mc.player.tickCount / 3) % 2 == 0) color = 0xFFFFFF;
+        g.fill(x0, y, x0 + (int) Math.round(w * meter), y + 3, alpha << 24 | color);
+        g.drawString(mc.font, Component.translatable("descentmtb.hud.ski.rocks"), x0 + w + 5, y - 3, alpha << 24 | color, true);
     }
 
     /** Dirt bike: gear and a rev bar that turns from green through amber to red at the limiter. */

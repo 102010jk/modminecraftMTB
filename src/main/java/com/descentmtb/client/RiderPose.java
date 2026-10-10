@@ -1,15 +1,23 @@
 package com.descentmtb.client;
 
+import com.descentmtb.client.model.SkiModel;
+import com.descentmtb.client.ski.SkiPoleLayer;
+import com.descentmtb.client.ski.SkiStance;
+import com.descentmtb.client.ski.SkierPose;
 import com.descentmtb.entity.BikeRenderState;
 import com.descentmtb.entity.MountainBikeEntity;
 import com.descentmtb.entity.BikeType;
+import com.descentmtb.physics.BikeParams;
 import com.descentmtb.physics.OneHand;
+import com.descentmtb.physics.V3;
+import com.descentmtb.ski.SkiBrand;
 import com.descentmtb.trick.Trick;
 import com.descentmtb.trick.TrickAnimation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
 import java.util.Collections;
@@ -20,7 +28,7 @@ import java.util.WeakHashMap;
  * Poses the player model on the bike every frame: feet on the pedals (turning
  * with the cranks), hands on the grips (following the bars), torso in an
  * attack position that bends and stretches with the rider's legs, plus the
- * Descenders tweak tricks in the air.
+ * Descenders tweak tricks in the air. On skis the skier instead (see {@link #applySki}).
  *
  * <p>Model space is the vanilla player model: pixels, y down, forward = -Z,
  * feet at y = 24, rider's right arm/leg at -X. The player renderer scales by
@@ -106,6 +114,11 @@ public final class RiderPose {
     }
 
     public static void apply(PlayerModel<?> m, LivingEntity entity, MountainBikeEntity bike, float pt) {
+        if (bike.bikeType().ski()) {
+            applySki(m, entity, bike, pt);
+            finish(m, entity);
+            return;
+        }
         BikeRenderState a = bike.rsPrev, b = bike.rsCur;
         float riderUp = (float) BikeRenderState.lerp(pt, a.riderUp, b.riderUp);
         float riderFwd = (float) BikeRenderState.lerp(pt, a.riderFwd, b.riderFwd);
@@ -281,6 +294,11 @@ public final class RiderPose {
             m.leftArm.zRot = -0.7f;
         }
 
+        finish(m, entity);
+    }
+
+    /** Helmet camera head hiding and the overlay layers (hat, jacket, sleeves, pants) following the posed parts. */
+    private static void finish(PlayerModel<?> m, LivingEntity entity) {
         // first-person helmet cam: we render our own body, but not the head we are looking out of
         Applied applied = APPLIED.computeIfAbsent(m, k -> new Applied());
         applied.posed = true;
@@ -302,6 +320,201 @@ public final class RiderPose {
         m.leftSleeve.copyFrom(m.leftArm);
         m.rightPants.copyFrom(m.rightLeg);
         m.leftPants.copyFrom(m.leftLeg);
+    }
+
+    // =====================================================================
+    //  Skis
+    // =====================================================================
+
+    private static final SkierPose SKIER = new SkierPose();
+    private static final SkierPose.Input SKIER_IN = new SkierPose.Input();
+    /** Pole shafts of the skier last posed, per rider, for {@link SkiPoleLayer}: {left xyz, right xyz} (model px, unit). */
+    private static final Map<LivingEntity, float[]> POLES = Collections.synchronizedMap(new WeakHashMap<>());
+
+    /** A pole plant in progress, per rider: started when the carve changes side. */
+    private static final class PlantMemory {
+        float lastSteer;
+        int side;
+        long start, lastPlant;
+    }
+
+    private static final Map<LivingEntity, PlantMemory> PLANTS = new WeakHashMap<>();
+    /** One plant (reach, touch, swing past) and the shortest time between two plants (s). */
+    private static final double PLANT_TIME = 0.5, PLANT_GAP = 0.55;
+    /** |carve angle| that counts as turning to one side (rad). */
+    private static final float PLANT_STEER = 0.035f;
+
+    /** Total backward bend of the bent GS poles below the grip (24 + 12 degrees, see {@link SkiModel#renderPole}). */
+    private static final float POLE_BEND = (float) Math.toRadians(36);
+
+    /** The giant-slalom race pairs come with bent poles (SkiModel draws them for Atomic and Fischer). */
+    private static boolean bentPoles(SkiBrand brand) {
+        return brand == SkiBrand.ATOMIC_REDSTER_G9 || brand == SkiBrand.FISCHER_RC4_WC;
+    }
+
+    /** The pole directions of the last ski pose of {@code rider} (null when it is not on skis). */
+    public static float[] poles(LivingEntity rider) {
+        return POLES.get(rider);
+    }
+
+    /**
+     * The skier: legs end in the boots where {@link SkiStance} puts the skis, athletic stance or race tuck, hands
+     * holding the poles, the ski tricks. All the geometry is solved by {@link SkierPose}; this only aims the parts.
+     */
+    private static void applySki(PlayerModel<?> m, LivingEntity entity, MountainBikeEntity skis, float pt) {
+        BikeRenderState a = skis.rsPrev, b = skis.rsCur;
+        double t = pt;
+        BikeType type = skis.bikeType();
+        SkierPose.Input in = SKIER_IN;
+        in.stance.read(skis, a, b, pt);
+        in.riderFwd = (float) BikeRenderState.lerp(t, a.riderFwd, b.riderFwd);
+        in.gripFwd = type.gripFwd;
+        in.gripUp = type.gripUp;
+        in.gripHalf = type.gripHalf;
+        in.lean = (float) BikeRenderState.lerp(t, a.lean, b.lean);
+        in.riderLean = (float) BikeRenderState.lerp(t, a.riderLean, b.riderLean);
+        BikeParams p = skis.params();
+        in.skiDrop = (float) (p.axleDrop - p.wheelRadius);
+        in.bailed = b.bailed;
+        in.poleBend = bentPoles(skis.skiBrand()) ? POLE_BEND : 0f;
+        // where the player is drawn, from the skis' COM in the frame's own axes (the skis roll about the COM, the
+        // rider about this point): exact whatever the vehicle does with the rider's position
+        double yaw = BikeRenderState.lerp(t, a.yaw, b.yaw), pitch = BikeRenderState.lerp(t, a.pitch, b.pitch);
+        V3 com = BikeRenderState.lerp(t, a.com, b.com);
+        Vec3 at = entity.getPosition(pt);
+        double dx = at.x - com.x, dy = at.y - com.y, dz = at.z - com.z;
+        double sy = Math.sin(yaw), cy = Math.cos(yaw), sp = Math.sin(pitch), cp = Math.cos(pitch);
+        double along = -dx * sy * cp + dy * sp + dz * cy * cp;          // forward = (-sy cp, sp, cy cp)
+        double up = dx * sy * sp + dy * cp - dz * cy * sp;              // up = (sy sp, cp, -cy sp)
+        double left = dx * cy + dz * sy;                                // left = (cy, 0, sy)
+        if (b.bailed || along * along + up * up + left * left > 4) {
+            left = 0;
+            up = type.feetUp;
+            along = type.feetFwd;
+        }
+        in.feetX = (float) -left;
+        in.feetY = (float) up;
+        in.feetZ = (float) -along;
+        plant(entity, in);
+
+        SkierPose sk = SKIER;
+        sk.solve(in);
+
+        m.body.xRot = sk.theta;
+        m.body.yRot = sk.bodyYaw;
+        m.body.zRot = 0;
+        m.body.x = sk.originX;
+        m.body.y = sk.bend;
+        m.body.z = sk.shoulderZ;
+        m.head.x = sk.originX;
+        m.head.y = sk.bend;
+        m.head.z = sk.shoulderZ;
+        m.head.xRot = sk.headPitch;
+        m.head.yRot = sk.headYaw;
+        legAim(m.leftLeg, sk.hipXL, sk.hipY, sk.hipZ, sk.soleL, sk.legYawL);
+        legAim(m.rightLeg, sk.hipXR, sk.hipY, sk.hipZ, sk.soleR, sk.legYawR);
+        armAim(m.leftArm, sk.shoulderL, sk.handL);
+        armAim(m.rightArm, sk.shoulderR, sk.handR);
+
+        SkiModel.setCuffLean(skis, sk.cuffLeanL, sk.cuffLeanR);
+
+        float[] poles = POLES.computeIfAbsent(entity, k -> new float[6]);
+        System.arraycopy(sk.poleL, 0, poles, 0, 3);
+        System.arraycopy(sk.poleR, 0, poles, 3, 3);
+    }
+
+    private static final SkierPose EYE_POSE = new SkierPose();
+    private static final SkierPose.Input EYE_IN = new SkierPose.Input();
+
+    /**
+     * Eye position of the skier relative to the feet in metres: {forward, up}, as {@link Stance#eye} for the bikes:
+     * the knees, hips and race tuck move the helmet camera, the tricks do not (as on the bikes).
+     */
+    public static double[] skiEye(MountainBikeEntity skis, BikeRenderState a, BikeRenderState b, float pt) {
+        SkierPose.Input in = EYE_IN;
+        in.stance.read(skis, a, b, pt);
+        in.stance.trick = Trick.NONE;
+        in.stance.amount = 0;
+        BikeType type = b.bikeType;
+        in.riderFwd = (float) BikeRenderState.lerp(pt, a.riderFwd, b.riderFwd);
+        in.gripFwd = type.gripFwd;
+        in.gripUp = type.gripUp;
+        in.gripHalf = type.gripHalf;
+        in.lean = in.riderLean = 0;
+        if (skis != null) {
+            BikeParams p = skis.params();
+            in.skiDrop = (float) (p.axleDrop - p.wheelRadius);
+        }
+        in.feetX = 0;
+        in.feetY = type.feetUp;
+        in.feetZ = -type.feetFwd;
+        in.plantSide = 0;
+        in.bailed = false;
+        EYE_POSE.solve(in);
+        return new double[]{(-EYE_POSE.shoulderZ + 2.5f) / PX, (24f - EYE_POSE.bend + 2.0f) / PX};
+    }
+
+    /** Starts a pole plant with the inside hand when the carve swaps sides, and feeds the running one to the pose. */
+    private static void plant(LivingEntity entity, SkierPose.Input in) {
+        PlantMemory pm = PLANTS.computeIfAbsent(entity, k -> new PlantMemory());
+        long now = System.nanoTime();
+        SkiStance.Input st = in.stance;
+        boolean riding = !st.airborne && !in.bailed && st.trick == Trick.NONE;
+        boolean can = riding && st.brake < 0.3f && st.speed > 2.5f && st.speed < 16f;
+        float steer = st.steer;
+        if (Math.abs(steer) > PLANT_STEER) {
+            if (can && pm.lastSteer != 0 && Math.signum(steer) != Math.signum(pm.lastSteer)
+                    && (now - pm.lastPlant) / 1e9 > PLANT_GAP) {
+                pm.side = steer > 0 ? -1 : 1;           // the inside hand of the new turn (turning right: the right)
+                pm.start = pm.lastPlant = now;
+            }
+            pm.lastSteer = steer;
+        }
+        double phase = pm.side == 0 ? 1 : (now - pm.start) / 1e9 / PLANT_TIME;
+        if (phase >= 1 || !riding) pm.side = 0;
+        in.plantSide = pm.side;
+        in.plantPhase = pm.side == 0 ? 0 : (float) phase;
+    }
+
+    /**
+     * Points a leg from the hip at the sole (model px), turned about its own axis by {@code twist} (with its ski);
+     * the leg box is squashed to the hip-sole distance (reads as a bent knee).
+     */
+    private static void legAim(ModelPart leg, float x, float hipY, float hipZ, float[] sole, float twist) {
+        leg.x = x;
+        leg.y = hipY;
+        leg.z = hipZ;
+        float vx = sole[0] - x, vy = sole[1] - hipY, vz = sole[2] - hipZ;
+        float len = (float) Math.sqrt(vx * vx + vy * vy + vz * vz);
+        if (len < 1e-3f) return;
+        aim(leg, vx / len, vy / len, vz / len, twist);
+        leg.yScale = clamp(len / 12f, SkierPose.LEG_SCALE_MIN, SkierPose.LEG_SCALE_MAX);
+    }
+
+    /** Points an arm from the shoulder pivot so the fist centre lands on the hand target (model px). */
+    private static void armAim(ModelPart arm, float[] shoulder, float[] hand) {
+        arm.x = shoulder[0];
+        arm.y = shoulder[1];
+        arm.z = shoulder[2];
+        float vx = hand[0] - shoulder[0], vy = hand[1] - shoulder[1], vz = hand[2] - shoulder[2];
+        float len = (float) Math.sqrt(vx * vx + vy * vy + vz * vz);
+        if (len < 1e-3f) return;
+        aim(arm, vx / len, vy / len, vz / len, 0);
+        arm.yScale = clamp(len / SkierPose.FIST, SkierPose.ARM_SCALE_MIN, SkierPose.ARM_SCALE_MAX);
+    }
+
+    /**
+     * Rotates a limb whose rest pose hangs down (+Y) to point along the unit vector (dx, dy, dz), twisted by
+     * {@code yRot = twist}. ModelPart applies X, then Y, then Z: the pitch is solved with the twist in place, the
+     * roll swings the result onto the target.
+     */
+    private static void aim(ModelPart part, float dx, float dy, float dz, float twist) {
+        float ct = (float) Math.cos(twist);
+        float xr = (float) Math.asin(clamp(dz / Math.max(ct, 0.3f), -1, 1));
+        float wx = (float) (Math.sin(xr) * Math.sin(twist)), wy = (float) Math.cos(xr);
+        part.xRot = xr;
+        part.yRot = twist;
+        part.zRot = (float) (Math.atan2(dy, dx) - Math.atan2(wy, wx));
     }
 
     /** Points a leg from its hip pivot toward its pedal. */

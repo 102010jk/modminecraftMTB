@@ -315,10 +315,12 @@ public final class BikeCamera {
         V3 fH = new V3(-sy, 0, cy);
         V3 fwd = fH.mul(cp).addScaled(V3.Y, sp);
         V3 up = fH.mul(-sp).addScaled(V3.Y, cp);
-        RiderPose.Stance st = RiderPose.stance(
-                (float) BikeRenderState.lerp(t, a.riderUp, b.riderUp),
-                (float) BikeRenderState.lerp(t, a.riderFwd, b.riderFwd));
-        double[] eye = st.eye();
+        // on skis: the skier's head (knee flex, race tuck), see RiderPose.skiEye
+        double[] eye = b.bikeType.ski()
+                ? RiderPose.skiEye(bike instanceof MountainBikeEntity skis ? skis : null, a, b, (float) t)
+                : RiderPose.stance(
+                        (float) BikeRenderState.lerp(t, a.riderUp, b.riderUp),
+                        (float) BikeRenderState.lerp(t, a.riderFwd, b.riderFwd)).eye();
         V3 feet = BikeRenderState.lerp(t, a.feet(), b.feet());
         V3 head = feet.addScaled(up, eye[1]).addScaled(fwd, eye[0]);
         double roll = BikeRenderState.lerp(t, a.lean, b.lean);
