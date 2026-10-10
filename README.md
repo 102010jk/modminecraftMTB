@@ -41,18 +41,18 @@ Triky závisí na typu kola. Nastavení tricks.trickKeyScheme = CLASSIC použív
 
 V záložce **Descent MTB** je za pit bikem šest skutečných párů lyží. Závodní: Atomic Redster G9 FIS (obří slalom), Rossignol Hero Elite ST Ti (slalom) a Fischer RC4 Worldcup RC. Freestylové twin tipy: Armada ARV 96, Line Chronic 101 a Faction Prodigy 2. Popisek předmětu ukazuje délku, poloměr krojení a šířku pasu; podle nich se pár i chová. Dlouhá obřačka drží rychlost a široký oblouk, slalomka zatáčí ostře, freestylové lyže jsou hravější, rychleji se točí ve vzduchu a dají se odjet i pozpátku (switch). Lyže se pokládají, nasedá se na ně a vrací do inventáře stejně jako kolo.
 
-Ovládání používá stejné klávesy jako kolo:
+Ovládání používá stejné klávesy i ovladač jako kolo:
 
-| Akce na lyžích | Klávesa |
-|---|---|
-| Odpich hůlkami (jen v pomalé jízdě); na holé zemi chůze | Z |
-| Brzda: pluh / smyk napříč (hockey stop) | Space |
-| Oblouky: krojení, pomalu smýkaný oblouk | ← / → |
-| Náklon dopředu / dozadu | ↑ / ↓ |
-| Podřep; s náklonem dopředu sjezdový posed (tuck) | S |
-| Protažení | D |
-| Odraz | podrž X, pak pusť |
-| Triky (závodní: Spread Eagle, Daffy, Iron Cross…; freestyle: grab triky) | I, O, J, L, K, U |
+| Akce na lyžích | Klávesa | Ovladač |
+|---|---|---|
+| Odpich hůlkami (jen v pomalé jízdě); na holé zemi chůze | Z | RT |
+| Brzda: pluh / smyk napříč (hockey stop) | Space | LT |
+| Oblouky: krojení, pomalu smýkaný oblouk | ← / → | levá páčka do stran |
+| Náklon dopředu / dozadu | ↑ / ↓ | levá páčka nahoru / dolů |
+| Podřep; s náklonem dopředu sjezdový posed (tuck) | S | pravá páčka dolů (+ levá nahoru) |
+| Protažení | D | pravá páčka nahoru |
+| Odraz | podrž X, pak pusť | pravá páčka dolů → nahoru |
+| Triky (závodní: Spread Eagle, Daffy, Iron Cross…; freestyle: grab triky) | I, O, J, L, K, U | LB + pravá páčka; LB + klik pravé páčky |
 
 Lyže jedou jen po sněhu (sněhový blok, vrstva sněhu, prašan) a po ledu, kde kloužou rychle, ale hrany skoro nedrží. Po dřevě (box, rail) se klouže. Na kameni, hlíně, trávě, štěrku a jiné holé zemi skluznice **drhnou**: lyže prudce brzdí, letí prach a jiskry, ozve se skřípění a na HUD se plní ukazatel „Kameny!“. Krátký přejezd se dá ustát, ale když se ukazatel naplní, lyže se o kameny zaseknou a jezdec spadne. Na sněhu se ukazatel zase vyprázdní. Na sněhu lyže při ostrém oblouku, brzdění a dopadu víří sníh.
 
